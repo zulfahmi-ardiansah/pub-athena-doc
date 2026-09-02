@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Athena Document Extractor - Live Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #0a0d14;
+      --bg-surface: #111622;
+      --bg-surface-elevated: #182030;
+      --bg-card: rgba(24, 32, 48, 0.7);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: #3b82f6;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --primary-glow: rgba(59, 130, 246, 0.25);
+      --accent: #10b981;
+      --accent-glow: rgba(16, 185, 129, 0.2);
+      --text-main: #f3f4f6;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
+    }
+
+    /* Header */
+    header {
+      background: rgba(17, 22, 34, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-badge {
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      color: white;
+      padding: 0.35rem 0.65rem;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 0.85rem;
+      letter-spacing: 0.5px;
+    }
+
+    .brand h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-surface-elevated);
+      padding: 0.4rem 0.85rem;
+      border-radius: 9999px;
+      border: 1px solid var(--border-subtle);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.9); }
+    }
+
+    /* Main layout */
+    main {
+      flex: 1;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 1024px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Glass card */
+    .glass-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 0.75rem;
+    }
+
+    .card-title span {
+      color: var(--primary);
+    }
+
+    /* Form Controls */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    select {
+      background: var(--bg-surface-elevated);
+      color: var(--text-main);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    select:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    /* Dropzone */
+    .dropzone {
+      border: 2px dashed var(--border-subtle);
+      border-radius: 12px;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      background: rgba(17, 22, 34, 0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      min-height: 220px;
+      position: relative;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--primary);
+      background: var(--primary-glow);
+    }
+
+    .dropzone-icon {
+      font-size: 2.5rem;
+      color: var(--primary);
+    }
+
+    .dropzone-text {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .dropzone-subtext {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .preview-container {
+      width: 100%;
+      max-height: 240px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+
+    .preview-img {
+      max-width: 100%;
+      max-height: 240px;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    .file-info {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      display: none;
+    }
+
+    /* Actions & Sample buttons */
+    .action-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 0.8rem 1.4rem;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      flex: 1;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: var(--bg-surface-elevated);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .btn-secondary:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* Result Panel */
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .meta-metrics {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .meta-badge {
+      background: var(--bg-surface-elevated);
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .json-viewer {
+      background: #0d1117;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 1.25rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: #7ee787;
+      overflow-x: auto;
+      max-height: 480px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      flex: 1;
+    }
+
+    .json-key { color: #79c0ff; }
+    .json-string { color: #a5d6ff; }
+    .json-number { color: #ffa657; }
+    .json-boolean { color: #ff7b72; }
+    .json-null { color: #8b949e; }
+
+    .placeholder-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 300px;
+      color: var(--text-dim);
+      gap: 0.5rem;
+      text-align: center;
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-badge">ATHENA</div>
+      <h1>Document Extractor</h1>
+    </div>
+    <div class="status-pill">
+      <div class="dot" id="statusDot"></div>
+      <span id="backendStatus">Connecting...</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left: Input & Upload -->
+    <section class="glass-card">
+      <div class="card-title">
+        <span>1. Select & Upload</span>
+        <button id="sampleBtn" class="btn btn-secondary" style="font-size:0.8rem; padding:0.4rem 0.8rem;">
+          Generate Test Card
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label for="docSelect">Document Type</label>
+        <select id="docSelect">
+          <option value="identity_card">Kartu Tanda Penduduk (KTP)</option>
+          <option value="tax_number">Nomor Pokok Wajib Pajak (NPWP)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Document File (PDF / Image)</label>
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept="image/*,application/pdf" style="display:none;">
+          <div id="dropzonePrompt">
+            <div class="dropzone-icon">📄</div>
+            <div class="dropzone-text">Click or Drag & Drop File Here</div>
+            <div class="dropzone-subtext">Supports Multi-page PDF, PNG, JPG, WebP</div>
+          </div>
+          <div class="preview-container" id="previewContainer">
+            <img id="imagePreview" class="preview-img" alt="Document Preview">
+          </div>
+        </div>
+        <div class="file-info" id="fileInfo"></div>
+      </div>
+
+      <div class="action-row">
+        <button class="btn btn-primary" id="extractBtn" disabled>
+          <span class="spinner" id="btnSpinner"></span>
+          <span id="btnText">Extract to Structured JSON</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Right: Extracted JSON Result -->
+    <section class="glass-card">
+      <div class="result-header">
+        <div class="card-title" style="border-bottom:none; padding-bottom:0;">
+          <span>2. Structured Output</span>
+        </div>
+        <div class="meta-metrics" id="metaMetrics" style="display:none;">
+          <span class="meta-badge" id="elapsedBadge">0.00s</span>
+          <button id="copyBtn" class="btn btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.6rem;">Copy JSON</button>
+        </div>
+      </div>
+
+      <div class="json-viewer" id="jsonViewer">
+        <div class="placeholder-state">
+          <div style="font-size:2rem; opacity:0.5;">⚡</div>
+          <div>Upload a document and click extract to see structured JSON output</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let selectedFile = null;
+
+    const docSelect = document.getElementById('docSelect');
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const dropzonePrompt = document.getElementById('dropzonePrompt');
+    const previewContainer = document.getElementById('previewContainer');
+    const imagePreview = document.getElementById('imagePreview');
+    const fileInfo = document.getElementById('fileInfo');
+    const extractBtn = document.getElementById('extractBtn');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const btnText = document.getElementById('btnText');
+    const jsonViewer = document.getElementById('jsonViewer');
+    const backendStatus = document.getElementById('backendStatus');
+    const metaMetrics = document.getElementById('metaMetrics');
+    const elapsedBadge = document.getElementById('elapsedBadge');
+    const copyBtn = document.getElementById('copyBtn');
+    const sampleBtn = document.getElementById('sampleBtn');
+
+    // Check backend health
+    async function checkHealth() {
+      try {
+        const res = await fetch('/health');
+        if (res.ok) {
+          const data = await res.json();
+          backendStatus.textContent = `${data.active_backend} (${data.ollama_model || data.gemini_model || 'active'})`;
+        } else {
+          backendStatus.textContent = 'Service Offline';
+        }
+      } catch (err) {
+        backendStatus.textContent = 'Cannot connect to API';
+      }
+    }
+    checkHealth();
+
+    // Dropzone handlers
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        handleFileSelect(e.target.files[0]);
+      }
+    });
+
+    function handleFileSelect(file) {
+      selectedFile = file;
+      fileInfo.style.display = 'block';
+      fileInfo.textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      extractBtn.disabled = false;
+
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          imagePreview.src = e.target.result;
+          previewContainer.style.display = 'flex';
+          dropzonePrompt.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+      } else {
+        previewContainer.style.display = 'none';
+        dropzonePrompt.style.display = 'flex';
+        dropzonePrompt.querySelector('.dropzone-text').textContent = `PDF: ${file.name}`;
+      }
+    }
+
+    // Generate in-browser canvas sample card for quick testing
+    sampleBtn.addEventListener('click', () => {
+      const type = docSelect.value;
+      const canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = 380;
+      const ctx = canvas.getContext('2d');
+
+      if (type === 'identity_card') {
+        ctx.fillStyle = '#0f766e';
+        ctx.fillRect(0, 0, 600, 380);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText('PROVINSI DKI JAKARTA', 180, 40);
+        ctx.fillText('KOTA JAKARTA PUSAT', 200, 70);
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText('NIK : 3171010101900001', 30, 115);
+        ctx.font = '16px sans-serif';
+        ctx.fillText('Nama : BUDI SANTOSO', 30, 150);
+        ctx.fillText('Tempat/Tgl Lahir : JAKARTA, 01-01-1990', 30, 180);
+        ctx.fillText('Jenis Kelamin : LAKI-LAKI', 30, 210);
+        ctx.fillText('Alamat : JL. SUDIRMAN NO. 45', 30, 240);
+        ctx.fillText('RT/RW : 003/002', 30, 270);
+        ctx.fillText('Kel/Desa : BENDUNGAN HILIR', 30, 300);
+        ctx.fillText('Kecamatan : TANAH ABANG', 30, 330);
+        ctx.fillText('Agama : ISLAM', 30, 360);
+      } else {
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, 0, 600, 380);
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText('KEMENTERIAN KEUANGAN REPUBLIK INDONESIA', 40, 50);
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText('DIREKTORAT JENDERAL PAJAK', 160, 80);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px monospace';
+        ctx.fillText('NPWP: 01.234.567.8-901.000', 40, 150);
+        ctx.font = '18px sans-serif';
+        ctx.fillText('NAMA : PT NUSANTARA DIGITAL', 40, 200);
+        ctx.fillText('NIK : 3171010101900001', 40, 240);
+        ctx.fillText('ALAMAT : MENARA SUDIRMAN LT. 15', 40, 280);
+        ctx.fillText('KPP : KPP PRATAMA TANAH ABANG', 40, 320);
+      }
+
+      canvas.toBlob((blob) => {
+        const testFile = new File([blob], `${type}_test_sample.png`, { type: 'image/png' });
+        handleFileSelect(testFile);
+      });
+    });
+
+    // Execute Extraction
+    extractBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      const docType = docSelect.value;
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      extractBtn.disabled = true;
+      btnSpinner.style.display = 'inline-block';
+      btnText.textContent = 'Extracting with AI...';
+      metaMetrics.style.display = 'none';
+      jsonViewer.innerHTML = '<div class="placeholder-state"><div class="spinner" style="display:inline-block; width:32px; height:32px;"></div><div style="margin-top:1rem;">Processing OCR & LLM Extraction...</div></div>';
+
+      const startTime = performance.now();
+
+      try {
+        const response = await fetch(`/api/v1/extract/${docType}`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+        elapsedBadge.textContent = `Latency: ${elapsed}s`;
+        metaMetrics.style.display = 'flex';
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          jsonViewer.textContent = JSON.stringify(result.data, null, 2);
+        } else {
+          jsonViewer.textContent = JSON.stringify(result, null, 2);
+        }
+      } catch (err) {
+        jsonViewer.textContent = `Error: ${err.message}`;
+      } finally {
+        extractBtn.disabled = false;
+        btnSpinner.style.display = 'none';
+        btnText.textContent = 'Extract to Structured JSON';
+      }
+    });
+
+    // Copy JSON
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(jsonViewer.textContent);
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => copyBtn.textContent = 'Copy JSON', 1500);
+    });
+  </script>
+</body>
+</html>

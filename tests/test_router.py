@@ -21,3 +21,19 @@ def test_list_documents_endpoint():
     slugs = [d["slug"] for d in data["documents"]]
     assert "identity_card" in slugs
     assert "tax_number" in slugs
+
+
+def test_demo_endpoint():
+    response = client.get("/demo")
+    assert response.status_code == 200
+    assert "Athena Document Extractor" in response.text
+
+
+def test_engine_singleton_dependency():
+    from src.app.api.deps import get_engine_singleton
+    from src.engines.base import BaseExtractionEngine
+    engine1 = get_engine_singleton()
+    engine2 = get_engine_singleton()
+    assert isinstance(engine1, BaseExtractionEngine)
+    assert engine1 is engine2
+

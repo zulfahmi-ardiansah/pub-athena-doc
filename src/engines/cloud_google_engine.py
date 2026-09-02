@@ -56,9 +56,15 @@ class CloudGoogleEngine(BaseExtractionEngine):
         )
 
         prompt = f"Extract the information for {document.name} into the structured JSON schema."
+        contents = types.Content(
+            parts=[
+                part,
+                types.Part.from_text(text=prompt)
+            ]
+        )
         response = client.models.generate_content(
             model=self.model,
-            contents=[part, prompt],
+            contents=contents,
             config=config
         )
 

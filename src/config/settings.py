@@ -16,8 +16,11 @@ class Settings(BaseSettings):
     port: int = 8000
     host: str = "0.0.0.0"
 
-    # Engine backend selection
+    # Engine backend selection: "local_cpu" | "cloud_google"
     engine_backend: Literal["local_cpu", "cloud_google"] = "local_cpu"
+
+    # Interactive Demo UI at / or /demo
+    enable_demo: bool = True
 
     # Ollama Local LLM
     ollama_base_url: str = "http://localhost:11434"

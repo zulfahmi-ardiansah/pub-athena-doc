@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 import logging
+from pathlib import Path
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from src.config.settings import get_settings
 from src.app.api.router import router
@@ -16,7 +18,10 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    logger.info(f"Starting {settings.app_name} with backend={settings.engine_backend}")
+    logger.info(
+        f"Starting {settings.app_name} with backend={settings.engine_backend} "
+        f"(demo_enabled={settings.enable_demo})"
+    )
     yield
 
 
@@ -41,8 +46,19 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Include Routes
+    # Include API Routes
     app.include_router(router)
+
+    # Mount Interactive Demo UI if ENABLE_DEMO is true
+    if settings.enable_demo:
+        demo_html_path = Path(__file__).parent / "static" / "demo.html"
+
+        @app.get("/demo", response_class=HTMLResponse, tags=["Demo"], include_in_schema=True)
+        @app.get("/", response_class=HTMLResponse, tags=["Demo"], include_in_schema=False)
+        async def serve_demo():
+            if demo_html_path.exists():
+                return HTMLResponse(content=demo_html_path.read_text(encoding="utf-8"))
+            return HTMLResponse(content="<h1>Demo UI file not found</h1>", status_code=404)
 
     return app
 
