@@ -2,33 +2,43 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from src.config.settings import Settings
 from src.engines.factory import create_engine
-from src.engines.local_cpu_engine import LocalCpuEngine
+from src.engines.ocr_hybrid_engine import OcrHybridEngine, LocalCpuEngine
 from src.providers.ollama_provider import OllamaProvider
 
 
-def test_factory_creates_local_cpu_with_rapidocr():
+def test_factory_creates_ocr_hybrid_with_rapidocr():
+    settings = Settings(
+        engine_backend="ocr_hybrid",
+        ocr_engine="rapidocr",
+    )
+    engine = create_engine(settings)
+    assert isinstance(engine, OcrHybridEngine)
+    assert engine.ocr_engine_type == "rapidocr"
+
+
+def test_factory_creates_ocr_hybrid_with_tesseract():
+    settings = Settings(
+        engine_backend="ocr_hybrid",
+        ocr_engine="tesseract",
+        tesseract_cmd="/usr/bin/tesseract"
+    )
+    engine = create_engine(settings)
+    assert isinstance(engine, OcrHybridEngine)
+    assert engine.ocr_engine_type == "tesseract"
+    assert engine.tesseract_cmd == "/usr/bin/tesseract"
+
+
+def test_factory_creates_local_cpu_alias():
     settings = Settings(
         engine_backend="local_cpu",
         ocr_engine="rapidocr",
     )
     engine = create_engine(settings)
+    assert isinstance(engine, OcrHybridEngine)
     assert isinstance(engine, LocalCpuEngine)
-    assert engine.ocr_engine_type == "rapidocr"
 
 
-def test_factory_creates_local_cpu_with_tesseract():
-    settings = Settings(
-        engine_backend="local_cpu",
-        ocr_engine="tesseract",
-        tesseract_cmd="/usr/bin/tesseract"
-    )
-    engine = create_engine(settings)
-    assert isinstance(engine, LocalCpuEngine)
-    assert engine.ocr_engine_type == "tesseract"
-    assert engine.tesseract_cmd == "/usr/bin/tesseract"
-
-
-def test_local_cpu_engine_tesseract_handles_dict(monkeypatch):
+def test_ocr_hybrid_engine_tesseract_handles_dict(monkeypatch):
     import io
     from PIL import Image
 
@@ -38,7 +48,7 @@ def test_local_cpu_engine_tesseract_handles_dict(monkeypatch):
     img.save(buf, format="PNG")
     dummy_bytes = buf.getvalue()
 
-    engine = LocalCpuEngine(
+    engine = OcrHybridEngine(
         llm_provider=MagicMock(),
         ocr_engine_type="tesseract",
     )
@@ -52,7 +62,7 @@ def test_local_cpu_engine_tesseract_handles_dict(monkeypatch):
     assert result == "Extracted Text from Dict"
 
 
-def test_local_cpu_engine_tesseract_handles_str(monkeypatch):
+def test_ocr_hybrid_engine_tesseract_handles_str(monkeypatch):
     import io
     from PIL import Image
 
@@ -61,7 +71,7 @@ def test_local_cpu_engine_tesseract_handles_str(monkeypatch):
     img.save(buf, format="PNG")
     dummy_bytes = buf.getvalue()
 
-    engine = LocalCpuEngine(
+    engine = OcrHybridEngine(
         llm_provider=MagicMock(),
         ocr_engine_type="tesseract",
     )
@@ -104,15 +114,14 @@ async def test_ollama_provider_preload(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_local_cpu_engine_warmup():
+async def test_ocr_hybrid_engine_warmup():
     mock_provider = AsyncMock()
     mock_provider.preload = AsyncMock(return_value=True)
 
-    engine = LocalCpuEngine(
+    engine = OcrHybridEngine(
         llm_provider=mock_provider,
         ocr_engine_type="rapidocr",
     )
 
     await engine.warmup()
     mock_provider.preload.assert_awaited_once()
-

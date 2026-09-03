@@ -16,10 +16,10 @@ class Settings(BaseSettings):
     port: int = 8000
     host: str = "0.0.0.0"
 
-    # Engine backend selection: "local_cpu" | "cloud_google"
-    engine_backend: Literal["local_cpu", "cloud_google"] = "local_cpu"
+    # Engine backend selection: "ocr_hybrid" | "local_cpu" | "cloud_google"
+    engine_backend: Literal["ocr_hybrid", "local_cpu", "cloud_google"] = "ocr_hybrid"
 
-    # OCR Engine for Local CPU: "rapidocr" | "tesseract"
+    # OCR Engine for OCR Hybrid: "rapidocr" | "tesseract"
     ocr_engine: Literal["rapidocr", "tesseract"] = "rapidocr"
     tesseract_cmd: str = ""
 

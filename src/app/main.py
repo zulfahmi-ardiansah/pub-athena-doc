@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
         f"Starting {settings.app_name} with backend={settings.engine_backend} "
         f"(demo_enabled={settings.enable_demo})"
     )
-    if settings.engine_backend == "local_cpu" and settings.ollama_preload:
+    if settings.engine_backend in ("ocr_hybrid", "local_cpu") and settings.ollama_preload:
         from src.app.api.deps import get_engine_singleton
         engine = get_engine_singleton()
         try:

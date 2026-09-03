@@ -1,7 +1,7 @@
 import logging
 from src.config.settings import Settings
 from src.engines.base import BaseExtractionEngine
-from src.engines.local_cpu_engine import LocalCpuEngine
+from src.engines.ocr_hybrid_engine import OcrHybridEngine
 from src.engines.cloud_google_engine import CloudGoogleEngine
 from src.providers.ollama_provider import OllamaProvider
 
@@ -12,9 +12,9 @@ def create_engine(settings: Settings) -> BaseExtractionEngine:
     """Factory creating configured extraction engine backend."""
     backend = settings.engine_backend.lower()
 
-    if backend == "local_cpu":
+    if backend in ("ocr_hybrid", "local_cpu"):
         logger.info(
-            f"Initializing LocalCpuEngine with Ollama ({settings.ollama_model}) "
+            f"Initializing OcrHybridEngine with Ollama ({settings.ollama_model}) "
             f"and OCR ({settings.ocr_engine})..."
         )
         ollama_provider = OllamaProvider(
@@ -23,7 +23,7 @@ def create_engine(settings: Settings) -> BaseExtractionEngine:
             timeout_seconds=settings.ollama_timeout_seconds,
             keep_alive=settings.ollama_keep_alive,
         )
-        return LocalCpuEngine(
+        return OcrHybridEngine(
             llm_provider=ollama_provider,
             ocr_engine_type=settings.ocr_engine,
             tesseract_cmd=settings.tesseract_cmd or None,

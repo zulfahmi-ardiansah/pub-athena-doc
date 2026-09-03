@@ -11,15 +11,15 @@ from src.utility.image_utils import is_image, normalize_image_bytes
 logger = logging.getLogger(__name__)
 
 
-class LocalCpuEngine(BaseExtractionEngine):
+class OcrHybridEngine(BaseExtractionEngine):
     """
-    Local CPU extraction engine:
+    OCR Hybrid extraction engine:
     1. Multi-page PDF / Image triage.
     2. Digital PDF text extraction (PyMuPDF) or OCR (RapidOCR ONNX / Tesseract).
-    3. Structured JSON extraction via local LLM provider (Ollama Qwen 2.5).
+    3. Structured JSON extraction via local/hybrid LLM provider (e.g. Ollama Qwen 2.5).
     """
 
-    name = "local_cpu"
+    name = "ocr_hybrid"
 
     def __init__(
         self,
@@ -52,7 +52,7 @@ class LocalCpuEngine(BaseExtractionEngine):
                 self._rapid_ocr = RapidOCR()
             except ImportError as err:
                 logger.error("rapidocr-onnxruntime is not installed.")
-                raise RuntimeError("RapidOCR is required for LocalCpuEngine OCR processing") from err
+                raise RuntimeError("RapidOCR is required for OcrHybridEngine OCR processing") from err
         return self._rapid_ocr
 
     def _run_ocr_on_bytes(self, image_bytes: bytes) -> str:
@@ -141,3 +141,7 @@ class LocalCpuEngine(BaseExtractionEngine):
         # Validate through domain schema class
         validated_model = document.validate_payload(raw_json_dict)
         return validated_model.model_dump()
+
+
+# Backward compatibility alias
+LocalCpuEngine = OcrHybridEngine

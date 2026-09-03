@@ -15,7 +15,7 @@ High-performance modular FastAPI service for converting images and multi-page do
   - Forces GBNF grammar constraints on LLM token generation (100% syntactically valid JSON).
   - Zero-hallucination rules for critical numeric IDs (NIK, NPWP).
 - **Pluggable Engine Architecture (Strategy Pattern)**:
-  - `local_cpu`: Local CPU-only inference using `RapidOCR` + `Ollama` (`qwen2.5:3b`).
+  - `ocr_hybrid` (or `local_cpu`): Hybrid OCR & inference using `RapidOCR`/`Tesseract` + `Ollama` (`qwen2.5:3b`).
   - `cloud_google`: Google Cloud Gemini 1.5 Flash multimodal extraction.
 
 ---
@@ -71,7 +71,7 @@ pip install -r requirements.txt
 
 Copy `.env.example` to `.env`:
 ```ini
-ENGINE_BACKEND=local_cpu
+ENGINE_BACKEND=ocr_hybrid
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:3b
 OLLAMA_KEEP_ALIVE=-1

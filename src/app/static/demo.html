@@ -468,8 +468,8 @@
         const res = await fetch('/health');
         if (res.ok) {
           const data = await res.json();
-          if (data.active_backend === 'local_cpu') {
-            backendStatus.textContent = `local_cpu (${data.ocr_engine || 'rapidocr'} + ${data.ollama_model || 'ollama'})`;
+          if (data.active_backend === 'ocr_hybrid' || data.active_backend === 'local_cpu') {
+            backendStatus.textContent = `${data.active_backend} (${data.ocr_engine || 'rapidocr'} + ${data.ollama_model || 'ollama'})`;
           } else {
             backendStatus.textContent = `${data.active_backend} (${data.gemini_model || 'gemini'})`;
           }
