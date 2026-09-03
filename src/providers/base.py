@@ -17,3 +17,8 @@ class BaseLLMProvider(ABC):
         Returns parsed JSON object as a Python dictionary.
         """
         pass
+
+    async def preload(self) -> bool:
+        """Optional preload / warmup step for the LLM provider."""
+        return True
+

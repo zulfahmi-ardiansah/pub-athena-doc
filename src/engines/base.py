@@ -21,3 +21,8 @@ class BaseExtractionEngine(ABC):
         executes structured LLM inference, and returns validated schema dictionary.
         """
         pass
+
+    async def warmup(self) -> None:
+        """Optional engine warmup / model preloading during application startup."""
+        pass
+

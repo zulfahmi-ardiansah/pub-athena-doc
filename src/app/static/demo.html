@@ -468,7 +468,11 @@
         const res = await fetch('/health');
         if (res.ok) {
           const data = await res.json();
-          backendStatus.textContent = `${data.active_backend} (${data.ollama_model || data.gemini_model || 'active'})`;
+          if (data.active_backend === 'local_cpu') {
+            backendStatus.textContent = `local_cpu (${data.ocr_engine || 'rapidocr'} + ${data.ollama_model || 'ollama'})`;
+          } else {
+            backendStatus.textContent = `${data.active_backend} (${data.gemini_model || 'gemini'})`;
+          }
         } else {
           backendStatus.textContent = 'Service Offline';
         }

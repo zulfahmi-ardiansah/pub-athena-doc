@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # Engine backend selection: "local_cpu" | "cloud_google"
     engine_backend: Literal["local_cpu", "cloud_google"] = "local_cpu"
 
+    # OCR Engine for Local CPU: "rapidocr" | "tesseract"
+    ocr_engine: Literal["rapidocr", "tesseract"] = "rapidocr"
+    tesseract_cmd: str = ""
+
     # Interactive Demo UI at / or /demo
     enable_demo: bool = True
 
@@ -26,6 +30,8 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:3b"
     ollama_timeout_seconds: float = 60.0
+    ollama_keep_alive: str = "-1"
+    ollama_preload: bool = True
 
     # Google Gemini Cloud
     gemini_api_key: str = ""

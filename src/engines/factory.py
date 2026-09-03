@@ -13,13 +13,21 @@ def create_engine(settings: Settings) -> BaseExtractionEngine:
     backend = settings.engine_backend.lower()
 
     if backend == "local_cpu":
-        logger.info(f"Initializing LocalCpuEngine with Ollama ({settings.ollama_model})...")
+        logger.info(
+            f"Initializing LocalCpuEngine with Ollama ({settings.ollama_model}) "
+            f"and OCR ({settings.ocr_engine})..."
+        )
         ollama_provider = OllamaProvider(
             base_url=settings.ollama_base_url,
             model=settings.ollama_model,
             timeout_seconds=settings.ollama_timeout_seconds,
+            keep_alive=settings.ollama_keep_alive,
         )
-        return LocalCpuEngine(llm_provider=ollama_provider)
+        return LocalCpuEngine(
+            llm_provider=ollama_provider,
+            ocr_engine_type=settings.ocr_engine,
+            tesseract_cmd=settings.tesseract_cmd or None,
+        )
 
     elif backend == "cloud_google":
         logger.info(f"Initializing CloudGoogleEngine with Gemini ({settings.gemini_model})...")

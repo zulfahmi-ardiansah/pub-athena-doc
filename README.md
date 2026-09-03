@@ -74,7 +74,11 @@ Copy `.env.example` to `.env`:
 ENGINE_BACKEND=local_cpu
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:3b
+OLLAMA_KEEP_ALIVE=-1
+OLLAMA_PRELOAD=true
 ```
+
+> **Note:** `OLLAMA_PRELOAD=true` and `OLLAMA_KEEP_ALIVE=-1` ensure the model is automatically preloaded into RAM/VRAM during server startup and retained in memory indefinitely, eliminating cold-start latencies on inference.
 
 ### 3. Pull Recommended Ollama Model
 
