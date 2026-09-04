@@ -1,4 +1,4 @@
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, cast
 import fitz  # PyMuPDF
 
 
@@ -30,7 +30,7 @@ def inspect_and_extract_pdf_pages(
         for page_idx in range(len(doc)):
             page_num = page_idx + 1
             page = doc[page_idx]
-            text = page.get_text("text").strip()
+            text = cast(str, page.get_text("text")).strip()
 
             if len(text) >= min_digital_char_count:
                 results.append((page_num, text, None))
