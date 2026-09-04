@@ -204,8 +204,8 @@ async def test_visual_model_engine_extract_image():
         document=doc
     )
 
-    assert result["id_number"] == "3171012345678901"
-    assert result["full_name"] == "AHMAD TEST"
+    assert result.data["id_number"] == "3171012345678901"
+    assert result.data["full_name"] == "AHMAD TEST"
     mock_provider.generate_structured.assert_awaited_once()
     kwargs = mock_provider.generate_structured.call_args[1]
     assert "images" in kwargs
@@ -263,8 +263,8 @@ async def test_visual_model_engine_extract_pdf():
         document=doc
     )
 
-    assert result["id_number"] == "3171012345678901"
-    assert result["full_name"] == "PDF TEST"
+    assert result.data["id_number"] == "3171012345678901"
+    assert result.data["full_name"] == "PDF TEST"
     mock_provider.generate_structured.assert_awaited_once()
     kwargs = mock_provider.generate_structured.call_args[1]
     assert "images" in kwargs

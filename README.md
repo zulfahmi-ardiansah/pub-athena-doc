@@ -114,11 +114,12 @@ Interactive API documentation available at: `http://localhost:8000/docs`
 `GET /api/v1/documents`
 
 ### 3. Extract Document
-`POST /api/v1/extract/{document_type}`
+`POST /api/v1/extract/{document_type}?trace=true`
 - Form Data: `file` (PDF, PNG, JPG)
+- Query Param: `trace` (boolean, default `false`)
 - Supported `document_type`: `identity_card`, `tax_number`
 
-**Example Response (`identity_card`):**
+**Example Response with `trace=true` (`identity_card`):**
 ```json
 {
   "success": true,
@@ -126,20 +127,67 @@ Interactive API documentation available at: `http://localhost:8000/docs`
   "filename": "ktp_sample.jpg",
   "data": {
     "id_number": "3171010101900001",
-    "full_name": "JOHN DOE",
+    "full_name": "BUDI SANTOSO",
     "birth_place": "JAKARTA",
     "birth_date": "01-01-1990",
     "gender": "LAKI-LAKI",
     "blood_type": "O",
-    "address": "JL. SUDIRMAN NO. 12",
-    "neighborhood_unit": "001/002",
-    "village": "GELORA",
+    "address": "JL. SUDIRMAN NO. 45",
+    "neighborhood_unit": "003/002",
+    "village": "BENDUNGAN HILIR",
     "district": "TANAH ABANG",
     "religion": "ISLAM",
     "marital_status": "KAWIN",
     "occupation": "KARYAWAN SWASTA",
     "nationality": "WNI",
     "valid_until": "SEUMUR HIDUP"
+  },
+  "trace": {
+    "engine": "local_cpu",
+    "stages": [
+      {
+        "stage": 1,
+        "name": "file_triage",
+        "details": {
+          "filename": "ktp_sample.jpg",
+          "detected_format": "image",
+          "pages": [{ "page": 1, "type": "image_ocr (rapidocr)" }]
+        }
+      },
+      {
+        "stage": 2,
+        "name": "raw_text_extraction",
+        "details": {
+          "ocr_engine": "rapidocr",
+          "extracted_text": "PROVINSI DKI JAKARTA\nNIK : 3171010101900001\nNama : BUDI SANTOSO..."
+        }
+      },
+      {
+        "stage": 3,
+        "name": "prompt_construction",
+        "details": {
+          "system_prompt": "You are an expert document extraction system...",
+          "user_prompt": "Extract the Indonesian KTP information..."
+        }
+      },
+      {
+        "stage": 4,
+        "name": "llm_structured_output",
+        "details": {
+          "provider": "ollama",
+          "model": "qwen2.5:3b",
+          "raw_llm_json": { "id_number": "3171010101900001", "full_name": "BUDI SANTOSO" }
+        }
+      },
+      {
+        "stage": 5,
+        "name": "schema_validation",
+        "details": {
+          "schema_class": "IdentityCardSchema",
+          "validated_fields": ["id_number", "full_name", "..."]
+        }
+      }
+    ]
   }
 }
 ```

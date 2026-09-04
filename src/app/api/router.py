@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Dict
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
 from src.config.settings import Settings, get_settings
 from src.domain.registry import DocumentRegistry
 from src.app.api.deps import get_engine_singleton, get_registry
@@ -44,12 +44,14 @@ async def list_documents(registry: DocumentRegistry = Depends(get_registry)) -> 
 async def extract_document(
     document_type: str,
     file: UploadFile = File(...),
+    trace: bool = Query(default=False, description="Include stage-by-stage evolution trace in response"),
     registry: DocumentRegistry = Depends(get_registry),
     engine: BaseExtractionEngine = Depends(get_engine_singleton),
     settings: Settings = Depends(get_settings),
 ) -> Dict[str, Any]:
     """
     Extract structured JSON from uploaded document (PDF or Image).
+    If trace=True, returns stage-by-stage extraction and prompt evolution.
     """
     doc_spec = registry.get(document_type)
     if not doc_spec:
@@ -67,18 +69,23 @@ async def extract_document(
         )
 
     try:
-        data = await engine.extract(
+        result = await engine.extract(
             file_bytes=file_bytes,
             filename=file.filename,
             content_type=file.content_type,
-            document=doc_spec
+            document=doc_spec,
+            trace=trace
         )
-        return {
+        response_payload: Dict[str, Any] = {
             "success": True,
             "document_type": document_type,
             "filename": file.filename,
-            "data": data
+            "data": result.data
         }
+        if trace and result.trace is not None:
+            response_payload["trace"] = result.trace
+
+        return response_payload
     except Exception as exc:
         logger.error(f"Extraction failed for {document_type} ({file.filename}): {exc}", exc_info=True)
         raise HTTPException(
