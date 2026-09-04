@@ -32,6 +32,23 @@ def test_factory_creates_ocr_hybrid_with_tesseract():
     assert engine.tesseract_cmd == "/usr/bin/tesseract"
 
 
+def test_factory_creates_ocr_hybrid_with_preprocessing_settings():
+    settings = Settings(
+        engine_backend="ocr_hybrid",
+        ocr_engine="rapidocr",
+        ocr_preprocess=True,
+        ocr_deskew=True,
+        ocr_enhance_contrast=True,
+        ocr_threshold_mode="adaptive",
+    )
+    engine = create_engine(settings)
+    assert isinstance(engine, OcrHybridEngine)
+    assert engine.preprocess is True
+    assert engine.deskew is True
+    assert engine.enhance_contrast is True
+    assert engine.threshold_mode == "adaptive"
+
+
 def test_factory_creates_local_cpu_alias():
     settings = Settings(
         engine_backend="local_cpu",
@@ -87,6 +104,35 @@ def test_ocr_hybrid_engine_tesseract_handles_str(monkeypatch):
 
     result = engine._run_ocr_on_bytes(dummy_bytes)
     assert result == "Extracted Text from Str"
+
+
+def test_ocr_hybrid_engine_preprocessing_pipeline():
+    img = Image.new("RGB", (50, 50), color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    dummy_bytes = buf.getvalue()
+
+    engine = OcrHybridEngine(
+        llm_provider=MagicMock(),
+        ocr_engine_type="rapidocr",
+        preprocess=True,
+        deskew=True,
+        enhance_contrast=True,
+        threshold_mode="otsu"
+    )
+
+    proc_bytes, meta = engine._preprocess_image(dummy_bytes)
+    assert len(proc_bytes) > 0
+    assert meta["contrast_enhanced"] is True
+    assert meta["threshold_mode"] == "otsu"
+
+    engine_no_prep = OcrHybridEngine(
+        llm_provider=MagicMock(),
+        preprocess=False
+    )
+    raw_res, meta_disabled = engine_no_prep._preprocess_image(dummy_bytes)
+    assert raw_res == dummy_bytes
+    assert meta_disabled["preprocessing_enabled"] is False
 
 
 @pytest.mark.asyncio

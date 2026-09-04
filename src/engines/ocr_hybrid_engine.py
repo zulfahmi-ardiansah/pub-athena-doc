@@ -1,12 +1,12 @@
 import io
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from PIL import Image
 from src.domain.base import BaseDocument
 from src.engines.base import BaseExtractionEngine, ExtractionResult
 from src.providers.base import BaseLLMProvider
 from src.utility.pdf_utils import is_pdf, inspect_and_extract_pdf_pages
-from src.utility.image_utils import is_image, normalize_image_bytes
+from src.utility.image_utils import is_image, normalize_image_bytes, preprocess_image_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +15,9 @@ class OcrHybridEngine(BaseExtractionEngine):
     """
     OCR Hybrid extraction engine:
     1. Multi-page PDF / Image triage.
-    2. Digital PDF text extraction (PyMuPDF) or OCR (RapidOCR ONNX / Tesseract).
-    3. Structured JSON extraction via local LLM provider (Ollama Qwen 2.5).
+    2. Image preprocessing: deskewing, CLAHE contrast enhancement, thresholding.
+    3. Digital PDF text extraction (PyMuPDF) or OCR (RapidOCR ONNX / Tesseract).
+    4. Structured JSON extraction via local LLM provider (Ollama Qwen 2.5).
     """
 
     name = "ocr_hybrid"
@@ -25,11 +26,25 @@ class OcrHybridEngine(BaseExtractionEngine):
         self,
         llm_provider: BaseLLMProvider,
         ocr_engine_type: str = "rapidocr",
-        tesseract_cmd: Optional[str] = None
+        tesseract_cmd: Optional[str] = None,
+        preprocess: bool = True,
+        deskew: bool = True,
+        enhance_contrast: bool = True,
+        threshold_mode: Optional[str] = "none",
+        gamma: float = 1.15,
+        white_cutoff: int = 230,
+        black_level: int = 25
     ) -> None:
         self.llm_provider = llm_provider
         self.ocr_engine_type = (ocr_engine_type or "rapidocr").lower()
         self.tesseract_cmd = tesseract_cmd
+        self.preprocess = preprocess
+        self.deskew = deskew
+        self.enhance_contrast = enhance_contrast
+        self.threshold_mode = threshold_mode or "none"
+        self.gamma = gamma
+        self.white_cutoff = white_cutoff
+        self.black_level = black_level
         self._rapid_ocr = None
 
         if self.tesseract_cmd:
@@ -55,8 +70,25 @@ class OcrHybridEngine(BaseExtractionEngine):
                 raise RuntimeError("RapidOCR is required for OcrHybridEngine OCR processing") from err
         return self._rapid_ocr
 
-    def _run_ocr_on_bytes(self, image_bytes: bytes) -> str:
-        """Executes selected OCR engine (RapidOCR or Tesseract) on raw image bytes."""
+    def _preprocess_image(self, image_bytes: bytes) -> Tuple[bytes, Dict[str, Any]]:
+        """Applies configured image preprocessing pipeline (deskew, contrast, thresholding)."""
+        if not self.preprocess:
+            return image_bytes, {"preprocessing_enabled": False}
+        return preprocess_image_bytes(
+            image_bytes=image_bytes,
+            deskew=self.deskew,
+            enhance_contrast_enabled=self.enhance_contrast,
+            threshold_mode=self.threshold_mode,
+            gamma=self.gamma,
+            white_cutoff=self.white_cutoff,
+            black_level=self.black_level
+        )
+
+    def _run_ocr_on_bytes(self, image_bytes: bytes, apply_preprocessing: bool = True) -> str:
+        """Executes selected OCR engine (RapidOCR or Tesseract) on raw or preprocessed image bytes."""
+        if apply_preprocessing and self.preprocess:
+            image_bytes, _ = self._preprocess_image(image_bytes)
+
         if self.ocr_engine_type == "tesseract":
             try:
                 import pytesseract
@@ -117,35 +149,41 @@ class OcrHybridEngine(BaseExtractionEngine):
                     })
                     aggregated_text_blocks.append(f"--- Page {page_num} ---\n{digital_text}")
                 elif rendered_png:
-                    ocr_text = self._run_ocr_on_bytes(rendered_png)
+                    processed_bytes, prep_meta = self._preprocess_image(rendered_png)
+                    ocr_text = self._run_ocr_on_bytes(processed_bytes, apply_preprocessing=False)
                     pages_summary.append({
                         "page": page_num,
                         "type": f"scanned_image_ocr ({self.ocr_engine_type})",
-                        "character_count": len(ocr_text)
+                        "character_count": len(ocr_text),
+                        "preprocessing": prep_meta
                     })
                     aggregated_text_blocks.append(f"--- Page {page_num} (OCR) ---\n{ocr_text}")
         elif is_image(content_type, filename):
             detected_format = "image"
             normalized_bytes, dims = normalize_image_bytes(file_bytes)
-            ocr_text = self._run_ocr_on_bytes(normalized_bytes)
+            processed_bytes, prep_meta = self._preprocess_image(normalized_bytes)
+            ocr_text = self._run_ocr_on_bytes(processed_bytes, apply_preprocessing=False)
             aggregated_text_blocks.append(ocr_text)
             pages_summary.append({
                 "page": 1,
                 "type": f"image_ocr ({self.ocr_engine_type})",
                 "dimensions": dims,
-                "character_count": len(ocr_text)
+                "character_count": len(ocr_text),
+                "preprocessing": prep_meta
             })
         else:
             detected_format = "fallback_raw"
             try:
                 normalized_bytes, dims = normalize_image_bytes(file_bytes)
-                ocr_text = self._run_ocr_on_bytes(normalized_bytes)
+                processed_bytes, prep_meta = self._preprocess_image(normalized_bytes)
+                ocr_text = self._run_ocr_on_bytes(processed_bytes, apply_preprocessing=False)
                 aggregated_text_blocks.append(ocr_text)
                 pages_summary.append({
                     "page": 1,
                     "type": f"image_ocr ({self.ocr_engine_type})",
                     "dimensions": dims,
-                    "character_count": len(ocr_text)
+                    "character_count": len(ocr_text),
+                    "preprocessing": prep_meta
                 })
             except Exception:
                 raw_str = file_bytes.decode("utf-8", errors="ignore")

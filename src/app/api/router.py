@@ -1,10 +1,12 @@
 import logging
+import uuid
 from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
 from src.config.settings import Settings, get_settings
 from src.domain.registry import DocumentRegistry
 from src.app.api.deps import get_engine_singleton, get_registry
 from src.engines.base import BaseExtractionEngine
+from src.utility.trace_utils import save_request_trace, sanitize_trace
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,7 @@ async def extract_document(
     """
     Extract structured JSON from uploaded document (PDF or Image).
     If trace=True, returns stage-by-stage extraction and prompt evolution.
+    If demo is enabled, saves uploaded file, preprocessed/adjusted images, and trace.json to trace/{uuid}/.
     """
     doc_spec = registry.get(document_type)
     if not doc_spec:
@@ -68,22 +71,42 @@ async def extract_document(
             detail=f"File exceeds maximum allowed size of {settings.max_file_size_mb}MB"
         )
 
+    request_id = str(uuid.uuid4())
+    should_trace = trace or settings.enable_demo
+
     try:
         result = await engine.extract(
             file_bytes=file_bytes,
             filename=file.filename,
             content_type=file.content_type,
             document=doc_spec,
-            trace=trace
+            trace=should_trace
         )
         response_payload: Dict[str, Any] = {
             "success": True,
+            "request_id": request_id,
             "document_type": document_type,
             "filename": file.filename,
             "data": result.data
         }
+
+        sanitized_trace = None
+        if settings.enable_demo:
+            try:
+                saved_trace_dir, sanitized_trace = save_request_trace(
+                    request_id=request_id,
+                    file_bytes=file_bytes,
+                    filename=file.filename,
+                    document_type=document_type,
+                    extraction_result=result,
+                    trace_base_dir=settings.trace_dir
+                )
+                response_payload["trace_dir"] = str(saved_trace_dir.as_posix())
+            except Exception as trace_err:
+                logger.warning(f"Failed to save trace to disk: {trace_err}")
+
         if trace and result.trace is not None:
-            response_payload["trace"] = result.trace
+            response_payload["trace"] = sanitized_trace if sanitized_trace is not None else sanitize_trace(result.trace)
 
         return response_payload
     except Exception as exc:

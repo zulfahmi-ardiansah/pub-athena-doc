@@ -9,7 +9,8 @@ High-performance modular FastAPI service for converting images and multi-page do
   - **NPWP** (`tax_number`): Extract 15/16-digit NPWP, taxpayer name, KPP, etc.
 - **Intelligent Triage Pipeline**:
   - Multi-page digital PDFs: Fast direct text extraction via `PyMuPDF` (0 GPU, <10ms).
-  - Scanned PDFs / Photos: High-speed CPU OCR via `RapidOCR` (ONNX runtime, Apache-2.0).
+  - Scanned PDFs / Photos: High-speed CPU OCR via `RapidOCR` (ONNX runtime, Apache-2.0) or `Tesseract`.
+  - Automated Image Preprocessing: Skew detection/correction (deskew), CLAHE contrast enhancement, and configurable thresholding (`otsu`/`adaptive`).
   - Merges multi-page texts with page delimiters.
 - **Structured JSON Schema Constraints**:
   - Forces GBNF grammar constraints on LLM token generation (100% syntactically valid JSON).
@@ -62,10 +63,18 @@ High-performance modular FastAPI service for converting images and multi-page do
 ```bash
 # Clone repository and create virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Activate virtual environment
+source .venv/bin/activate        # Linux/macOS
+.venv\Scripts\Activate.ps1       # Windows PowerShell
+.venv\Scripts\activate.bat       # Windows Command Prompt
+
+# Install project dependencies from pyproject.toml:
+# For development (editable mode + dev tools like pytest):
+pip install -e ".[dev]"
+
+# Or for production runtime only:
+pip install .
 ```
 
 ### 2. Configure Environment
@@ -73,6 +82,15 @@ pip install -r requirements.txt
 Copy `.env.example` to `.env`:
 ```ini
 ENGINE_BACKEND=ocr_hybrid
+
+# OCR Engine & Image Preprocessing
+OCR_ENGINE=rapidocr
+OCR_PREPROCESS=true
+OCR_DESKEW=true
+OCR_ENHANCE_CONTRAST=true
+OCR_THRESHOLD_MODE=none
+
+# Ollama LLM Configuration
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:3b
 OLLAMA_KEEP_ALIVE=-1

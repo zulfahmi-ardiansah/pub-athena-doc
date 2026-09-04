@@ -581,7 +581,8 @@
       <div class="tab-bar">
         <button class="tab-btn active" id="tabJsonBtn">Structured Output</button>
         <button class="tab-btn" id="tabTraceBtn">Stage Evolution Trace</button>
-        <div class="meta-metrics" id="metaMetrics" style="display:none;">
+        <div class="meta-metrics" id="metaMetrics" style="display:none; align-items:center; gap:0.5rem;">
+          <span class="meta-badge" id="uuidBadge" style="display:none; font-family:monospace; font-size:0.75rem;" title="Request UUID"></span>
           <span class="meta-badge" id="elapsedBadge">0.00s</span>
           <button id="copyBtn" class="btn btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.6rem;">Copy JSON</button>
         </div>
@@ -625,6 +626,7 @@
     const backendStatus = document.getElementById('backendStatus');
     const metaMetrics = document.getElementById('metaMetrics');
     const elapsedBadge = document.getElementById('elapsedBadge');
+    const uuidBadge = document.getElementById('uuidBadge');
     const copyBtn = document.getElementById('copyBtn');
     const sampleBtn = document.getElementById('sampleBtn');
 
@@ -830,6 +832,14 @@
 
         const result = await response.json();
         latestResult = result;
+
+        if (result.request_id) {
+          uuidBadge.style.display = 'inline-block';
+          uuidBadge.textContent = `UUID: ${result.request_id.slice(0, 8)}...`;
+          uuidBadge.title = `Request UUID: ${result.request_id}\nTrace Directory: ${result.trace_dir || 'N/A'}`;
+        } else {
+          uuidBadge.style.display = 'none';
+        }
 
         if (response.ok && result.success) {
           jsonViewer.textContent = JSON.stringify(result.data, null, 2);

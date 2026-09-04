@@ -28,6 +28,13 @@ def create_engine(settings: Settings) -> BaseExtractionEngine:
             llm_provider=ollama_provider,
             ocr_engine_type=settings.ocr_engine,
             tesseract_cmd=settings.tesseract_cmd or None,
+            preprocess=settings.ocr_preprocess,
+            deskew=settings.ocr_deskew,
+            enhance_contrast=settings.ocr_enhance_contrast,
+            threshold_mode=settings.ocr_threshold_mode,
+            gamma=settings.ocr_enhance_gamma,
+            white_cutoff=settings.ocr_enhance_white_cutoff,
+            black_level=settings.ocr_enhance_black_level,
         )
 
     elif backend == "visual_model":

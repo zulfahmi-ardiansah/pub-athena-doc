@@ -23,8 +23,18 @@ class Settings(BaseSettings):
     ocr_engine: Literal["rapidocr", "tesseract"] = "rapidocr"
     tesseract_cmd: str = ""
 
-    # Interactive Demo UI at / or /demo
+    # OCR Image Preprocessing settings
+    ocr_preprocess: bool = True
+    ocr_deskew: bool = True
+    ocr_enhance_contrast: bool = True
+    ocr_threshold_mode: Literal["none", "otsu", "adaptive"] = "none"
+    ocr_enhance_gamma: float = 1.15
+    ocr_enhance_white_cutoff: int = 230
+    ocr_enhance_black_level: int = 25
+
+    # Interactive Demo UI at / or /demo & Trace Output
     enable_demo: bool = True
+    trace_dir: str = "trace"
 
     # Ollama Local LLM / Vision
     ollama_base_url: str = "http://localhost:11434"
