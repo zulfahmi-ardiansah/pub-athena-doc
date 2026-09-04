@@ -69,3 +69,4 @@ Thumbs.db
 
 # Agent configs
 .agents
+.pytest_cache
