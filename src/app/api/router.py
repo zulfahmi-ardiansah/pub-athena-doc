@@ -19,7 +19,10 @@ async def health_check(settings: Settings = Depends(get_settings)) -> Dict[str, 
         "app_name": settings.app_name,
         "active_backend": settings.engine_backend,
         "ocr_engine": settings.ocr_engine if settings.engine_backend in ("ocr_hybrid", "local_cpu") else None,
-        "ollama_model": settings.ollama_model if settings.engine_backend in ("ocr_hybrid", "local_cpu") else None,
+        "ollama_model": (
+            settings.ollama_vision_model if settings.engine_backend == "visual_model"
+            else (settings.ollama_model if settings.engine_backend in ("ocr_hybrid", "local_cpu") else None)
+        ),
         "gemini_model": settings.gemini_model if settings.engine_backend == "cloud_google" else None,
     }
 

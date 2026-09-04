@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 import httpx
 from src.providers.base import BaseLLMProvider
 
@@ -63,10 +63,11 @@ class OllamaProvider(BaseLLMProvider):
         self,
         prompt: str,
         json_schema: Dict[str, Any],
-        system_prompt: str = ""
+        system_prompt: str = "",
+        images: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         url = f"{self.base_url}/api/generate"
-        payload = {
+        payload: Dict[str, Any] = {
             "model": self.model,
             "prompt": prompt,
             "system": system_prompt,
@@ -79,6 +80,8 @@ class OllamaProvider(BaseLLMProvider):
                 "seed": 42
             }
         }
+        if images:
+            payload["images"] = images
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:

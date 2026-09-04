@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 
 class BaseLLMProvider(ABC):
@@ -10,10 +10,12 @@ class BaseLLMProvider(ABC):
         self,
         prompt: str,
         json_schema: Dict[str, Any],
-        system_prompt: str = ""
+        system_prompt: str = "",
+        images: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Executes LLM completion constrained by a JSON Schema.
+        Optionally accepts base64-encoded image strings for vision/multimodal models.
         Returns parsed JSON object as a Python dictionary.
         """
         pass

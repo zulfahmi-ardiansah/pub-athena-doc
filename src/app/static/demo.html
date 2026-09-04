@@ -470,6 +470,8 @@
           const data = await res.json();
           if (data.active_backend === 'ocr_hybrid' || data.active_backend === 'local_cpu') {
             backendStatus.textContent = `${data.active_backend} (${data.ocr_engine || 'rapidocr'} + ${data.ollama_model || 'ollama'})`;
+          } else if (data.active_backend === 'visual_model') {
+            backendStatus.textContent = `visual_model (${data.ollama_model || 'ollama-vision'})`;
           } else {
             backendStatus.textContent = `${data.active_backend} (${data.gemini_model || 'gemini'})`;
           }

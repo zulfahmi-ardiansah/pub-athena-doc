@@ -2,6 +2,7 @@ import logging
 from src.config.settings import Settings
 from src.engines.base import BaseExtractionEngine
 from src.engines.ocr_hybrid_engine import OcrHybridEngine
+from src.engines.visual_model_engine import VisualModelEngine
 from src.engines.cloud_google_engine import CloudGoogleEngine
 from src.providers.ollama_provider import OllamaProvider
 
@@ -27,6 +28,19 @@ def create_engine(settings: Settings) -> BaseExtractionEngine:
             llm_provider=ollama_provider,
             ocr_engine_type=settings.ocr_engine,
             tesseract_cmd=settings.tesseract_cmd or None,
+        )
+
+    elif backend == "visual_model":
+        model_name = settings.ollama_vision_model or settings.ollama_model
+        logger.info(f"Initializing VisualModelEngine with Ollama Vision model ({model_name})...")
+        ollama_provider = OllamaProvider(
+            base_url=settings.ollama_base_url,
+            model=model_name,
+            timeout_seconds=settings.ollama_timeout_seconds,
+            keep_alive=settings.ollama_keep_alive,
+        )
+        return VisualModelEngine(
+            llm_provider=ollama_provider,
         )
 
     elif backend == "cloud_google":

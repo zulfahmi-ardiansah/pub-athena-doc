@@ -16,6 +16,7 @@ High-performance modular FastAPI service for converting images and multi-page do
   - Zero-hallucination rules for critical numeric IDs (NIK, NPWP).
 - **Pluggable Engine Architecture (Strategy Pattern)**:
   - `ocr_hybrid` (or `local_cpu`): Hybrid OCR & inference using `RapidOCR`/`Tesseract` + `Ollama` (`qwen2.5:3b`).
+  - `visual_model`: Pure local multimodal vision inference using `Ollama` (`llama3.2-vision`, `qwen2.5-vl`, or `minicpm-v`).
   - `cloud_google`: Google Cloud Gemini 1.5 Flash multimodal extraction.
 
 ---

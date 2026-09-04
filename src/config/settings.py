@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     port: int = 8000
     host: str = "0.0.0.0"
 
-    # Engine backend selection: "ocr_hybrid" | "local_cpu" | "cloud_google"
-    engine_backend: Literal["ocr_hybrid", "local_cpu", "cloud_google"] = "ocr_hybrid"
+    # Engine backend selection: "ocr_hybrid" | "visual_model" | "local_cpu" | "cloud_google"
+    engine_backend: Literal["ocr_hybrid", "visual_model", "local_cpu", "cloud_google"] = "ocr_hybrid"
 
     # OCR Engine for OCR Hybrid: "rapidocr" | "tesseract"
     ocr_engine: Literal["rapidocr", "tesseract"] = "rapidocr"
@@ -26,9 +26,10 @@ class Settings(BaseSettings):
     # Interactive Demo UI at / or /demo
     enable_demo: bool = True
 
-    # Ollama Local LLM
+    # Ollama Local LLM / Vision
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:3b"
+    ollama_vision_model: str = "llama3.2-vision"
     ollama_timeout_seconds: float = 60.0
     ollama_keep_alive: str = "-1"
     ollama_preload: bool = True
