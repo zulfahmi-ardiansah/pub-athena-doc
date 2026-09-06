@@ -2,10 +2,11 @@ import logging
 import uuid
 from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
+from fastapi.responses import JSONResponse
 from src.config.settings import Settings, get_settings
 from src.domain.registry import DocumentRegistry
 from src.app.api.deps import get_engine_singleton, get_registry
-from src.engines.base import BaseExtractionEngine
+from src.engines.base import BaseExtractionEngine, ExtractionResult, ExtractionError
 from src.utility.trace_utils import save_request_trace, sanitize_trace
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ async def extract_document(
     registry: DocumentRegistry = Depends(get_registry),
     engine: BaseExtractionEngine = Depends(get_engine_singleton),
     settings: Settings = Depends(get_settings),
-) -> Dict[str, Any]:
+) -> Any:
     """
     Extract structured JSON from uploaded document (PDF or Image).
     If trace=True, returns stage-by-stage extraction and prompt evolution.
@@ -109,9 +110,57 @@ async def extract_document(
             response_payload["trace"] = sanitized_trace if sanitized_trace is not None else sanitize_trace(result.trace)
 
         return response_payload
+    except ExtractionError as exc:
+        logger.error(f"Extraction failed for {document_type} ({file.filename}): {exc.message}", exc_info=True)
+        sanitized_trace = None
+        trace_dir_str = None
+        if exc.trace:
+            if settings.enable_demo:
+                try:
+                    dummy_result = ExtractionResult(data=exc.raw_data or {}, trace=exc.trace)
+                    saved_trace_dir, sanitized_trace = save_request_trace(
+                        request_id=request_id,
+                        file_bytes=file_bytes,
+                        filename=file.filename,
+                        document_type=document_type,
+                        extraction_result=dummy_result,
+                        trace_base_dir=settings.trace_dir
+                    )
+                    trace_dir_str = str(saved_trace_dir.as_posix())
+                except Exception as trace_err:
+                    logger.warning(f"Failed to save error trace to disk: {trace_err}")
+
+            if sanitized_trace is None:
+                sanitized_trace = sanitize_trace(exc.trace)
+
+        error_payload: Dict[str, Any] = {
+            "success": False,
+            "request_id": request_id,
+            "document_type": document_type,
+            "filename": file.filename,
+            "detail": f"Extraction failed: {exc.message}",
+            "error": exc.message,
+        }
+        if trace_dir_str:
+            error_payload["trace_dir"] = trace_dir_str
+        if trace and sanitized_trace is not None:
+            error_payload["trace"] = sanitized_trace
+
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content=error_payload
+        )
     except Exception as exc:
         logger.error(f"Extraction failed for {document_type} ({file.filename}): {exc}", exc_info=True)
-        raise HTTPException(
+        error_payload: Dict[str, Any] = {
+            "success": False,
+            "request_id": request_id,
+            "document_type": document_type,
+            "filename": file.filename,
+            "detail": f"Extraction failed: {str(exc)}",
+            "error": str(exc),
+        }
+        return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Extraction failed: {str(exc)}"
+            content=error_payload
         )

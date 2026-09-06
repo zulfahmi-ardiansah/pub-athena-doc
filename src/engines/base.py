@@ -10,6 +10,21 @@ class ExtractionResult:
     trace: Optional[Dict[str, Any]] = None
 
 
+class ExtractionError(Exception):
+    """Exception raised when document extraction fails, holding partial execution trace."""
+
+    def __init__(
+        self,
+        message: str,
+        trace: Optional[Dict[str, Any]] = None,
+        raw_data: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(message)
+        self.message = message
+        self.trace = trace
+        self.raw_data = raw_data
+
+
 class BaseExtractionEngine(ABC):
     """Abstract interface for document extraction backends."""
 

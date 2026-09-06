@@ -95,10 +95,59 @@ class OllamaProvider(BaseLLMProvider):
         raw_response_text = result_json.get("response", "")
 
         try:
-            parsed = json.loads(raw_response_text)
-            if not isinstance(parsed, dict):
-                raise ValueError("Ollama response is not a JSON object")
-            return parsed
-        except json.JSONDecodeError as err:
+            return self._parse_json_payload(raw_response_text)
+        except Exception as err:
             logger.error(f"Failed to parse Ollama output as JSON: {raw_response_text}")
             raise ValueError(f"Ollama produced invalid JSON: {raw_response_text}") from err
+
+    @staticmethod
+    def _parse_json_payload(text: str) -> Dict[str, Any]:
+        """
+        Parses JSON from model response, handling direct JSON, markdown code fences,
+        and surrounding text preamble/postscript if present.
+        """
+        cleaned = text.strip() if text else ""
+        if not cleaned:
+            raise ValueError("Empty response received from Ollama")
+
+        # 1. Direct parse attempt
+        try:
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+        # 2. Strip markdown code fences (```json ... ``` or ``` ... ```)
+        if "```" in cleaned:
+            lines = cleaned.splitlines()
+            code_lines = []
+            inside_fence = False
+            for line in lines:
+                if line.strip().startswith("```"):
+                    inside_fence = not inside_fence
+                    continue
+                if inside_fence:
+                    code_lines.append(line)
+            if code_lines:
+                candidate = "\n".join(code_lines).strip()
+                try:
+                    parsed = json.loads(candidate)
+                    if isinstance(parsed, dict):
+                        return parsed
+                except json.JSONDecodeError:
+                    pass
+
+        # 3. Substring extraction: find outermost '{' and '}'
+        first_brace = cleaned.find("{")
+        last_brace = cleaned.rfind("}")
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            candidate = cleaned[first_brace:last_brace + 1]
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+
+        raise ValueError("Response is not a valid JSON object")

@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 from PIL import Image
 from src.domain.base import BaseDocument
-from src.engines.base import BaseExtractionEngine, ExtractionResult
+from src.engines.base import BaseExtractionEngine, ExtractionResult, ExtractionError
 from src.providers.base import BaseLLMProvider
 from src.utility.pdf_utils import is_pdf, inspect_and_extract_pdf_pages
 from src.utility.image_utils import is_image, normalize_image_bytes, preprocess_image_bytes
@@ -137,43 +137,30 @@ class OcrHybridEngine(BaseExtractionEngine):
         detected_format = "unknown"
         pages_summary = []
 
-        if is_pdf(content_type, filename):
-            detected_format = "pdf"
-            pages = inspect_and_extract_pdf_pages(file_bytes)
-            for page_num, digital_text, rendered_png in pages:
-                if digital_text:
-                    pages_summary.append({
-                        "page": page_num,
-                        "type": "digital_text",
-                        "character_count": len(digital_text)
-                    })
-                    aggregated_text_blocks.append(f"--- Page {page_num} ---\n{digital_text}")
-                elif rendered_png:
-                    processed_bytes, prep_meta = self._preprocess_image(rendered_png)
-                    ocr_text = self._run_ocr_on_bytes(processed_bytes, apply_preprocessing=False)
-                    pages_summary.append({
-                        "page": page_num,
-                        "type": f"scanned_image_ocr ({self.ocr_engine_type})",
-                        "character_count": len(ocr_text),
-                        "preprocessing": prep_meta
-                    })
-                    aggregated_text_blocks.append(f"--- Page {page_num} (OCR) ---\n{ocr_text}")
-        elif is_image(content_type, filename):
-            detected_format = "image"
-            normalized_bytes, dims = normalize_image_bytes(file_bytes)
-            processed_bytes, prep_meta = self._preprocess_image(normalized_bytes)
-            ocr_text = self._run_ocr_on_bytes(processed_bytes, apply_preprocessing=False)
-            aggregated_text_blocks.append(ocr_text)
-            pages_summary.append({
-                "page": 1,
-                "type": f"image_ocr ({self.ocr_engine_type})",
-                "dimensions": dims,
-                "character_count": len(ocr_text),
-                "preprocessing": prep_meta
-            })
-        else:
-            detected_format = "fallback_raw"
-            try:
+        try:
+            if is_pdf(content_type, filename):
+                detected_format = "pdf"
+                pages = inspect_and_extract_pdf_pages(file_bytes)
+                for page_num, digital_text, rendered_png in pages:
+                    if digital_text:
+                        pages_summary.append({
+                            "page": page_num,
+                            "type": "digital_text",
+                            "character_count": len(digital_text)
+                        })
+                        aggregated_text_blocks.append(f"--- Page {page_num} ---\n{digital_text}")
+                    elif rendered_png:
+                        processed_bytes, prep_meta = self._preprocess_image(rendered_png)
+                        ocr_text = self._run_ocr_on_bytes(processed_bytes, apply_preprocessing=False)
+                        pages_summary.append({
+                            "page": page_num,
+                            "type": f"scanned_image_ocr ({self.ocr_engine_type})",
+                            "character_count": len(ocr_text),
+                            "preprocessing": prep_meta
+                        })
+                        aggregated_text_blocks.append(f"--- Page {page_num} (OCR) ---\n{ocr_text}")
+            elif is_image(content_type, filename):
+                detected_format = "image"
                 normalized_bytes, dims = normalize_image_bytes(file_bytes)
                 processed_bytes, prep_meta = self._preprocess_image(normalized_bytes)
                 ocr_text = self._run_ocr_on_bytes(processed_bytes, apply_preprocessing=False)
@@ -185,19 +172,51 @@ class OcrHybridEngine(BaseExtractionEngine):
                     "character_count": len(ocr_text),
                     "preprocessing": prep_meta
                 })
-            except Exception:
-                raw_str = file_bytes.decode("utf-8", errors="ignore")
-                aggregated_text_blocks.append(raw_str)
-                pages_summary.append({
-                    "page": 1,
-                    "type": "raw_utf8_decode",
-                    "character_count": len(raw_str)
+            else:
+                detected_format = "fallback_raw"
+                try:
+                    normalized_bytes, dims = normalize_image_bytes(file_bytes)
+                    processed_bytes, prep_meta = self._preprocess_image(normalized_bytes)
+                    ocr_text = self._run_ocr_on_bytes(processed_bytes, apply_preprocessing=False)
+                    aggregated_text_blocks.append(ocr_text)
+                    pages_summary.append({
+                        "page": 1,
+                        "type": f"image_ocr ({self.ocr_engine_type})",
+                        "dimensions": dims,
+                        "character_count": len(ocr_text),
+                        "preprocessing": prep_meta
+                    })
+                except Exception:
+                    raw_str = file_bytes.decode("utf-8", errors="ignore")
+                    aggregated_text_blocks.append(raw_str)
+                    pages_summary.append({
+                        "page": 1,
+                        "type": "raw_utf8_decode",
+                        "character_count": len(raw_str)
+                    })
+        except Exception as exc:
+            if trace:
+                stages.append({
+                    "stage": 1,
+                    "name": "file_triage",
+                    "status": "failed",
+                    "details": {
+                        "filename": filename,
+                        "content_type": content_type,
+                        "error": str(exc),
+                        "error_type": exc.__class__.__name__
+                    }
                 })
+            raise ExtractionError(
+                message=str(exc),
+                trace={"engine": self.name, "stages": stages} if trace else None
+            ) from exc
 
         if trace:
             stages.append({
                 "stage": 1,
                 "name": "file_triage",
+                "status": "completed",
                 "details": {
                     "filename": filename,
                     "content_type": content_type,
@@ -213,6 +232,7 @@ class OcrHybridEngine(BaseExtractionEngine):
             stages.append({
                 "stage": 2,
                 "name": "raw_text_extraction",
+                "status": "completed" if full_extracted_text else "failed",
                 "details": {
                     "ocr_engine": self.ocr_engine_type if detected_format != "pdf" or any("ocr" in str(p.get("type")) for p in pages_summary) else "digital_pdf_stream",
                     "extracted_text": full_extracted_text,
@@ -221,7 +241,11 @@ class OcrHybridEngine(BaseExtractionEngine):
             })
 
         if not full_extracted_text:
-            raise ValueError("No readable text could be extracted from the document")
+            err_msg = "No readable text could be extracted from the document"
+            raise ExtractionError(
+                message=err_msg,
+                trace={"engine": self.name, "stages": stages} if trace else None
+            )
 
         # Stage 3: Prompt Construction
         system_prompt = document.build_system_prompt()
@@ -232,6 +256,7 @@ class OcrHybridEngine(BaseExtractionEngine):
             stages.append({
                 "stage": 3,
                 "name": "prompt_construction",
+                "status": "completed",
                 "details": {
                     "document_slug": document.slug,
                     "system_prompt": system_prompt,
@@ -241,16 +266,35 @@ class OcrHybridEngine(BaseExtractionEngine):
             })
 
         # Stage 4: LLM Structured Generation
-        raw_json_dict = await self.llm_provider.generate_structured(
-            prompt=user_prompt,
-            json_schema=json_schema,
-            system_prompt=system_prompt
-        )
+        try:
+            raw_json_dict = await self.llm_provider.generate_structured(
+                prompt=user_prompt,
+                json_schema=json_schema,
+                system_prompt=system_prompt
+            )
+        except Exception as exc:
+            if trace:
+                stages.append({
+                    "stage": 4,
+                    "name": "llm_structured_output",
+                    "status": "failed",
+                    "details": {
+                        "provider": getattr(self.llm_provider, "name", "ollama"),
+                        "model": getattr(self.llm_provider, "model", "unknown"),
+                        "error": str(exc),
+                        "error_type": exc.__class__.__name__
+                    }
+                })
+            raise ExtractionError(
+                message=str(exc),
+                trace={"engine": self.name, "stages": stages} if trace else None
+            ) from exc
 
         if trace:
             stages.append({
                 "stage": 4,
                 "name": "llm_structured_output",
+                "status": "completed",
                 "details": {
                     "provider": getattr(self.llm_provider, "name", "ollama"),
                     "model": getattr(self.llm_provider, "model", "unknown"),
@@ -259,13 +303,33 @@ class OcrHybridEngine(BaseExtractionEngine):
             })
 
         # Stage 5: Schema Validation & Normalization
-        validated_model = document.validate_payload(raw_json_dict)
-        final_data = validated_model.model_dump()
+        try:
+            validated_model = document.validate_payload(raw_json_dict)
+            final_data = validated_model.model_dump()
+        except Exception as exc:
+            if trace:
+                stages.append({
+                    "stage": 5,
+                    "name": "schema_validation",
+                    "status": "failed",
+                    "details": {
+                        "schema_class": document.schema_class.__name__,
+                        "error": str(exc),
+                        "error_type": exc.__class__.__name__,
+                        "raw_input": raw_json_dict
+                    }
+                })
+            raise ExtractionError(
+                message=str(exc),
+                trace={"engine": self.name, "stages": stages} if trace else None,
+                raw_data=raw_json_dict if isinstance(raw_json_dict, dict) else None
+            ) from exc
 
         if trace:
             stages.append({
                 "stage": 5,
                 "name": "schema_validation",
+                "status": "completed",
                 "details": {
                     "schema_class": document.schema_class.__name__,
                     "validated_fields": list(final_data.keys()),

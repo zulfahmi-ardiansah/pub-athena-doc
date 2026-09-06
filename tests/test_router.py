@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from src.app.main import app
 from src.app.api.deps import get_engine_singleton
-from src.engines.base import BaseExtractionEngine, ExtractionResult
+from src.engines.base import BaseExtractionEngine, ExtractionResult, ExtractionError
 from src.utility.trace_utils import save_request_trace
 
 client = TestClient(app)
@@ -155,5 +155,97 @@ def test_extract_endpoint_creates_trace_folder_when_demo_enabled(monkeypatch, tm
         assert (target_dir / "original_sample_ktp.png").exists()
         assert (target_dir / "page_1_preprocessed.png").exists()
         assert (target_dir / "trace.json").exists()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_extract_endpoint_returns_trace_on_failure_when_trace_true():
+    mock_engine = MagicMock(spec=BaseExtractionEngine)
+    mock_engine.extract = AsyncMock(side_effect=ExtractionError(
+        message="Ollama produced invalid JSON: ",
+        trace={
+            "engine": "visual_model",
+            "stages": [
+                {"stage": 1, "name": "visual_render_triage", "status": "completed", "details": {}},
+                {"stage": 2, "name": "multimodal_prompt_construction", "status": "completed", "details": {}},
+                {
+                    "stage": 3,
+                    "name": "vision_llm_structured_output",
+                    "status": "failed",
+                    "details": {"error": "Ollama produced invalid JSON: ", "error_type": "ValueError"}
+                }
+            ]
+        }
+    ))
+
+    app.dependency_overrides[get_engine_singleton] = lambda: mock_engine
+
+    try:
+        dummy_file = io.BytesIO(b"fake image bytes")
+        response = client.post(
+            "/api/v1/extract/identity_card",
+            files={"file": ("sample_ktp.png", dummy_file, "image/png")},
+            params={"trace": "true"}
+        )
+
+        assert response.status_code == 422
+        data = response.json()
+        assert data["success"] is False
+        assert "request_id" in data
+        assert "Ollama produced invalid JSON" in data["error"]
+        assert "trace" in data
+        assert data["trace"]["engine"] == "visual_model"
+        assert len(data["trace"]["stages"]) == 3
+        assert data["trace"]["stages"][2]["status"] == "failed"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_extract_endpoint_saves_trace_folder_on_failure_when_demo_enabled(monkeypatch, tmp_path):
+    mock_engine = MagicMock(spec=BaseExtractionEngine)
+    mock_engine.extract = AsyncMock(side_effect=ExtractionError(
+        message="Ollama produced invalid JSON: ",
+        trace={
+            "engine": "visual_model",
+            "stages": [
+                {"stage": 1, "name": "visual_render_triage", "status": "completed", "details": {}},
+                {
+                    "stage": 2,
+                    "name": "vision_llm_structured_output",
+                    "status": "failed",
+                    "details": {"error": "Ollama produced invalid JSON: "}
+                }
+            ]
+        }
+    ))
+
+    app.dependency_overrides[get_engine_singleton] = lambda: mock_engine
+
+    from src.config.settings import get_settings
+    settings = get_settings()
+    monkeypatch.setattr(settings, "enable_demo", True)
+    monkeypatch.setattr(settings, "trace_dir", str(tmp_path))
+
+    try:
+        dummy_file = io.BytesIO(b"fake image bytes")
+        response = client.post(
+            "/api/v1/extract/identity_card",
+            files={"file": ("sample_ktp.png", dummy_file, "image/png")},
+            params={"trace": "true"}
+        )
+
+        assert response.status_code == 422
+        data = response.json()
+        assert data["success"] is False
+        req_id = data["request_id"]
+        assert "trace_dir" in data
+
+        target_dir = tmp_path / req_id
+        assert target_dir.exists()
+        assert (target_dir / "original_sample_ktp.png").exists()
+        assert (target_dir / "trace.json").exists()
+        trace_json = json.loads((target_dir / "trace.json").read_text(encoding="utf-8"))
+        assert trace_json["request_id"] == req_id
+        assert trace_json["trace"]["engine"] == "visual_model"
     finally:
         app.dependency_overrides.clear()

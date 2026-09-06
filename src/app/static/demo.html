@@ -769,25 +769,34 @@
       trace.stages.forEach((stage, idx) => {
         const card = document.createElement('div');
         card.className = 'stage-card';
+        const isFailed = stage.status === 'failed' || (stage.details && stage.details.error);
+        if (isFailed) {
+          card.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+        }
 
         let contentText = '';
         if (typeof stage.details === 'string') {
           contentText = stage.details;
-        } else if (stage.details.extracted_text) {
+        } else if (stage.details && stage.details.extracted_text) {
           contentText = `[Extracted Text (${stage.details.ocr_engine})]\n${stage.details.extracted_text}`;
-        } else if (stage.details.raw_llm_json) {
+        } else if (stage.details && stage.details.raw_llm_json) {
           contentText = JSON.stringify(stage.details.raw_llm_json, null, 2);
-        } else if (stage.details.user_prompt) {
+        } else if (stage.details && stage.details.user_prompt) {
           contentText = `[System Prompt]\n${stage.details.system_prompt}\n\n[User Prompt]\n${stage.details.user_prompt}`;
         } else {
           contentText = JSON.stringify(stage.details, null, 2);
         }
 
+        const statusBadge = isFailed
+          ? '<span style="color:var(--danger); font-size:0.75rem; font-weight:700; background:rgba(239,68,68,0.15); padding:2px 6px; border-radius:4px; margin-left:auto;">FAILED</span>'
+          : '<span style="color:var(--accent); font-size:0.75rem; font-weight:700; background:rgba(16,185,129,0.15); padding:2px 6px; border-radius:4px; margin-left:auto;">OK</span>';
+
         card.innerHTML = `
           <div class="stage-header">
-            <div class="stage-title">
+            <div class="stage-title" style="width:100%; display:flex; align-items:center;">
               <span class="stage-num">${idx + 1}</span>
               <span>Stage: ${stage.name.replace(/_/g, ' ').toUpperCase()}</span>
+              ${statusBadge}
             </div>
           </div>
           <div class="stage-content">${escapeHtml(contentText)}</div>
@@ -850,7 +859,11 @@
           }
         } else {
           jsonViewer.textContent = JSON.stringify(result, null, 2);
-          traceContainer.innerHTML = `<div class="placeholder-state"><div style="color:var(--danger)">Error: ${result.detail || 'Extraction failed'}</div></div>`;
+          if (result.trace) {
+            renderTraceStages(result.trace);
+          } else {
+            traceContainer.innerHTML = `<div class="placeholder-state"><div style="color:var(--danger)">Error: ${result.detail || result.error || 'Extraction failed'}</div></div>`;
+          }
         }
       } catch (err) {
         jsonViewer.textContent = `Error: ${err.message}`;

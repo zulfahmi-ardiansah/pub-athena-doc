@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from PIL import Image
 from src.config.settings import Settings
+from src.engines.base import ExtractionError
 from src.engines.factory import create_engine
 from src.engines.ocr_hybrid_engine import OcrHybridEngine, LocalCpuEngine
 from src.engines.visual_model_engine import VisualModelEngine
@@ -315,4 +316,128 @@ async def test_visual_model_engine_extract_pdf():
     kwargs = mock_provider.generate_structured.call_args[1]
     assert "images" in kwargs
     assert len(kwargs["images"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_ollama_provider_handles_markdown_code_blocks(monkeypatch):
+    provider = OllamaProvider(base_url="http://localhost:11434", model="llama3.2-vision")
+
+    mock_client = AsyncMock()
+    mock_response = MagicMock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "response": "```json\n{\"id_number\": \"3171012345678901\", \"full_name\": \"BUDI\"}\n```"
+    }
+    mock_client.post.return_value = mock_response
+
+    class MockAsyncClientContext:
+        async def __aenter__(self):
+            return mock_client
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr("httpx.AsyncClient", lambda **kwargs: MockAsyncClientContext())
+
+    res = await provider.generate_structured(
+        prompt="Extract KTP",
+        json_schema={"type": "object"},
+        system_prompt="Rules",
+        images=["dummy_b64"]
+    )
+    assert res == {"id_number": "3171012345678901", "full_name": "BUDI"}
+
+
+@pytest.mark.asyncio
+async def test_ollama_provider_handles_surrounding_text(monkeypatch):
+    provider = OllamaProvider(base_url="http://localhost:11434", model="llama3.2-vision")
+
+    mock_client = AsyncMock()
+    mock_response = MagicMock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "response": "Here is the extracted document data:\n{\"id_number\": \"3171012345678901\", \"full_name\": \"BUDI\"}\nHope this helps!"
+    }
+    mock_client.post.return_value = mock_response
+
+    class MockAsyncClientContext:
+        async def __aenter__(self):
+            return mock_client
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr("httpx.AsyncClient", lambda **kwargs: MockAsyncClientContext())
+
+    res = await provider.generate_structured(
+        prompt="Extract KTP",
+        json_schema={"type": "object"},
+        system_prompt="Rules",
+        images=["dummy_b64"]
+    )
+    assert res == {"id_number": "3171012345678901", "full_name": "BUDI"}
+
+
+@pytest.mark.asyncio
+async def test_ollama_provider_invalid_json_raises_value_error(monkeypatch):
+    provider = OllamaProvider(base_url="http://localhost:11434", model="llama3.2-vision")
+
+    mock_client = AsyncMock()
+    mock_response = MagicMock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {"response": ""}
+    mock_client.post.return_value = mock_response
+
+    class MockAsyncClientContext:
+        async def __aenter__(self):
+            return mock_client
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr("httpx.AsyncClient", lambda **kwargs: MockAsyncClientContext())
+
+    with pytest.raises(ValueError, match="Ollama produced invalid JSON"):
+        await provider.generate_structured(
+            prompt="Extract KTP",
+            json_schema={"type": "object"},
+            system_prompt="Rules",
+            images=["dummy_b64"]
+        )
+
+
+@pytest.mark.asyncio
+async def test_visual_model_engine_extract_failure_preserves_trace():
+    img = Image.new("RGB", (20, 20), color="blue")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    dummy_img_bytes = buf.getvalue()
+
+    mock_provider = AsyncMock()
+    mock_provider.name = "ollama"
+    mock_provider.model = "llama3.2-vision"
+    mock_provider.generate_structured = AsyncMock(side_effect=ValueError("Ollama produced invalid JSON: "))
+
+    engine = VisualModelEngine(llm_provider=mock_provider)
+    doc = IdentityCardDocument()
+
+    with pytest.raises(ExtractionError) as exc_info:
+        await engine.extract(
+            file_bytes=dummy_img_bytes,
+            filename="sample.png",
+            content_type="image/png",
+            document=doc,
+            trace=True
+        )
+
+    err = exc_info.value
+    assert "Ollama produced invalid JSON" in err.message
+    assert err.trace is not None
+    assert err.trace["engine"] == "visual_model"
+    stages = err.trace["stages"]
+    assert len(stages) >= 3
+    stage_names = [s["name"] for s in stages]
+    assert "visual_render_triage" in stage_names
+    assert "multimodal_prompt_construction" in stage_names
+    assert "vision_llm_structured_output" in stage_names
+    failed_stage = next(s for s in stages if s["name"] == "vision_llm_structured_output")
+    assert failed_stage["status"] == "failed"
+    assert "Ollama produced invalid JSON" in failed_stage["details"]["error"]
 

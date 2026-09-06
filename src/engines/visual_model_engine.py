@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, List, Optional
 import fitz  # PyMuPDF
 from src.domain.base import BaseDocument
-from src.engines.base import BaseExtractionEngine, ExtractionResult
+from src.engines.base import BaseExtractionEngine, ExtractionResult, ExtractionError
 from src.providers.base import BaseLLMProvider
 from src.utility.pdf_utils import is_pdf
 from src.utility.image_utils import is_image, normalize_image_bytes
@@ -56,35 +56,67 @@ class VisualModelEngine(BaseExtractionEngine):
         document: BaseDocument,
         trace: bool = False
     ) -> ExtractionResult:
-        if not file_bytes:
-            raise ValueError("Empty file provided for extraction")
-
         stages: List[Dict[str, Any]] = []
+
+        if not file_bytes:
+            err_msg = "Empty file provided for extraction"
+            if trace:
+                stages.append({
+                    "stage": 1,
+                    "name": "visual_render_triage",
+                    "status": "failed",
+                    "details": {"error": err_msg}
+                })
+            raise ExtractionError(
+                message=err_msg,
+                trace={"engine": self.name, "stages": stages} if trace else None
+            )
+
         image_bytes_list: List[bytes] = []
         detected_format = "unknown"
 
-        if is_pdf(content_type, filename):
-            detected_format = "pdf"
-            image_bytes_list = self._render_pdf_to_images(file_bytes)
-        elif is_image(content_type, filename):
-            detected_format = "image"
-            norm_bytes, _ = normalize_image_bytes(file_bytes)
-            image_bytes_list.append(norm_bytes)
-        else:
-            detected_format = "fallback_image"
-            try:
+        try:
+            if is_pdf(content_type, filename):
+                detected_format = "pdf"
+                image_bytes_list = self._render_pdf_to_images(file_bytes)
+            elif is_image(content_type, filename):
+                detected_format = "image"
                 norm_bytes, _ = normalize_image_bytes(file_bytes)
                 image_bytes_list.append(norm_bytes)
-            except Exception:
-                image_bytes_list.append(file_bytes)
+            else:
+                detected_format = "fallback_image"
+                try:
+                    norm_bytes, _ = normalize_image_bytes(file_bytes)
+                    image_bytes_list.append(norm_bytes)
+                except Exception:
+                    image_bytes_list.append(file_bytes)
 
-        if not image_bytes_list:
-            raise ValueError("Could not extract or render visual content from document")
+            if not image_bytes_list:
+                raise ValueError("Could not extract or render visual content from document")
+        except Exception as exc:
+            if trace:
+                stages.append({
+                    "stage": 1,
+                    "name": "visual_render_triage",
+                    "status": "failed",
+                    "details": {
+                        "filename": filename,
+                        "content_type": content_type,
+                        "detected_format": detected_format,
+                        "error": str(exc),
+                        "error_type": exc.__class__.__name__
+                    }
+                })
+            raise ExtractionError(
+                message=str(exc),
+                trace={"engine": self.name, "stages": stages} if trace else None
+            ) from exc
 
         if trace:
             stages.append({
                 "stage": 1,
                 "name": "visual_render_triage",
+                "status": "completed",
                 "details": {
                     "filename": filename,
                     "content_type": content_type,
@@ -111,6 +143,7 @@ class VisualModelEngine(BaseExtractionEngine):
             stages.append({
                 "stage": 2,
                 "name": "multimodal_prompt_construction",
+                "status": "completed",
                 "details": {
                     "system_prompt": system_prompt,
                     "user_prompt": user_prompt,
@@ -119,17 +152,36 @@ class VisualModelEngine(BaseExtractionEngine):
                 }
             })
 
-        raw_json_dict = await self.llm_provider.generate_structured(
-            prompt=user_prompt,
-            json_schema=json_schema,
-            system_prompt=system_prompt,
-            images=base64_images
-        )
+        try:
+            raw_json_dict = await self.llm_provider.generate_structured(
+                prompt=user_prompt,
+                json_schema=json_schema,
+                system_prompt=system_prompt,
+                images=base64_images
+            )
+        except Exception as exc:
+            if trace:
+                stages.append({
+                    "stage": 3,
+                    "name": "vision_llm_structured_output",
+                    "status": "failed",
+                    "details": {
+                        "provider": getattr(self.llm_provider, "name", "ollama"),
+                        "model": getattr(self.llm_provider, "model", "unknown"),
+                        "error": str(exc),
+                        "error_type": exc.__class__.__name__
+                    }
+                })
+            raise ExtractionError(
+                message=str(exc),
+                trace={"engine": self.name, "stages": stages} if trace else None
+            ) from exc
 
         if trace:
             stages.append({
                 "stage": 3,
                 "name": "vision_llm_structured_output",
+                "status": "completed",
                 "details": {
                     "provider": getattr(self.llm_provider, "name", "ollama"),
                     "model": getattr(self.llm_provider, "model", "unknown"),
@@ -138,13 +190,33 @@ class VisualModelEngine(BaseExtractionEngine):
             })
 
         # Validate through domain schema class
-        validated_model = document.validate_payload(raw_json_dict)
-        final_data = validated_model.model_dump()
+        try:
+            validated_model = document.validate_payload(raw_json_dict)
+            final_data = validated_model.model_dump()
+        except Exception as exc:
+            if trace:
+                stages.append({
+                    "stage": 4,
+                    "name": "schema_validation",
+                    "status": "failed",
+                    "details": {
+                        "schema_class": document.schema_class.__name__,
+                        "error": str(exc),
+                        "error_type": exc.__class__.__name__,
+                        "raw_input": raw_json_dict
+                    }
+                })
+            raise ExtractionError(
+                message=str(exc),
+                trace={"engine": self.name, "stages": stages} if trace else None,
+                raw_data=raw_json_dict if isinstance(raw_json_dict, dict) else None
+            ) from exc
 
         if trace:
             stages.append({
                 "stage": 4,
                 "name": "schema_validation",
+                "status": "completed",
                 "details": {
                     "schema_class": document.schema_class.__name__,
                     "validated_fields": list(final_data.keys()),
