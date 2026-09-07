@@ -129,10 +129,10 @@ class OcrHybridEngine(BaseExtractionEngine):
             return "\n".join(item[1] for item in result if len(item) > 1 and item[1]).strip()
 
     async def _run_vision_ocr(self, image_bytes: bytes) -> str:
-        """Executes Vision Model to transcribe visible text from preprocessed image bytes."""
+        """Executes Visual / Vision Model to transcribe visible text from preprocessed image bytes."""
         if not self.vision_provider:
             raise RuntimeError(
-                "vision_provider is required for OcrHybridEngine when ocr_engine is 'vision_model'"
+                "vision_provider is required for OcrHybridEngine when ocr_engine is 'visual_model' (or 'vision_model')"
             )
         b64_img = base64.b64encode(image_bytes).decode("utf-8")
         system_prompt = (

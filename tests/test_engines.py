@@ -21,6 +21,21 @@ def test_factory_creates_ocr_hybrid_with_rapidocr():
     assert engine.ocr_engine_type == "rapidocr"
 
 
+def test_factory_creates_ocr_hybrid_with_visual_model():
+    settings = Settings(
+        engine_backend="ocr_hybrid",
+        ocr_engine="visual_model",
+        ollama_model="qwen2.5:3b",
+        ollama_vision_model="llama3.2-vision",
+    )
+    engine = create_engine(settings)
+    assert isinstance(engine, OcrHybridEngine)
+    assert engine.ocr_engine_type == "visual_model"
+    assert engine.vision_provider is not None
+    assert engine.vision_provider.model == "llama3.2-vision"
+    assert engine.llm_provider.model == "qwen2.5:3b"
+
+
 def test_factory_creates_ocr_hybrid_with_vision_model():
     settings = Settings(
         engine_backend="ocr_hybrid",
