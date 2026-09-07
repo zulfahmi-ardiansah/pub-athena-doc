@@ -48,6 +48,13 @@ def create_engine(settings: Settings) -> BaseExtractionEngine:
         )
         return VisualModelEngine(
             llm_provider=ollama_provider,
+            preprocess=settings.ocr_preprocess,
+            deskew=settings.ocr_deskew,
+            enhance_contrast=settings.ocr_enhance_contrast,
+            threshold_mode=settings.ocr_threshold_mode,
+            gamma=settings.ocr_enhance_gamma,
+            white_cutoff=settings.ocr_enhance_white_cutoff,
+            black_level=settings.ocr_enhance_black_level,
         )
 
     elif backend == "cloud_google":

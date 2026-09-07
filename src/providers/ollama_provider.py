@@ -77,7 +77,8 @@ class OllamaProvider(BaseLLMProvider):
             "options": {
                 "temperature": 0.0,
                 "top_p": 0.1,
-                "seed": 42
+                "seed": 42,
+                "num_ctx": 4096
             }
         }
         if images:

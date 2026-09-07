@@ -64,9 +64,17 @@ def test_factory_creates_visual_model():
     settings = Settings(
         engine_backend="visual_model",
         ollama_vision_model="llama3.2-vision",
+        ocr_preprocess=True,
+        ocr_deskew=True,
+        ocr_enhance_contrast=True,
+        ocr_threshold_mode="none",
     )
     engine = create_engine(settings)
     assert isinstance(engine, VisualModelEngine)
+    assert engine.preprocess is True
+    assert engine.deskew is True
+    assert engine.enhance_contrast is True
+    assert engine.threshold_mode == "none"
 
 
 def test_ocr_hybrid_engine_tesseract_handles_dict(monkeypatch):
@@ -257,6 +265,45 @@ async def test_visual_model_engine_extract_image():
     kwargs = mock_provider.generate_structured.call_args[1]
     assert "images" in kwargs
     assert len(kwargs["images"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_visual_model_engine_preprocessing_in_trace():
+    img = Image.new("RGB", (20, 20), color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    dummy_img_bytes = buf.getvalue()
+
+    mock_provider = AsyncMock()
+    mock_provider.generate_structured = AsyncMock(return_value={
+        "id_number": "3171012345678901",
+        "full_name": "PREPROCESS TEST",
+    })
+
+    engine = VisualModelEngine(
+        llm_provider=mock_provider,
+        preprocess=True,
+        deskew=True,
+        enhance_contrast=True,
+    )
+    doc = IdentityCardDocument()
+
+    result = await engine.extract(
+        file_bytes=dummy_img_bytes,
+        filename="sample.png",
+        content_type="image/png",
+        document=doc,
+        trace=True
+    )
+
+    assert result.trace is not None
+    stage1 = result.trace["stages"][0]
+    assert stage1["name"] == "visual_render_triage"
+    assert stage1["details"]["preprocessing_enabled"] is True
+    assert len(stage1["details"]["pages"]) == 1
+    page_prep = stage1["details"]["pages"][0]["preprocessing"]
+    assert "images" in page_prep
+    assert "preprocessed" in page_prep["images"]
 
 
 @pytest.mark.asyncio

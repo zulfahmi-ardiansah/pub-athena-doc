@@ -1,12 +1,16 @@
 import base64
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import fitz  # PyMuPDF
 from src.domain.base import BaseDocument
 from src.engines.base import BaseExtractionEngine, ExtractionResult, ExtractionError
 from src.providers.base import BaseLLMProvider
 from src.utility.pdf_utils import is_pdf
-from src.utility.image_utils import is_image, normalize_image_bytes
+from src.utility.image_utils import (
+    is_image,
+    normalize_image_bytes,
+    preprocess_image_bytes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +19,9 @@ class VisualModelEngine(BaseExtractionEngine):
     """
     Pure Visual Model extraction engine:
     1. Multi-page PDF to rendered high-res image pages / Image normalization.
-    2. Sends document image bytes directly to Ollama vision models (e.g. llama3.2-vision, qwen2.5-vl, minicpm-v).
-    3. Structured JSON extraction constrained by JSON Schema natively on Ollama.
+    2. Image preprocessing: deskewing, background whitening/contrast enhancement, thresholding.
+    3. Sends document image bytes directly to Ollama vision models (e.g. llama3.2-vision, qwen2.5-vl, minicpm-v, deepseek-vl).
+    4. Structured JSON extraction constrained by JSON Schema natively on Ollama.
     """
 
     name = "visual_model"
@@ -24,10 +29,24 @@ class VisualModelEngine(BaseExtractionEngine):
     def __init__(
         self,
         llm_provider: BaseLLMProvider,
-        render_dpi: int = 150
+        render_dpi: int = 150,
+        preprocess: bool = True,
+        deskew: bool = True,
+        enhance_contrast: bool = True,
+        threshold_mode: Optional[str] = "none",
+        gamma: float = 1.15,
+        white_cutoff: int = 230,
+        black_level: int = 25
     ) -> None:
         self.llm_provider = llm_provider
         self.render_dpi = render_dpi
+        self.preprocess = preprocess
+        self.deskew = deskew
+        self.enhance_contrast = enhance_contrast
+        self.threshold_mode = threshold_mode or "none"
+        self.gamma = gamma
+        self.white_cutoff = white_cutoff
+        self.black_level = black_level
 
     async def warmup(self) -> None:
         """Preloads Vision LLM model into memory."""
@@ -47,6 +66,20 @@ class VisualModelEngine(BaseExtractionEngine):
         finally:
             doc.close()
         return image_list
+
+    def _preprocess_image(self, image_bytes: bytes) -> Tuple[bytes, Dict[str, Any]]:
+        """Applies configured image preprocessing pipeline (deskew, contrast, thresholding)."""
+        if not self.preprocess:
+            return image_bytes, {"preprocessing_enabled": False}
+        return preprocess_image_bytes(
+            image_bytes=image_bytes,
+            deskew=self.deskew,
+            enhance_contrast_enabled=self.enhance_contrast,
+            threshold_mode=self.threshold_mode,
+            gamma=self.gamma,
+            white_cutoff=self.white_cutoff,
+            black_level=self.black_level
+        )
 
     async def extract(
         self,
@@ -74,22 +107,51 @@ class VisualModelEngine(BaseExtractionEngine):
 
         image_bytes_list: List[bytes] = []
         detected_format = "unknown"
+        pages_summary: List[Dict[str, Any]] = []
 
         try:
             if is_pdf(content_type, filename):
                 detected_format = "pdf"
-                image_bytes_list = self._render_pdf_to_images(file_bytes)
+                raw_rendered_images = self._render_pdf_to_images(file_bytes)
+                for idx, page_raw_bytes in enumerate(raw_rendered_images, start=1):
+                    processed_bytes, prep_meta = self._preprocess_image(page_raw_bytes)
+                    image_bytes_list.append(processed_bytes)
+                    pages_summary.append({
+                        "page": idx,
+                        "type": "pdf_rendered_page",
+                        "render_dpi": self.render_dpi,
+                        "preprocessing": prep_meta
+                    })
             elif is_image(content_type, filename):
                 detected_format = "image"
-                norm_bytes, _ = normalize_image_bytes(file_bytes)
-                image_bytes_list.append(norm_bytes)
+                norm_bytes, dims = normalize_image_bytes(file_bytes)
+                processed_bytes, prep_meta = self._preprocess_image(norm_bytes)
+                image_bytes_list.append(processed_bytes)
+                pages_summary.append({
+                    "page": 1,
+                    "type": "image_page",
+                    "dimensions": dims,
+                    "preprocessing": prep_meta
+                })
             else:
                 detected_format = "fallback_image"
                 try:
-                    norm_bytes, _ = normalize_image_bytes(file_bytes)
-                    image_bytes_list.append(norm_bytes)
+                    norm_bytes, dims = normalize_image_bytes(file_bytes)
+                    processed_bytes, prep_meta = self._preprocess_image(norm_bytes)
+                    image_bytes_list.append(processed_bytes)
+                    pages_summary.append({
+                        "page": 1,
+                        "type": "fallback_image_page",
+                        "dimensions": dims,
+                        "preprocessing": prep_meta
+                    })
                 except Exception:
                     image_bytes_list.append(file_bytes)
+                    pages_summary.append({
+                        "page": 1,
+                        "type": "raw_image_fallback",
+                        "preprocessing": {"preprocessing_enabled": False}
+                    })
 
             if not image_bytes_list:
                 raise ValueError("Could not extract or render visual content from document")
@@ -122,7 +184,9 @@ class VisualModelEngine(BaseExtractionEngine):
                     "content_type": content_type,
                     "detected_format": detected_format,
                     "rendered_pages_count": len(image_bytes_list),
-                    "render_dpi": self.render_dpi
+                    "render_dpi": self.render_dpi,
+                    "preprocessing_enabled": self.preprocess,
+                    "pages": pages_summary
                 }
             })
 
@@ -133,11 +197,13 @@ class VisualModelEngine(BaseExtractionEngine):
         ]
 
         system_prompt = document.build_system_prompt()
-        user_prompt = (
-            f"Analyze the attached document image(s) for '{document.name}' ({document.description}) "
-            "and extract all relevant structured fields into the JSON schema."
-        )
         json_schema = document.get_json_schema()
+        fields_list = ", ".join(json_schema.get("properties", {}).keys())
+        user_prompt = (
+            f"Carefully examine the attached {document.name} ({document.description}) image.\n"
+            f"Extract every printed field into the JSON object: {fields_list}.\n"
+            f"Follow all extraction and disambiguation rules defined in the system prompt."
+        )
 
         if trace:
             stages.append({
