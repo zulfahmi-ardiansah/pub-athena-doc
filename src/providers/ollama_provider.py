@@ -101,6 +101,40 @@ class OllamaProvider(BaseLLMProvider):
             logger.error(f"Failed to parse Ollama output as JSON: {raw_response_text}")
             raise ValueError(f"Ollama produced invalid JSON: {raw_response_text}") from err
 
+    async def generate_text(
+        self,
+        prompt: str,
+        system_prompt: str = "",
+        images: Optional[List[str]] = None,
+    ) -> str:
+        url = f"{self.base_url}/api/generate"
+        payload: Dict[str, Any] = {
+            "model": self.model,
+            "prompt": prompt,
+            "system": system_prompt,
+            "stream": False,
+            "keep_alive": self.keep_alive,
+            "options": {
+                "temperature": 0.0,
+                "top_p": 0.1,
+                "seed": 42,
+                "num_ctx": 4096
+            }
+        }
+        if images:
+            payload["images"] = images
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            try:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+            except httpx.HTTPError as err:
+                logger.error(f"Ollama request error: {err}")
+                raise RuntimeError(f"Ollama text generation failed: {err}") from err
+
+        result_json = response.json()
+        return result_json.get("response", "").strip()
+
     @staticmethod
     def _parse_json_payload(text: str) -> Dict[str, Any]:
         """

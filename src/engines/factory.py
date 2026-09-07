@@ -14,9 +14,10 @@ def create_engine(settings: Settings) -> BaseExtractionEngine:
     backend = settings.engine_backend.lower()
 
     if backend in ("ocr_hybrid", "local_cpu"):
+        ocr_engine_type = (settings.ocr_engine or "rapidocr").lower()
         logger.info(
             f"Initializing OcrHybridEngine with Ollama ({settings.ollama_model}) "
-            f"and OCR ({settings.ocr_engine})..."
+            f"and OCR ({ocr_engine_type})..."
         )
         ollama_provider = OllamaProvider(
             base_url=settings.ollama_base_url,
@@ -24,8 +25,19 @@ def create_engine(settings: Settings) -> BaseExtractionEngine:
             timeout_seconds=settings.ollama_timeout_seconds,
             keep_alive=settings.ollama_keep_alive,
         )
+        vision_provider = None
+        if ocr_engine_type in ("vision_model", "visual_model", "vision"):
+            vision_model_name = settings.ollama_vision_model or settings.ollama_model
+            logger.info(f"Configuring Ollama Vision provider ({vision_model_name}) as OCR engine...")
+            vision_provider = OllamaProvider(
+                base_url=settings.ollama_base_url,
+                model=vision_model_name,
+                timeout_seconds=settings.ollama_timeout_seconds,
+                keep_alive=settings.ollama_keep_alive,
+            )
         return OcrHybridEngine(
             llm_provider=ollama_provider,
+            vision_provider=vision_provider,
             ocr_engine_type=settings.ocr_engine,
             tesseract_cmd=settings.tesseract_cmd or None,
             preprocess=settings.ocr_preprocess,

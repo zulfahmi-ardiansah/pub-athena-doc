@@ -1,3 +1,4 @@
+import base64
 import io
 import logging
 from typing import Any, Dict, List, Optional, Tuple
@@ -16,7 +17,7 @@ class OcrHybridEngine(BaseExtractionEngine):
     OCR Hybrid extraction engine:
     1. Multi-page PDF / Image triage.
     2. Image preprocessing: deskewing, CLAHE contrast enhancement, thresholding.
-    3. Digital PDF text extraction (PyMuPDF) or OCR (RapidOCR ONNX / Tesseract).
+    3. Digital PDF text extraction (PyMuPDF) or OCR (RapidOCR ONNX / Tesseract / Vision Model).
     4. Structured JSON extraction via local LLM provider (Ollama Qwen 2.5).
     """
 
@@ -25,6 +26,7 @@ class OcrHybridEngine(BaseExtractionEngine):
     def __init__(
         self,
         llm_provider: BaseLLMProvider,
+        vision_provider: Optional[BaseLLMProvider] = None,
         ocr_engine_type: str = "rapidocr",
         tesseract_cmd: Optional[str] = None,
         preprocess: bool = True,
@@ -36,6 +38,7 @@ class OcrHybridEngine(BaseExtractionEngine):
         black_level: int = 25
     ) -> None:
         self.llm_provider = llm_provider
+        self.vision_provider = vision_provider
         self.ocr_engine_type = (ocr_engine_type or "rapidocr").lower()
         self.tesseract_cmd = tesseract_cmd
         self.preprocess = preprocess
@@ -55,9 +58,12 @@ class OcrHybridEngine(BaseExtractionEngine):
                 pass
 
     async def warmup(self) -> None:
-        """Preloads LLM model into memory."""
+        """Preloads LLM model(s) into memory."""
         if hasattr(self.llm_provider, "preload"):
             await self.llm_provider.preload()
+        if self.ocr_engine_type in ("vision_model", "visual_model", "vision") and self.vision_provider:
+            if hasattr(self.vision_provider, "preload"):
+                await self.vision_provider.preload()
 
     def _get_rapid_ocr(self):
         """Lazy-load RapidOCR ONNX instance."""
@@ -122,6 +128,31 @@ class OcrHybridEngine(BaseExtractionEngine):
                 return ""
             return "\n".join(item[1] for item in result if len(item) > 1 and item[1]).strip()
 
+    async def _run_vision_ocr(self, image_bytes: bytes) -> str:
+        """Executes Vision Model to transcribe visible text from preprocessed image bytes."""
+        if not self.vision_provider:
+            raise RuntimeError(
+                "vision_provider is required for OcrHybridEngine when ocr_engine is 'vision_model'"
+            )
+        b64_img = base64.b64encode(image_bytes).decode("utf-8")
+        system_prompt = (
+            "You are an expert optical character recognition (OCR) engine. "
+            "Transcribe all printed and handwritten text from the image accurately and verbatim, "
+            "preserving line breaks and reading order. Do not format as JSON or provide conversational markdown."
+        )
+        user_prompt = "Transcribe all visible text from this image exactly as printed."
+        return await self.vision_provider.generate_text(
+            prompt=user_prompt,
+            system_prompt=system_prompt,
+            images=[b64_img]
+        )
+
+    async def _extract_ocr_text(self, image_bytes: bytes) -> str:
+        """Runs the appropriate OCR pipeline (Vision Model, Tesseract, or RapidOCR) on preprocessed image bytes."""
+        if self.ocr_engine_type in ("vision_model", "visual_model", "vision"):
+            return await self._run_vision_ocr(image_bytes)
+        return self._run_ocr_on_bytes(image_bytes, apply_preprocessing=False)
+
     async def extract(
         self,
         file_bytes: bytes,
@@ -151,7 +182,7 @@ class OcrHybridEngine(BaseExtractionEngine):
                         aggregated_text_blocks.append(f"--- Page {page_num} ---\n{digital_text}")
                     elif rendered_png:
                         processed_bytes, prep_meta = self._preprocess_image(rendered_png)
-                        ocr_text = self._run_ocr_on_bytes(processed_bytes, apply_preprocessing=False)
+                        ocr_text = await self._extract_ocr_text(processed_bytes)
                         pages_summary.append({
                             "page": page_num,
                             "type": f"scanned_image_ocr ({self.ocr_engine_type})",
@@ -163,7 +194,7 @@ class OcrHybridEngine(BaseExtractionEngine):
                 detected_format = "image"
                 normalized_bytes, dims = normalize_image_bytes(file_bytes)
                 processed_bytes, prep_meta = self._preprocess_image(normalized_bytes)
-                ocr_text = self._run_ocr_on_bytes(processed_bytes, apply_preprocessing=False)
+                ocr_text = await self._extract_ocr_text(processed_bytes)
                 aggregated_text_blocks.append(ocr_text)
                 pages_summary.append({
                     "page": 1,
@@ -177,7 +208,7 @@ class OcrHybridEngine(BaseExtractionEngine):
                 try:
                     normalized_bytes, dims = normalize_image_bytes(file_bytes)
                     processed_bytes, prep_meta = self._preprocess_image(normalized_bytes)
-                    ocr_text = self._run_ocr_on_bytes(processed_bytes, apply_preprocessing=False)
+                    ocr_text = await self._extract_ocr_text(processed_bytes)
                     aggregated_text_blocks.append(ocr_text)
                     pages_summary.append({
                         "page": 1,

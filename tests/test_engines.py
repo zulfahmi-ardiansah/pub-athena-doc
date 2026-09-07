@@ -21,6 +21,21 @@ def test_factory_creates_ocr_hybrid_with_rapidocr():
     assert engine.ocr_engine_type == "rapidocr"
 
 
+def test_factory_creates_ocr_hybrid_with_vision_model():
+    settings = Settings(
+        engine_backend="ocr_hybrid",
+        ocr_engine="vision_model",
+        ollama_model="qwen2.5:3b",
+        ollama_vision_model="llama3.2-vision",
+    )
+    engine = create_engine(settings)
+    assert isinstance(engine, OcrHybridEngine)
+    assert engine.ocr_engine_type == "vision_model"
+    assert engine.vision_provider is not None
+    assert engine.vision_provider.model == "llama3.2-vision"
+    assert engine.llm_provider.model == "qwen2.5:3b"
+
+
 def test_factory_creates_ocr_hybrid_with_tesseract():
     settings = Settings(
         engine_backend="ocr_hybrid",
@@ -487,4 +502,126 @@ async def test_visual_model_engine_extract_failure_preserves_trace():
     failed_stage = next(s for s in stages if s["name"] == "vision_llm_structured_output")
     assert failed_stage["status"] == "failed"
     assert "Ollama produced invalid JSON" in failed_stage["details"]["error"]
+
+
+@pytest.mark.asyncio
+async def test_ocr_hybrid_engine_with_vision_model_ocr():
+    img = Image.new("RGB", (30, 30), color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    dummy_img_bytes = buf.getvalue()
+
+    mock_vision_provider = AsyncMock()
+    mock_vision_provider.generate_text = AsyncMock(
+        return_value="NIK: 3171012345678901\nNama: BUDI SANTOSO\nAlamat: JL. SUDIRMAN"
+    )
+
+    mock_llm_provider = AsyncMock()
+    mock_llm_provider.name = "ollama"
+    mock_llm_provider.model = "qwen2.5:3b"
+    mock_llm_provider.generate_structured = AsyncMock(return_value={
+        "id_number": "3171012345678901",
+        "full_name": "BUDI SANTOSO",
+        "address": "JL. SUDIRMAN"
+    })
+
+    engine = OcrHybridEngine(
+        llm_provider=mock_llm_provider,
+        vision_provider=mock_vision_provider,
+        ocr_engine_type="vision_model",
+        preprocess=True,
+        deskew=True,
+        enhance_contrast=True,
+    )
+    doc = IdentityCardDocument()
+
+    result = await engine.extract(
+        file_bytes=dummy_img_bytes,
+        filename="ktp_scan.png",
+        content_type="image/png",
+        document=doc,
+        trace=True
+    )
+
+    assert result.data["id_number"] == "3171012345678901"
+    assert result.data["full_name"] == "BUDI SANTOSO"
+    mock_vision_provider.generate_text.assert_awaited_once()
+    mock_llm_provider.generate_structured.assert_awaited_once()
+
+    # Check trace contains vision_model as OCR engine
+    assert result.trace is not None
+    stage2 = next(s for s in result.trace["stages"] if s["name"] == "raw_text_extraction")
+    assert stage2["details"]["ocr_engine"] == "vision_model"
+    assert "NIK: 3171012345678901" in stage2["details"]["extracted_text"]
+
+
+@pytest.mark.asyncio
+async def test_ocr_hybrid_engine_vision_model_missing_provider_raises():
+    img = Image.new("RGB", (20, 20), color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    dummy_img_bytes = buf.getvalue()
+
+    engine = OcrHybridEngine(
+        llm_provider=AsyncMock(),
+        vision_provider=None,
+        ocr_engine_type="vision_model",
+    )
+    doc = IdentityCardDocument()
+
+    with pytest.raises(ExtractionError) as exc_info:
+        await engine.extract(
+            file_bytes=dummy_img_bytes,
+            filename="test.png",
+            content_type="image/png",
+            document=doc,
+            trace=False
+        )
+    assert "vision_provider is required" in exc_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_ocr_hybrid_engine_vision_model_warmup():
+    mock_llm = AsyncMock()
+    mock_llm.preload = AsyncMock(return_value=True)
+
+    mock_vision = AsyncMock()
+    mock_vision.preload = AsyncMock(return_value=True)
+
+    engine = OcrHybridEngine(
+        llm_provider=mock_llm,
+        vision_provider=mock_vision,
+        ocr_engine_type="vision_model"
+    )
+
+    await engine.warmup()
+    mock_llm.preload.assert_awaited_once()
+    mock_vision.preload.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_ollama_provider_generate_text(monkeypatch):
+    provider = OllamaProvider(base_url="http://localhost:11434", model="llama3.2-vision")
+
+    mock_client = AsyncMock()
+    mock_response = MagicMock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {"response": "NIK : 3171012345678901\nNama : JOKO"}
+    mock_client.post.return_value = mock_response
+
+    class MockAsyncClientContext:
+        async def __aenter__(self):
+            return mock_client
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr("httpx.AsyncClient", lambda **kwargs: MockAsyncClientContext())
+
+    res = await provider.generate_text(
+        prompt="Transcribe this image",
+        system_prompt="OCR system",
+        images=["dummy_b64"]
+    )
+    assert res == "NIK : 3171012345678901\nNama : JOKO"
+
 

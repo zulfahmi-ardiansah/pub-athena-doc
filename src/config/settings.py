@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     # Engine backend selection: "ocr_hybrid" | "visual_model" | "local_cpu" | "cloud_google"
     engine_backend: Literal["ocr_hybrid", "visual_model", "local_cpu", "cloud_google"] = "ocr_hybrid"
 
-    # OCR Engine for OCR Hybrid: "rapidocr" | "tesseract"
-    ocr_engine: Literal["rapidocr", "tesseract"] = "rapidocr"
+    # OCR Engine for OCR Hybrid: "rapidocr" | "tesseract" | "vision_model" | "visual_model"
+    ocr_engine: Literal["rapidocr", "tesseract", "vision_model", "visual_model"] = "rapidocr"
     tesseract_cmd: str = ""
 
     # OCR Image Preprocessing settings

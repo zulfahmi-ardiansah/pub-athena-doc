@@ -20,6 +20,17 @@ class BaseLLMProvider(ABC):
         """
         pass
 
+    async def generate_text(
+        self,
+        prompt: str,
+        system_prompt: str = "",
+        images: Optional[List[str]] = None,
+    ) -> str:
+        """
+        Executes unconstrained text generation (e.g. for vision OCR transcription).
+        """
+        raise NotImplementedError("generate_text is not implemented for this provider.")
+
     async def preload(self) -> bool:
         """Optional preload / warmup step for the LLM provider."""
         return True
