@@ -114,7 +114,7 @@
                 </span>
                 <div class="min-w-0">
                   <p id="file-name" class="truncate text-sm font-medium text-gray-900 dark:text-white">document.pdf</p>
-                  <p id="file-meta" class="text-xs text-gray-500 dark:text-gray-400">—</p>
+                  <p id="file-meta" class="text-xs text-gray-500 dark:text-gray-400">-</p>
                 </div>
               </div>
               <div class="flex shrink-0 items-center gap-1">
@@ -155,7 +155,7 @@
           </div>
         </div>
 
-        <p class="mt-3 px-1 text-xs text-gray-500 dark:text-gray-400">Connected engine: <span id="engine-desc" class="font-medium text-gray-700 dark:text-gray-300">—</span></p>
+        <p class="mt-3 px-1 text-xs text-gray-500 dark:text-gray-400">Connected engine: <span id="engine-desc" class="font-medium text-gray-700 dark:text-gray-300">-</span></p>
       </section>
 
       <!-- ── Right Panel: Results & Trace ──────────────────────────────── -->
@@ -175,7 +175,7 @@
             <div class="min-w-0 max-w-[160px] sm:max-w-xs">
               <p class="text-xs text-gray-500 dark:text-gray-400">Request ID</p>
               <div class="mt-1 flex items-center gap-1.5">
-                <code id="request-id" class="truncate font-mono text-xs text-gray-900 dark:text-gray-100" title="">—</code>
+                <code id="request-id" class="truncate font-mono text-xs text-gray-900 dark:text-gray-100" title="">-</code>
                 <button id="copy-id" type="button" disabled class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-200 disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700">
                   <span class="sr-only">Copy request ID</span>
                   <svg class="h-4 w-4" fill="none" viewBox="0 0 18 20" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9V4.13a2.96 2.96 0 0 0-1.293.749L.879 7.707A2.96 2.96 0 0 0 .13 9H5Zm0 2H0v6a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-1H5a2 2 0 0 1-2-2v-3Zm11-8h-5v4a2 2 0 0 1-2 2H5v3a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1Z"/></svg>
@@ -185,12 +185,12 @@
 
             <div>
               <p class="text-xs text-gray-500 dark:text-gray-400">Latency</p>
-              <p class="mt-1 font-mono text-sm text-gray-900 dark:text-gray-100"><span id="latency">—</span></p>
+              <p class="mt-1 font-mono text-sm text-gray-900 dark:text-gray-100"><span id="latency">-</span></p>
             </div>
 
             <div>
               <p class="text-xs text-gray-500 dark:text-gray-400">Pages</p>
-              <p class="mt-1 font-mono text-sm text-gray-900 dark:text-gray-100"><span id="pages">—</span></p>
+              <p class="mt-1 font-mono text-sm text-gray-900 dark:text-gray-100"><span id="pages">-</span></p>
             </div>
 
             <div class="ms-auto flex items-center gap-2">
@@ -250,7 +250,7 @@
                 <div class="mb-5 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                   <span>Pipeline <span id="trace-pipeline-name" class="font-mono text-gray-700 dark:text-gray-300">extract-v1</span></span>
                   <span aria-hidden="true">·</span>
-                  <span>Slowest step <span id="trace-slowest" class="font-medium text-gray-700 dark:text-gray-300">—</span></span>
+                  <span>Slowest step <span id="trace-slowest" class="font-medium text-gray-700 dark:text-gray-300">-</span></span>
                 </div>
                 <ol id="trace-list" class="relative ms-3 border-s border-gray-200 dark:border-gray-700"></ol>
               </div>
@@ -307,13 +307,13 @@
           <canvas id="crop-canvas" class="block rounded shadow-sm"></canvas>
         </div>
         <p class="mx-auto mt-3 max-w-lg text-center text-xs text-gray-500 dark:text-gray-400">
-          Corners can be nudged with arrow keys when focused — hold Shift for larger steps.
+          Corners can be nudged with arrow keys when focused (hold Shift for larger steps).
         </p>
       </div>
 
       <!-- Footer -->
       <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-5 py-4 dark:border-gray-700">
-        <p class="text-sm text-gray-500 dark:text-gray-400">Output <span id="crop-size" class="font-mono text-gray-700 dark:text-gray-300">—</span></p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Output <span id="crop-size" class="font-mono text-gray-700 dark:text-gray-300">-</span></p>
         <div class="flex items-center gap-2">
           <button id="crop-skip" type="button" class="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-gray-700">Use full image</button>
           <button id="crop-apply" type="button" class="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Apply crop</button>

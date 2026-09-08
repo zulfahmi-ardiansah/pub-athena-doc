@@ -150,7 +150,7 @@
   }
 
   function formatShortId(idStr) {
-    if (!idStr || idStr === '—') return '—';
+    if (!idStr || idStr === '-') return '-';
     if (typeof idStr === 'string' && idStr.includes('-')) {
       const parts = idStr.split('-');
       return parts[parts.length - 1];
@@ -195,7 +195,7 @@
   }
 
   function chipMeta() {
-    if (!selectedFile) return '—';
+    if (!selectedFile) return '-';
     const isPdf = selectedFile.type === 'application/pdf';
     const base = `${formatBytes(selectedFile.size)} · ${isPdf ? 'PDF' : selectedFile.type.replace('image/', '').toUpperCase()}`;
     const applied = window.AthenaCropper ? window.AthenaCropper.applied : null;
@@ -372,7 +372,7 @@
               <span class="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400">${escapeHtml(stageNote)}</span>
             </span>
             <span class="flex shrink-0 items-center gap-3">
-              <span class="font-mono text-xs text-gray-500 dark:text-gray-400">${duration ? `${duration.toFixed(0)} ms` : '—'}</span>
+              <span class="font-mono text-xs text-gray-500 dark:text-gray-400">${duration ? `${duration.toFixed(0)} ms` : '-'}</span>
               <svg class="h-3 w-3 text-gray-400 transition-transform" fill="none" viewBox="0 0 10 6"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4"/></svg>
             </span>
           </button>
@@ -399,7 +399,7 @@
     } else if (slowestStage && slowestStage.name) {
       $('trace-slowest').textContent = toTitleCase(slowestStage.name);
     } else {
-      $('trace-slowest').textContent = '—';
+      $('trace-slowest').textContent = '-';
     }
   }
 
@@ -473,9 +473,9 @@
       $('latency').textContent = `${totalMs} ms`;
 
       const payload = result.data || {};
-      currentReqId = payload.request_id || '—';
+      currentReqId = payload.request_id || '-';
       $('request-id').textContent = formatShortId(currentReqId);
-      $('request-id').title = currentReqId !== '—' ? `Full Request ID: ${currentReqId}` : '';
+      $('request-id').title = currentReqId !== '-' ? `Full Request ID: ${currentReqId}` : '';
 
       currentJson = payload.data || payload;
 
@@ -600,7 +600,7 @@
     });
 
     $('copy-id').addEventListener('click', () => {
-      if (currentReqId && currentReqId !== '—') {
+      if (currentReqId && currentReqId !== '-') {
         copyToClipboard(currentReqId, 'Request ID copied');
       }
     });
@@ -625,16 +625,16 @@
       $('doc-file').value = '';
       $('file-chip').classList.replace('flex', 'hidden');
       showError('');
-      $('request-id').textContent = '—';
-      $('latency').textContent = '—';
-      $('pages').textContent = '—';
+      $('request-id').textContent = '-';
+      $('latency').textContent = '-';
+      $('pages').textContent = '-';
       $('json-output').classList.add('hidden');
       $('json-empty').classList.remove('hidden');
       $('trace-wrap').classList.add('hidden');
       $('trace-empty').classList.remove('hidden');
       $('trace-list').innerHTML = '';
       $('trace-count').classList.add('hidden');
-      if ($('trace-slowest')) $('trace-slowest').textContent = '—';
+      if ($('trace-slowest')) $('trace-slowest').textContent = '-';
       if ($('trace-total-stages')) $('trace-total-stages').textContent = 'Pipeline execution stages';
       $('copy-json').disabled = true;
       $('download-json').disabled = true;
