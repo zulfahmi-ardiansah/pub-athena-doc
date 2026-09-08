@@ -1,886 +1,341 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Athena Document Extractor - Live Demo</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg-base: #0a0d14;
-      --bg-surface: #111622;
-      --bg-surface-elevated: #182030;
-      --bg-card: rgba(24, 32, 48, 0.7);
-      --border-subtle: rgba(255, 255, 255, 0.08);
-      --border-focus: #3b82f6;
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --primary-glow: rgba(59, 130, 246, 0.25);
-      --accent: #10b981;
-      --accent-glow: rgba(16, 185, 129, 0.2);
-      --text-main: #f3f4f6;
-      --text-muted: #94a3b8;
-      --text-dim: #64748b;
-      --danger: #ef4444;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      background-color: var(--bg-base);
-      color: var(--text-main);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      background-image: 
-        radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
-        radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
-    }
-
-    /* Header */
-    header {
-      background: rgba(17, 22, 34, 0.8);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border-subtle);
-      padding: 1rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 50;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .brand-badge {
-      background: linear-gradient(135deg, #3b82f6, #6366f1);
-      color: white;
-      padding: 0.35rem 0.65rem;
-      border-radius: 8px;
-      font-weight: 800;
-      font-size: 0.85rem;
-      letter-spacing: 0.5px;
-    }
-
-    .brand h1 {
-      font-size: 1.15rem;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-    }
-
-    .status-pill {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      background: var(--bg-surface-elevated);
-      padding: 0.4rem 0.85rem;
-      border-radius: 9999px;
-      border: 1px solid var(--border-subtle);
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 8px var(--accent);
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(0.9); }
-    }
-
-    /* Main layout */
-    main {
-      flex: 1;
-      max-width: 1400px;
-      width: 100%;
-      margin: 0 auto;
-      padding: 2rem;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 2rem;
-    }
-
-    @media (max-width: 1024px) {
-      main {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    /* Glass card */
-    .glass-card {
-      background: var(--bg-card);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--border-subtle);
-      border-radius: 16px;
-      padding: 1.75rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    }
-
-    .card-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border-subtle);
-      padding-bottom: 0.75rem;
-    }
-
-    .card-title span {
-      color: var(--primary);
-    }
-
-    /* Form Controls */
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    label {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    select {
-      background: var(--bg-surface-elevated);
-      color: var(--text-main);
-      border: 1px solid var(--border-subtle);
-      border-radius: 10px;
-      padding: 0.75rem 1rem;
-      font-size: 0.95rem;
-      font-weight: 500;
-      outline: none;
-      transition: all 0.2s;
-    }
-
-    select:focus {
-      border-color: var(--border-focus);
-      box-shadow: 0 0 0 3px var(--primary-glow);
-    }
-
-    /* Trace Toggle */
-    .trace-toggle-box {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: var(--bg-surface-elevated);
-      padding: 0.75rem 1rem;
-      border-radius: 10px;
-      border: 1px solid var(--border-subtle);
-    }
-
-    .trace-label-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
-    }
-
-    .trace-label {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: var(--text-main);
-    }
-
-    .trace-desc {
-      font-size: 0.75rem;
-      color: var(--text-dim);
-    }
-
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 44px;
-      height: 24px;
-    }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #334155;
-      transition: .3s;
-      border-radius: 24px;
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .3s;
-      border-radius: 50%;
-    }
-
-    input:checked + .slider {
-      background-color: var(--primary);
-    }
-
-    input:checked + .slider:before {
-      transform: translateX(20px);
-    }
-
-    /* Dropzone */
-    .dropzone {
-      border: 2px dashed var(--border-subtle);
-      border-radius: 12px;
-      padding: 2.5rem 1.5rem;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.25s;
-      background: rgba(17, 22, 34, 0.4);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 0.75rem;
-      min-height: 200px;
-      position: relative;
-    }
-
-    .dropzone:hover, .dropzone.dragover {
-      border-color: var(--primary);
-      background: var(--primary-glow);
-    }
-
-    .dropzone-icon {
-      font-size: 2.5rem;
-      color: var(--primary);
-    }
-
-    .dropzone-text {
-      font-size: 0.95rem;
-      font-weight: 600;
-    }
-
-    .dropzone-subtext {
-      font-size: 0.8rem;
-      color: var(--text-dim);
-    }
-
-    .preview-container {
-      width: 100%;
-      max-height: 220px;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      border-radius: 8px;
-    }
-
-    .preview-img {
-      max-width: 100%;
-      max-height: 220px;
-      object-fit: contain;
-      border-radius: 8px;
-    }
-
-    .file-info {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      margin-top: 0.5rem;
-      display: none;
-    }
-
-    /* Actions & Sample buttons */
-    .action-row {
-      display: flex;
-      gap: 0.75rem;
-      align-items: center;
-    }
-
-    .btn {
-      padding: 0.8rem 1.4rem;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 0.95rem;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-      flex: 1;
-      box-shadow: 0 4px 14px var(--primary-glow);
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background: var(--primary-hover);
-      transform: translateY(-1px);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .btn-secondary {
-      background: var(--bg-surface-elevated);
-      color: var(--text-muted);
-      border: 1px solid var(--border-subtle);
-    }
-
-    .btn-secondary:hover {
-      color: var(--text-main);
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    /* Tabs */
-    .tab-bar {
-      display: flex;
-      gap: 0.5rem;
-      border-bottom: 1px solid var(--border-subtle);
-      padding-bottom: 0.75rem;
-    }
-
-    .tab-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      font-weight: 600;
-      font-size: 0.9rem;
-      padding: 0.4rem 0.8rem;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .tab-btn.active {
-      background: var(--bg-surface-elevated);
-      color: var(--primary);
-    }
-
-    /* Result Panel */
-    .meta-metrics {
-      display: flex;
-      gap: 0.75rem;
-      align-items: center;
-      margin-left: auto;
-    }
-
-    .meta-badge {
-      background: var(--bg-surface-elevated);
-      padding: 0.25rem 0.5rem;
-      border-radius: 6px;
-      border: 1px solid var(--border-subtle);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8rem;
-    }
-
-    .json-viewer {
-      background: #0d1117;
-      border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-      padding: 1.25rem;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-      color: #7ee787;
-      overflow-x: auto;
-      max-height: 520px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-word;
-      flex: 1;
-    }
-
-    /* Trace Timeline */
-    .trace-container {
-      display: none;
-      flex-direction: column;
-      gap: 1rem;
-      max-height: 520px;
-      overflow-y: auto;
-      padding-right: 0.5rem;
-    }
-
-    .stage-card {
-      background: #0d1117;
-      border: 1px solid var(--border-subtle);
-      border-radius: 10px;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
-
-    .stage-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .stage-title {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: #79c0ff;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .stage-num {
-      background: var(--primary);
-      color: white;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.75rem;
-    }
-
-    .stage-content {
-      background: rgba(0, 0, 0, 0.4);
-      border-radius: 6px;
-      padding: 0.75rem;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8rem;
-      color: #c9d1d9;
-      white-space: pre-wrap;
-      word-break: break-word;
-      max-height: 200px;
-      overflow-y: auto;
-    }
-
-    .placeholder-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      min-height: 300px;
-      color: var(--text-dim);
-      gap: 0.5rem;
-      text-align: center;
-    }
-
-    /* Spinner */
-    .spinner {
-      width: 18px;
-      height: 18px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      display: none;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  </style>
-</head>
-<body>
-
-  <header>
-    <div class="brand">
-      <div class="brand-badge">ATHENA</div>
-      <h1>Document Extractor</h1>
-    </div>
-    <div class="status-pill">
-      <div class="dot" id="statusDot"></div>
-      <span id="backendStatus">Connecting...</span>
-    </div>
-  </header>
-
-  <main>
-    <!-- Left: Input & Upload -->
-    <section class="glass-card">
-      <div class="card-title">
-        <span>1. Select & Upload</span>
-        <button id="sampleBtn" class="btn btn-secondary" style="font-size:0.8rem; padding:0.4rem 0.8rem;">
-          Generate Test Card
-        </button>
-      </div>
-
-      <div class="form-group">
-        <label for="docSelect">Document Type</label>
-        <select id="docSelect">
-          <option value="identity_card">Kartu Tanda Penduduk (KTP)</option>
-          <option value="tax_number">Nomor Pokok Wajib Pajak (NPWP)</option>
-        </select>
-      </div>
-
-      <div class="trace-toggle-box">
-        <div class="trace-label-group">
-          <span class="trace-label">Stage-by-Stage Trace Mode</span>
-          <span class="trace-desc">Inspect OCR text, prompts, & raw LLM evolution</span>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="traceCheckbox" checked>
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="form-group">
-        <label>Document File (PDF / Image)</label>
-        <div class="dropzone" id="dropzone">
-          <input type="file" id="fileInput" accept="image/*,application/pdf" style="display:none;">
-          <div id="dropzonePrompt">
-            <div class="dropzone-icon">📄</div>
-            <div class="dropzone-text">Click or Drag & Drop File Here</div>
-            <div class="dropzone-subtext">Supports Multi-page PDF, PNG, JPG, WebP</div>
-          </div>
-          <div class="preview-container" id="previewContainer">
-            <img id="imagePreview" class="preview-img" alt="Document Preview">
-          </div>
-        </div>
-        <div class="file-info" id="fileInfo"></div>
-      </div>
-
-      <div class="action-row">
-        <button class="btn btn-primary" id="extractBtn" disabled>
-          <span class="spinner" id="btnSpinner"></span>
-          <span id="btnText">Extract to Structured JSON</span>
-        </button>
-      </div>
-    </section>
-
-    <!-- Right: Extracted JSON Result & Trace Tabs -->
-    <section class="glass-card">
-      <div class="tab-bar">
-        <button class="tab-btn active" id="tabJsonBtn">Structured Output</button>
-        <button class="tab-btn" id="tabTraceBtn">Stage Evolution Trace</button>
-        <div class="meta-metrics" id="metaMetrics" style="display:none; align-items:center; gap:0.5rem;">
-          <span class="meta-badge" id="uuidBadge" style="display:none; font-family:monospace; font-size:0.75rem;" title="Request UUID"></span>
-          <span class="meta-badge" id="elapsedBadge">0.00s</span>
-          <button id="copyBtn" class="btn btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.6rem;">Copy JSON</button>
-        </div>
-      </div>
-
-      <div class="json-viewer" id="jsonViewer">
-        <div class="placeholder-state">
-          <div style="font-size:2rem; opacity:0.5;">⚡</div>
-          <div>Upload a document and click extract to see structured JSON output</div>
-        </div>
-      </div>
-
-      <div class="trace-container" id="traceContainer">
-        <div class="placeholder-state">
-          <div style="font-size:2rem; opacity:0.5;">🔍</div>
-          <div>Run an extraction with Trace Mode enabled to see stage-by-stage evolution</div>
-        </div>
-      </div>
-    </section>
-  </main>
-
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d4ed8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.8 13c0-3.6 2.4-6 4.1-6 1.2 0 1.9 1.2 2.1 2.4.2-1.2.9-2.4 2.1-2.4 1.7 0 4.1 2.4 4.1 6v1c0 3.4-2.7 6.1-6.2 6.1S5.8 17.4 5.8 14Z'/%3E%3Ccircle cx='9.7' cy='13.2' r='1.15' fill='%231d4ed8' stroke='none'/%3E%3Ccircle cx='14.3' cy='13.2' r='1.15' fill='%231d4ed8' stroke='none'/%3E%3Cpath d='M12 15l.9 1.5h-1.8Z' fill='%231d4ed8' stroke='none'/%3E%3C/svg%3E" />
+
+  <!-- Flowbite & Tailwind CSS (CDN) -->
+  <link href="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.css" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    let selectedFile = null;
-    let latestResult = null;
-
-    const docSelect = document.getElementById('docSelect');
-    const traceCheckbox = document.getElementById('traceCheckbox');
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('fileInput');
-    const dropzonePrompt = document.getElementById('dropzonePrompt');
-    const previewContainer = document.getElementById('previewContainer');
-    const imagePreview = document.getElementById('imagePreview');
-    const fileInfo = document.getElementById('fileInfo');
-    const extractBtn = document.getElementById('extractBtn');
-    const btnSpinner = document.getElementById('btnSpinner');
-    const btnText = document.getElementById('btnText');
-    const jsonViewer = document.getElementById('jsonViewer');
-    const traceContainer = document.getElementById('traceContainer');
-    const tabJsonBtn = document.getElementById('tabJsonBtn');
-    const tabTraceBtn = document.getElementById('tabTraceBtn');
-    const backendStatus = document.getElementById('backendStatus');
-    const metaMetrics = document.getElementById('metaMetrics');
-    const elapsedBadge = document.getElementById('elapsedBadge');
-    const uuidBadge = document.getElementById('uuidBadge');
-    const copyBtn = document.getElementById('copyBtn');
-    const sampleBtn = document.getElementById('sampleBtn');
-
-    // Tab switching
-    tabJsonBtn.addEventListener('click', () => {
-      tabJsonBtn.classList.add('active');
-      tabTraceBtn.classList.remove('active');
-      jsonViewer.style.display = 'block';
-      traceContainer.style.display = 'none';
-    });
-
-    tabTraceBtn.addEventListener('click', () => {
-      tabTraceBtn.classList.add('active');
-      tabJsonBtn.classList.remove('active');
-      jsonViewer.style.display = 'none';
-      traceContainer.style.display = 'flex';
-    });
-
-    // Check backend health
-    async function checkHealth() {
-      try {
-        const res = await fetch('/health');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.active_backend === 'ocr_hybrid' || data.active_backend === 'local_cpu') {
-            backendStatus.textContent = `${data.active_backend} (${data.ocr_engine || 'rapidocr'} + ${data.ollama_model || 'ollama'})`;
-          } else if (data.active_backend === 'visual_model') {
-            backendStatus.textContent = `visual_model (${data.ollama_model || 'ollama-vision'})`;
-          } else {
-            backendStatus.textContent = `${data.active_backend} (${data.gemini_model || 'gemini'})`;
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
           }
-        } else {
-          backendStatus.textContent = 'Service Offline';
         }
-      } catch (err) {
-        backendStatus.textContent = 'Cannot connect to API';
       }
-    }
-    checkHealth();
+    };
+  </script>
 
-    // Dropzone handlers
-    dropzone.addEventListener('click', () => fileInput.click());
-    dropzone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropzone.classList.add('dragover');
-    });
-    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-    dropzone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropzone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) {
-        handleFileSelect(e.dataTransfer.files[0]);
-      }
-    });
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files.length) {
-        handleFileSelect(e.target.files[0]);
-      }
-    });
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-    function handleFileSelect(file) {
-      selectedFile = file;
-      fileInfo.style.display = 'block';
-      fileInfo.textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-      extractBtn.disabled = false;
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="/static/css/demo.css" />
+</head>
 
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          imagePreview.src = e.target.result;
-          previewContainer.style.display = 'flex';
-          dropzonePrompt.style.display = 'none';
-        };
-        reader.readAsDataURL(file);
-      } else {
-        previewContainer.style.display = 'none';
-        dropzonePrompt.style.display = 'flex';
-        dropzonePrompt.querySelector('.dropzone-text').textContent = `PDF: ${file.name}`;
-      }
-    }
+<body class="bg-gray-50 font-sans text-gray-900 antialiased dark:bg-gray-900 dark:text-gray-100 min-h-screen flex flex-col">
 
-    // Generate in-browser canvas sample card for quick testing
-    sampleBtn.addEventListener('click', () => {
-      const type = docSelect.value;
-      const canvas = document.createElement('canvas');
-      canvas.width = 600;
-      canvas.height = 380;
-      const ctx = canvas.getContext('2d');
+  <a href="#panel-input" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-blue-700 focus:px-4 focus:py-2 focus:text-white">Skip to extractor</a>
 
-      if (type === 'identity_card') {
-        ctx.fillStyle = '#0f766e';
-        ctx.fillRect(0, 0, 600, 380);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 20px sans-serif';
-        ctx.fillText('PROVINSI DKI JAKARTA', 180, 40);
-        ctx.fillText('KOTA JAKARTA PUSAT', 200, 70);
-        ctx.font = 'bold 22px monospace';
-        ctx.fillText('NIK : 3171010101900001', 30, 115);
-        ctx.font = '16px sans-serif';
-        ctx.fillText('Nama : BUDI SANTOSO', 30, 150);
-        ctx.fillText('Tempat/Tgl Lahir : JAKARTA, 01-01-1990', 30, 180);
-        ctx.fillText('Jenis Kelamin : LAKI-LAKI', 30, 210);
-        ctx.fillText('Alamat : JL. SUDIRMAN NO. 45', 30, 240);
-        ctx.fillText('RT/RW : 003/002', 30, 270);
-        ctx.fillText('Kel/Desa : BENDUNGAN HILIR', 30, 300);
-        ctx.fillText('Kecamatan : TANAH ABANG', 30, 330);
-        ctx.fillText('Agama : ISLAM', 30, 360);
-      } else {
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(0, 0, 600, 380);
-        ctx.fillStyle = '#f59e0b';
-        ctx.font = 'bold 24px sans-serif';
-        ctx.fillText('KEMENTERIAN KEUANGAN REPUBLIK INDONESIA', 40, 50);
-        ctx.font = 'bold 20px sans-serif';
-        ctx.fillText('DIREKTORAT JENDERAL PAJAK', 160, 80);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 24px monospace';
-        ctx.fillText('NPWP: 01.234.567.8-901.000', 40, 150);
-        ctx.font = '18px sans-serif';
-        ctx.fillText('NAMA : PT NUSANTARA DIGITAL', 40, 200);
-        ctx.fillText('NIK : 3171010101900001', 40, 240);
-        ctx.fillText('ALAMAT : MENARA SUDIRMAN LT. 15', 40, 280);
-        ctx.fillText('KPP : KPP PRATAMA TANAH ABANG', 40, 320);
-      }
+  <!-- ── Navbar ─────────────────────────────────────────────────────────── -->
+  <nav class="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+    <div class="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <div class="flex items-center gap-3">
+        <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-700 text-white shadow-sm">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5.8 13c0-3.6 2.4-6 4.1-6 1.2 0 1.9 1.2 2.1 2.4.2-1.2.9-2.4 2.1-2.4 1.7 0 4.1 2.4 4.1 6v1c0 3.4-2.7 6.1-6.2 6.1S5.8 17.4 5.8 14Z"/>
+            <circle cx="9.7" cy="13.2" r="1.15" fill="currentColor" stroke="none"/>
+            <circle cx="14.3" cy="13.2" r="1.15" fill="currentColor" stroke="none"/>
+            <path d="M12 15l.9 1.5h-1.8Z" fill="currentColor" stroke="none"/>
+          </svg>
+        </span>
+        <div>
+          <h1 class="text-base font-semibold leading-tight text-gray-900 dark:text-white">Athena Doc</h1>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Turn documents into structured JSON</p>
+        </div>
+      </div>
 
-      canvas.toBlob((blob) => {
-        const testFile = new File([blob], `${type}_test_sample.png`, { type: 'image/png' });
-        handleFileSelect(testFile);
-      });
-    });
+      <div class="flex items-center gap-2">
+        <!-- Dark Mode Toggle -->
+        <button id="theme-toggle" type="button" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-700">
+          <span class="sr-only">Switch theme</span>
+          <svg id="icon-moon" class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+          <svg id="icon-sun" class="hidden h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+        </button>
 
-    // Render Trace Evolution Stages
-    function renderTraceStages(trace) {
-      if (!trace || !trace.stages || !trace.stages.length) {
-        traceContainer.innerHTML = '<div class="placeholder-state"><div>No trace data recorded for this run</div></div>';
-        return;
-      }
+        <a href="/docs" target="_blank" class="hidden rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-gray-700 sm:block">
+          API Docs
+        </a>
+      </div>
+    </div>
+  </nav>
 
-      traceContainer.innerHTML = '';
-      trace.stages.forEach((stage, idx) => {
-        const card = document.createElement('div');
-        card.className = 'stage-card';
-        const isFailed = stage.status === 'failed' || (stage.details && stage.details.error);
-        if (isFailed) {
-          card.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-        }
+  <!-- ── Main Workspace ────────────────────────────────────────────────── -->
+  <main class="mx-auto max-w-[1400px] flex-1 px-4 py-6 sm:px-6 w-full">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
 
-        let contentText = '';
-        if (typeof stage.details === 'string') {
-          contentText = stage.details;
-        } else if (stage.details && stage.details.extracted_text) {
-          contentText = `[Extracted Text (${stage.details.ocr_engine})]\n${stage.details.extracted_text}`;
-        } else if (stage.details && stage.details.raw_llm_json) {
-          contentText = JSON.stringify(stage.details.raw_llm_json, null, 2);
-        } else if (stage.details && stage.details.user_prompt) {
-          contentText = `[System Prompt]\n${stage.details.system_prompt}\n\n[User Prompt]\n${stage.details.user_prompt}`;
-        } else {
-          contentText = JSON.stringify(stage.details, null, 2);
-        }
+      <!-- ── Left Panel: Input & Settings ──────────────────────────────── -->
+      <section id="panel-input" class="lg:col-span-5 xl:col-span-4">
+        <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Extract a document</h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Select target model, upload file, and run extraction.</p>
 
-        const statusBadge = isFailed
-          ? '<span style="color:var(--danger); font-size:0.75rem; font-weight:700; background:rgba(239,68,68,0.15); padding:2px 6px; border-radius:4px; margin-left:auto;">FAILED</span>'
-          : '<span style="color:var(--accent); font-size:0.75rem; font-weight:700; background:rgba(16,185,129,0.15); padding:2px 6px; border-radius:4px; margin-left:auto;">OK</span>';
+          <!-- Document Type Select -->
+          <div class="mt-6">
+            <label for="doc-type" class="mb-2 block text-sm font-medium text-gray-900 dark:text-white">Document type</label>
+            <select id="doc-type" class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:border-blue-500 dark:focus:ring-blue-500">
+              <option value="identity_card">Identity Card (KTP)</option>
+              <option value="tax_number">Tax Number Card (NPWP)</option>
+            </select>
+            <p id="doc-type-desc" class="mt-2 text-xs text-gray-500 dark:text-gray-400">Dynamically loaded from backend schema registry.</p>
+          </div>
 
-        card.innerHTML = `
-          <div class="stage-header">
-            <div class="stage-title" style="width:100%; display:flex; align-items:center;">
-              <span class="stage-num">${idx + 1}</span>
-              <span>Stage: ${stage.name.replace(/_/g, ' ').toUpperCase()}</span>
-              ${statusBadge}
+          <!-- Document Upload Dropzone -->
+          <div class="mt-6">
+            <label for="doc-file" class="mb-2 block text-sm font-medium text-gray-900 dark:text-white">Document file</label>
+
+            <label id="dropzone" for="doc-file"
+                   class="flex h-48 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 transition-colors hover:bg-gray-100 focus-within:ring-4 focus-within:ring-blue-200 dark:border-gray-600 dark:bg-gray-700 dark:hover:border-gray-500 dark:hover:bg-gray-600 dark:focus-within:ring-blue-900">
+              <div class="flex flex-col items-center justify-center px-4 py-6 text-center">
+                <svg class="mb-3 h-8 w-8 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 20 16" aria-hidden="true">
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                </svg>
+                <p class="text-sm text-gray-600 dark:text-gray-300"><span class="font-semibold text-blue-700 dark:text-blue-400">Browse files</span> or drop one here</p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">PDF, PNG or JPG · up to 10 MB</p>
+              </div>
+              <input id="doc-file" type="file" class="hidden" accept=".pdf,.png,.jpg,.jpeg" />
+            </label>
+
+            <!-- Selected File Chip -->
+            <div id="file-chip" class="mt-3 hidden items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-700">
+              <div class="flex min-w-0 items-center gap-3">
+                <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded bg-blue-50 text-blue-700 dark:bg-gray-600 dark:text-blue-300">
+                  <svg id="file-icon" class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
+                  <img id="file-thumb" alt="" class="hidden h-full w-full object-cover" />
+                </span>
+                <div class="min-w-0">
+                  <p id="file-name" class="truncate text-sm font-medium text-gray-900 dark:text-white">document.pdf</p>
+                  <p id="file-meta" class="text-xs text-gray-500 dark:text-gray-400">—</p>
+                </div>
+              </div>
+              <div class="flex shrink-0 items-center gap-1">
+                <button id="btn-crop" type="button" class="hidden rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-600 dark:focus:ring-gray-600">Adjust crop</button>
+                <button id="file-remove" type="button" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-600">
+                  <span class="sr-only">Remove file</span>
+                  <svg class="h-4 w-4" fill="none" viewBox="0 0 14 14" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <p id="file-error" class="mt-2 hidden text-sm text-red-600 dark:text-red-400"></p>
+          </div>
+
+          <!-- Options -->
+          <div class="mt-6 rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-700">
+            <label class="flex cursor-pointer items-center justify-between gap-4">
+              <span>
+                <span class="block text-sm font-medium text-gray-900 dark:text-white">Include trace</span>
+                <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Capture pipeline stage evolutions and latency.</span>
+              </span>
+              <input type="checkbox" id="opt-trace" class="peer sr-only" checked />
+              <span class="relative h-6 w-11 shrink-0 rounded-full bg-gray-200 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-4 peer-focus:ring-blue-300 dark:bg-gray-600 dark:peer-focus:ring-blue-800"></span>
+            </label>
+          </div>
+
+          <!-- Actions -->
+          <div class="mt-6 flex flex-wrap items-center gap-3">
+            <button id="btn-extract" type="button"
+                    class="inline-flex items-center rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+              <svg id="btn-spinner" class="me-2 hidden h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+              <span id="btn-label">Run extraction</span>
+            </button>
+            <button id="btn-reset" type="button" class="rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-gray-700">Clear</button>
+          </div>
+        </div>
+
+        <p class="mt-3 px-1 text-xs text-gray-500 dark:text-gray-400">Connected engine: <span id="engine-desc" class="font-medium text-gray-700 dark:text-gray-300">—</span></p>
+      </section>
+
+      <!-- ── Right Panel: Results & Trace ──────────────────────────────── -->
+      <section class="lg:col-span-7 xl:col-span-8">
+        <div class="flex h-full flex-col rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+
+          <!-- Run Summary Header -->
+          <div class="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+            <div>
+              <p class="text-xs text-gray-500 dark:text-gray-400">Status</p>
+              <span id="status-badge" class="mt-1 inline-flex items-center gap-1.5 rounded bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                <span id="status-dot" class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>
+                <span id="status-text">Waiting for a document</span>
+              </span>
+            </div>
+
+            <div class="min-w-0 max-w-[160px] sm:max-w-xs">
+              <p class="text-xs text-gray-500 dark:text-gray-400">Request ID</p>
+              <div class="mt-1 flex items-center gap-1.5">
+                <code id="request-id" class="truncate font-mono text-xs text-gray-900 dark:text-gray-100" title="">—</code>
+                <button id="copy-id" type="button" disabled class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-200 disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700">
+                  <span class="sr-only">Copy request ID</span>
+                  <svg class="h-4 w-4" fill="none" viewBox="0 0 18 20" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9V4.13a2.96 2.96 0 0 0-1.293.749L.879 7.707A2.96 2.96 0 0 0 .13 9H5Zm0 2H0v6a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-1H5a2 2 0 0 1-2-2v-3Zm11-8h-5v4a2 2 0 0 1-2 2H5v3a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1Z"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <p class="text-xs text-gray-500 dark:text-gray-400">Latency</p>
+              <p class="mt-1 font-mono text-sm text-gray-900 dark:text-gray-100"><span id="latency">—</span></p>
+            </div>
+
+            <div>
+              <p class="text-xs text-gray-500 dark:text-gray-400">Pages</p>
+              <p class="mt-1 font-mono text-sm text-gray-900 dark:text-gray-100"><span id="pages">—</span></p>
+            </div>
+
+            <div class="ms-auto flex items-center gap-2">
+              <button id="copy-json" type="button" disabled
+                      class="inline-flex items-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-100 disabled:opacity-50 disabled:hover:bg-transparent dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-gray-700">
+                <svg class="me-2 h-4 w-4" fill="none" viewBox="0 0 18 20" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9V4.13a2.96 2.96 0 0 0-1.293.749L.879 7.707A2.96 2.96 0 0 0 .13 9H5Zm0 2H0v6a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-1H5a2 2 0 0 1-2-2v-3Zm11-8h-5v4a2 2 0 0 1-2 2H5v3a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1Z"/></svg>
+                Copy JSON
+              </button>
+              <button id="download-json" type="button" disabled
+                      class="inline-flex items-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-100 disabled:opacity-50 disabled:hover:bg-transparent dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-gray-700">
+                <svg class="me-2 h-4 w-4" fill="none" viewBox="0 0 16 18" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 1v11m0 0 4-4m-4 4L4 8m11 4v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3"/></svg>
+                Download
+              </button>
             </div>
           </div>
-          <div class="stage-content">${escapeHtml(contentText)}</div>
-        `;
-        traceContainer.appendChild(card);
-      });
-    }
 
-    function escapeHtml(text) {
-      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-      return text.replace(/[&<>"']/g, (m) => map[m]);
-    }
+          <!-- Navigation Tabs -->
+          <div class="border-b border-gray-200 px-2 dark:border-gray-700">
+            <ul class="-mb-px flex flex-wrap text-sm font-medium" id="result-tabs" role="tablist">
+              <li role="presentation">
+                <button class="inline-block border-b-2 border-transparent px-4 py-3 text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                        id="tab-json" data-tabs-target="#pane-json" type="button" role="tab" aria-controls="pane-json" aria-selected="false">JSON output</button>
+              </li>
+              <li role="presentation">
+                <button class="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-3 text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                        id="tab-trace" data-tabs-target="#pane-trace" type="button" role="tab" aria-controls="pane-trace" aria-selected="false">
+                  Trace
+                  <span id="trace-count" class="hidden rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">0</span>
+                </button>
+              </li>
+            </ul>
+          </div>
 
-    // Execute Extraction
-    extractBtn.addEventListener('click', async () => {
-      if (!selectedFile) return;
+          <!-- Output Panes -->
+          <div id="result-panes" class="min-h-[26rem] flex-1">
 
-      const docType = docSelect.value;
-      const isTrace = traceCheckbox.checked;
-      const formData = new FormData();
-      formData.append('file', selectedFile);
+            <!-- JSON Output Pane -->
+            <div class="hidden p-5" id="pane-json" role="tabpanel" aria-labelledby="tab-json">
+              <div id="json-empty" class="flex h-80 flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 text-center dark:border-gray-700">
+                <svg class="mb-3 h-9 w-9 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5"/>
+                </svg>
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-300">No extraction yet</p>
+                <p class="mt-1 max-w-xs text-sm text-gray-500 dark:text-gray-400">Add a document on the left and run the extraction to view structured JSON here.</p>
+              </div>
+              <pre id="json-output" class="scroll-thin json-viewer hidden max-h-[36rem] overflow-auto rounded-lg bg-gray-50 p-4 font-mono text-[13px] leading-6 text-gray-800 dark:bg-gray-900 dark:text-gray-200"></pre>
+            </div>
 
-      extractBtn.disabled = true;
-      btnSpinner.style.display = 'inline-block';
-      btnText.textContent = 'Extracting with AI...';
-      metaMetrics.style.display = 'none';
-      jsonViewer.innerHTML = '<div class="placeholder-state"><div class="spinner" style="display:inline-block; width:32px; height:32px;"></div><div style="margin-top:1rem;">Processing OCR & LLM Extraction...</div></div>';
-      traceContainer.innerHTML = '<div class="placeholder-state"><div class="spinner" style="display:inline-block; width:32px; height:32px;"></div><div style="margin-top:1rem;">Recording stage evolution...</div></div>';
+            <!-- Trace Pane -->
+            <div class="hidden p-5" id="pane-trace" role="tabpanel" aria-labelledby="tab-trace">
+              <div id="trace-empty" class="flex h-80 flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 text-center dark:border-gray-700">
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Nothing to trace yet</p>
+                <p class="mt-1 max-w-xs text-sm text-gray-500 dark:text-gray-400">Each pipeline stage and its duration will appear here once an extraction is run.</p>
+              </div>
 
-      const startTime = performance.now();
+              <div id="trace-wrap" class="hidden">
+                <div class="mb-5 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <span>Pipeline <span id="trace-pipeline-name" class="font-mono text-gray-700 dark:text-gray-300">extract-v1</span></span>
+                  <span aria-hidden="true">·</span>
+                  <span>Slowest step <span id="trace-slowest" class="font-medium text-gray-700 dark:text-gray-300">—</span></span>
+                </div>
+                <ol id="trace-list" class="relative ms-3 border-s border-gray-200 dark:border-gray-700"></ol>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
 
-      try {
-        const url = `/api/v1/extract/${docType}?trace=${isTrace}`;
-        const response = await fetch(url, {
-          method: 'POST',
-          body: formData
-        });
+  <!-- ── Four-Corner Perspective Crop Modal ────────────────────────────── -->
+  <div id="crop-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-900/60 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="crop-title">
+    <div class="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-xl dark:bg-gray-800">
 
-        const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
-        elapsedBadge.textContent = `Latency: ${elapsed}s`;
-        metaMetrics.style.display = 'flex';
+      <div class="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+        <div>
+          <h2 id="crop-title" class="text-lg font-semibold text-gray-900 dark:text-white">Straighten and Crop Document</h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Drag each corner onto the corners of the document. The image is perspective-corrected before extraction.</p>
+        </div>
+        <button id="crop-close" type="button" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700">
+          <span class="sr-only">Close</span>
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 14 14" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/></svg>
+        </button>
+      </div>
 
-        const result = await response.json();
-        latestResult = result;
+      <!-- Toolbar -->
+      <div class="flex flex-wrap items-center gap-2 border-b border-gray-200 px-5 py-3 dark:border-gray-700">
+        <div class="inline-flex rounded-lg shadow-sm" role="group" aria-label="Crop shape">
+          <button id="mode-quad" type="button" class="rounded-s-lg border border-gray-200 px-3 py-2 text-sm font-medium focus:z-10 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-600 dark:focus:ring-blue-900">Four corners</button>
+          <button id="mode-rect" type="button" class="-ms-px rounded-e-lg border border-gray-200 px-3 py-2 text-sm font-medium focus:z-10 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-600 dark:focus:ring-blue-900">Rectangle</button>
+        </div>
 
-        if (result.request_id) {
-          uuidBadge.style.display = 'inline-block';
-          uuidBadge.textContent = `UUID: ${result.request_id.slice(0, 8)}...`;
-          uuidBadge.title = `Request UUID: ${result.request_id}\nTrace Directory: ${result.trace_dir || 'N/A'}`;
-        } else {
-          uuidBadge.style.display = 'none';
-        }
+        <label class="sr-only" for="crop-aspect">Aspect ratio</label>
+        <select id="crop-aspect" class="hidden rounded-lg border border-gray-300 bg-gray-50 p-2 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+          <option value="free" selected>Any shape</option>
+          <option value="1">Square</option>
+          <option value="0.7071">A4 portrait</option>
+          <option value="1.4142">A4 landscape</option>
+          <option value="1.5859">ID card</option>
+        </select>
 
-        if (response.ok && result.success) {
-          jsonViewer.textContent = JSON.stringify(result.data, null, 2);
-          if (result.trace) {
-            renderTraceStages(result.trace);
-          } else {
-            traceContainer.innerHTML = '<div class="placeholder-state"><div>Trace mode was disabled during this extraction</div></div>';
-          }
-        } else {
-          jsonViewer.textContent = JSON.stringify(result, null, 2);
-          if (result.trace) {
-            renderTraceStages(result.trace);
-          } else {
-            traceContainer.innerHTML = `<div class="placeholder-state"><div style="color:var(--danger)">Error: ${result.detail || result.error || 'Extraction failed'}</div></div>`;
-          }
-        }
-      } catch (err) {
-        jsonViewer.textContent = `Error: ${err.message}`;
-        traceContainer.innerHTML = `<div class="placeholder-state"><div style="color:var(--danger)">Error: ${err.message}</div></div>`;
-      } finally {
-        extractBtn.disabled = false;
-        btnSpinner.style.display = 'none';
-        btnText.textContent = 'Extract to Structured JSON';
-      }
-    });
+        <div class="ms-auto flex flex-wrap items-center gap-2">
+          <button id="crop-rotate" type="button" class="inline-flex items-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-gray-700">
+            <svg class="me-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24L21 8M21 3v5h-5"/></svg>
+            Rotate
+          </button>
+          <button id="crop-reset" type="button" class="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-gray-700">Full image</button>
+        </div>
+      </div>
 
-    // Copy JSON
-    copyBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText(jsonViewer.textContent);
-      copyBtn.textContent = 'Copied!';
-      setTimeout(() => copyBtn.textContent = 'Copy JSON', 1500);
-    });
-  </script>
+      <!-- Canvas Stage -->
+      <div class="flex-1 overflow-auto bg-gray-100 p-4 dark:bg-gray-900">
+        <div id="crop-stage" class="relative mx-auto w-fit touch-none select-none">
+          <canvas id="crop-canvas" class="block rounded shadow-sm"></canvas>
+        </div>
+        <p class="mx-auto mt-3 max-w-lg text-center text-xs text-gray-500 dark:text-gray-400">
+          Corners can be nudged with arrow keys when focused — hold Shift for larger steps.
+        </p>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-5 py-4 dark:border-gray-700">
+        <p class="text-sm text-gray-500 dark:text-gray-400">Output <span id="crop-size" class="font-mono text-gray-700 dark:text-gray-300">—</span></p>
+        <div class="flex items-center gap-2">
+          <button id="crop-skip" type="button" class="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-gray-700">Use full image</button>
+          <button id="crop-apply" type="button" class="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Apply crop</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Floating Toast ────────────────────────────────────────────────── -->
+  <div id="toast" class="fixed bottom-5 left-1/2 z-50 hidden w-full max-w-xs -translate-x-1/2 items-center rounded-lg bg-white p-4 text-gray-500 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700" role="status" aria-live="polite">
+    <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-600 dark:bg-green-800 dark:text-green-200">
+      <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+    </span>
+    <span id="toast-text" class="ms-3 text-sm font-normal text-gray-900 dark:text-white">Notification</span>
+  </div>
+
+  <span id="live-region" class="sr-only" aria-live="polite"></span>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.js"></script>
+  <script src="/static/js/cropper.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/app.js"></script>
 </body>
 </html>

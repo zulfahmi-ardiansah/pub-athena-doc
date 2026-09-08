@@ -60,13 +60,15 @@ def create_app() -> FastAPI:
     # Include API Routes
     app.include_router(router)
 
-    # Mount Interactive Demo UI & Trace folder if ENABLE_DEMO is true
+    # Mount Interactive Demo UI, Static assets & Trace folder if ENABLE_DEMO is true
     if settings.enable_demo:
-        demo_html_path = Path(__file__).parent / "static" / "demo.html"
+        static_dir = Path(__file__).parent / "static"
+        demo_html_path = static_dir / "demo.html"
         trace_path = Path(settings.trace_dir)
         trace_path.mkdir(parents=True, exist_ok=True)
 
         from fastapi.staticfiles import StaticFiles
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
         app.mount("/trace", StaticFiles(directory=str(trace_path)), name="trace")
 
         @app.get("/demo", response_class=HTMLResponse, tags=["Demo"], include_in_schema=True)

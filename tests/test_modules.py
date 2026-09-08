@@ -100,6 +100,12 @@ async def test_ocr_extractor_tesseract_mock(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_ocr_extractor_google_vision_project_id_mock(monkeypatch):
+    import sys
+    mock_vision_mod = MagicMock()
+    mock_vision_mod.Image.side_effect = lambda content: MagicMock(content=content)
+    monkeypatch.setitem(sys.modules, "google.cloud", MagicMock(vision=mock_vision_mod))
+    monkeypatch.setitem(sys.modules, "google.cloud.vision", mock_vision_mod)
+
     extractor = OcrExtractor(backend="google_vision", google_project_id="my-gcp-project")
     mock_client = MagicMock()
     mock_response = MagicMock()

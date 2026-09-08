@@ -1,0 +1,63 @@
+/* ==========================================================================
+   Athena Doc Extractor - Demo Stylesheet
+   ========================================================================== */
+
+/* JSON syntax highlighting tokens */
+.tok-key   { color: #1e40af; font-weight: 600; }
+.dark .tok-key { color: #93c5fd; font-weight: 600; }
+
+.tok-str   { color: #047857; }
+.dark .tok-str { color: #6ee7b7; }
+
+.tok-num   { color: #b45309; }
+.dark .tok-num { color: #fcd34d; }
+
+.tok-bool  { color: #7e22ce; font-weight: 600; }
+.dark .tok-bool { color: #d8b4fe; font-weight: 600; }
+
+.tok-null  { color: #6b7280; font-style: italic; }
+.dark .tok-null { color: #9ca3af; font-style: italic; }
+
+.json-viewer {
+  tab-size: 2;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Custom scrollbars */
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 9999px;
+}
+.dark .scroll-thin::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+.scroll-thin::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+.dark .scroll-thin::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Trace Step Accordion */
+.step-detail {
+  display: none;
+}
+.step-detail.open {
+  display: block;
+}
+
+/* Transitions and Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
