@@ -121,7 +121,7 @@ def create_engine(settings: Settings) -> BaseExtractionEngine:
         }
 
         analyzers: Dict[str, BaseTextAnalyzer] = {
-            "llm": LlmTextAnalyzer(llm_provider=text_provider),
+            "text_llm": LlmTextAnalyzer(llm_provider=text_provider),
             "string": StringTextAnalyzer(),
         }
 

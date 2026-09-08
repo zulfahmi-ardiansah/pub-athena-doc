@@ -28,14 +28,15 @@ class HybridEngine(BaseExtractionEngine):
         preprocessor: Optional[BaseImagePreprocessor] = None,
         pipeline: Optional[List[str]] = None,
         min_confidence: float = 0.5,
-        analysis_mode: str = "llm",
+        analysis_mode: str = "text_llm",
     ) -> None:
         self.extractors = dict(extractors)
         self.analyzers = dict(analyzers)
         self.preprocessor = preprocessor
         self.pipeline = pipeline or ["digital_pdf", "ocr", "visual_llm"]
         self.min_confidence = min_confidence
-        self.analysis_mode = (analysis_mode or "llm").lower()
+        mode = (analysis_mode or "text_llm").lower()
+        self.analysis_mode = "text_llm" if mode == "llm" else mode
 
     async def warmup(self) -> None:
         for extractor in self.extractors.values():
@@ -136,9 +137,12 @@ class HybridEngine(BaseExtractionEngine):
             )
 
         # Stage 2: Text Analysis
+        if active_analysis_mode == "llm":
+            active_analysis_mode = "text_llm"
+
         analyzer = self.analyzers.get(active_analysis_mode)
         if not analyzer:
-            fallback_mode = "string" if active_analysis_mode == "llm" else "llm"
+            fallback_mode = "string" if active_analysis_mode == "text_llm" else "text_llm"
             analyzer = self.analyzers.get(fallback_mode)
             if not analyzer:
                 raise RuntimeError(f"No analyzer available for analysis_mode '{active_analysis_mode}'")

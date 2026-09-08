@@ -81,12 +81,14 @@ ENGINE_TYPE="hybrid_engine"
 # Extraction Pipeline & Fallback Threshold (for hybrid_engine)
 EXTRACTION_PIPELINE="digital_pdf,ocr,visual_llm"
 EXTRACTION_MIN_CONFIDENCE=0.5
-ANALYSIS_MODE="llm"
+ANALYSIS_MODE="text_llm"
 
 # OCR Backend: "rapidocr" | "tesseract" | "google_vision"
 OCR_BACKEND="rapidocr"
 
-# LLM Provider: "ollama" | "google"
+# LLM Providers (text vs vision): "ollama" | "google"
+LLM_TEXT_PROVIDER="ollama"
+LLM_VISION_PROVIDER="ollama"
 LLM_PROVIDER="ollama"
 OLLAMA_BASE_URL="http://localhost:11434"
 OLLAMA_TEXT_MODEL="qwen2.5:3b"
@@ -117,5 +119,5 @@ Interactive API documentation available at: `http://localhost:8000/docs`
 - Query Params (optional):
   - `trace`: boolean (`true` / `false`)
   - `engine`: override engine (`string_engine`, `visual_engine`, `hybrid_engine`)
-  - `analysis_mode`: override analyzer (`llm`, `string`)
+  - `analysis_mode`: override analyzer (`text_llm`, `string`)
   - `pipeline`: override extraction sequence (`digital_pdf,ocr,visual_llm`)

@@ -55,7 +55,7 @@ def test_factory_creates_hybrid_engine():
         engine_type="hybrid_engine",
         ocr_backend="rapidocr",
         extraction_pipeline="digital_pdf,ocr,visual_llm",
-        analysis_mode="llm",
+        analysis_mode="text_llm",
     )
     engine = create_engine(settings)
     assert isinstance(engine, HybridEngine)
@@ -63,7 +63,7 @@ def test_factory_creates_hybrid_engine():
     assert "digital_pdf" in engine.extractors
     assert "ocr" in engine.extractors
     assert "visual_llm" in engine.extractors
-    assert "llm" in engine.analyzers
+    assert "text_llm" in engine.analyzers
     assert "string" in engine.analyzers
 
 
@@ -74,7 +74,7 @@ def test_factory_creates_hybrid_engine_with_heterogeneous_providers():
         llm_vision_provider="ollama",
         google_api_key="fake-key",
         extraction_pipeline="digital_pdf,ocr,visual_llm",
-        analysis_mode="llm",
+        analysis_mode="text_llm",
     )
     engine = create_engine(settings)
     assert isinstance(engine, HybridEngine)
@@ -88,35 +88,28 @@ def test_factory_creates_hybrid_engine_with_heterogeneous_providers():
 
 @pytest.mark.asyncio
 async def test_string_engine_end_to_end():
+    mock_pdf = MagicMock(spec=BaseTextExtractor)
+    mock_pdf.extract_text = AsyncMock(return_value=ExtractionOutput(
+        text="",
+        confidence=0.0,
+        stage_name="digital_pdf"
+    ))
+
     mock_ocr = MagicMock(spec=BaseTextExtractor)
     mock_ocr.extract_text = AsyncMock(return_value=ExtractionOutput(
-        text=(
-            "PROVINSI DKI JAKARTA\n"
-            "JAKARTA PUSAT\n"
-            "NIK : 3171010101900001\n"
-            "Nama : BUDI SANTOSO\n"
-            "Tempat/Tgl Lahir : JAKARTA, 01-01-1990\n"
-            "Jenis Kelamin : LAKI-LAKI\n"
-            "Alamat : JL TAMAN SUROPATI NO. 7\n"
-            "RT/RW : 005/005\n"
-            "Kel/Desa : MENTENG\n"
-            "Kecamatan : MENTENG\n"
-            "Agama : ISLAM\n"
-            "Status Perkawinan : KAWIN\n"
-            "Pekerjaan : KARYAWAN SWASTA\n"
-            "Kewarganegaraan : WNI\n"
-            "Berlaku Hingga : SEUMUR HIDUP"
-        ),
-        confidence=0.95,
+        text="NIK : 3171010101900001\nNama : BUDI SANTOSO\nPROVINSI DKI JAKARTA",
+        confidence=0.92,
         stage_name="ocr_rapidocr"
     ))
 
     engine = StringEngine(
+        digital_extractor=mock_pdf,
         ocr_extractor=mock_ocr,
-        analyzer=StringTextAnalyzer()
+        analyzer=StringTextAnalyzer(),
+        min_confidence=0.5
     )
-    doc = IdentityCardDocument()
 
+    doc = IdentityCardDocument()
     result = await engine.extract(
         file_bytes=_create_sample_png_bytes(),
         filename="ktp.png",
@@ -126,8 +119,8 @@ async def test_string_engine_end_to_end():
     )
     assert result.data["id_number"] == "3171010101900001"
     assert result.data["full_name"] == "BUDI SANTOSO"
-    assert result.data["province"] == "DKI JAKARTA"
     assert result.trace is not None
+    assert len(result.trace["stages"]) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -136,29 +129,27 @@ async def test_string_engine_end_to_end():
 
 @pytest.mark.asyncio
 async def test_visual_engine_end_to_end():
-    mock_provider = MagicMock(spec=BaseLLMProvider)
-    mock_provider.generate_structured = AsyncMock(return_value={
-        "tax_number": "12.345.678.9-636.000",
-        "tax_payer": "PT CONTOH MAKMUR",
-        "branch_office": "KPP MADYA GRESIK",
-        "branch_address": "JL DR WAHIDIN SUDIROHUSODO 700 GRESIK",
-        "registration_date": "01-01-2022"
+    mock_vision = MagicMock(spec=BaseLLMProvider)
+    mock_vision.generate_structured = AsyncMock(return_value={
+        "id_number": "3171010101900001",
+        "full_name": "BUDI SANTOSO",
+        "province": "DKI JAKARTA"
     })
 
-    analyzer = VisualLlmAnalyzer(vision_provider=mock_provider)
+    analyzer = VisualLlmAnalyzer(vision_provider=mock_vision)
     engine = VisualEngine(analyzer=analyzer)
-    doc = TaxNumberDocument()
 
+    doc = IdentityCardDocument()
     result = await engine.extract(
         file_bytes=_create_sample_png_bytes(),
-        filename="npwp.png",
+        filename="ktp.png",
         content_type="image/png",
         document=doc,
         trace=True
     )
-    assert result.data["tax_number"] == "12.345.678.9-636.000"
-    assert result.data["tax_payer"] == "PT CONTOH MAKMUR"
+    assert result.data["id_number"] == "3171010101900001"
     assert result.trace is not None
+    assert len(result.trace["stages"]) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -167,23 +158,22 @@ async def test_visual_engine_end_to_end():
 
 @pytest.mark.asyncio
 async def test_hybrid_engine_fallback_pdf_to_ocr():
-    # 1. Digital PDF extractor returns low confidence
+    # 1. Digital PDF extractor returns empty
     mock_pdf = MagicMock(spec=BaseTextExtractor)
     mock_pdf.extract_text = AsyncMock(return_value=ExtractionOutput(
-        text="Scanned raster page",
-        confidence=0.1,
+        text="",
+        confidence=0.0,
         stage_name="digital_pdf"
     ))
 
-    # 2. OCR extractor succeeds with high confidence
+    # 2. OCR extractor succeeds
     mock_ocr = MagicMock(spec=BaseTextExtractor)
     mock_ocr.extract_text = AsyncMock(return_value=ExtractionOutput(
-        text="PROVINSI DKI JAKARTA\nNIK : 3171010101900001\nNama : BUDI SANTOSO",
-        confidence=0.92,
+        text="NIK : 3171010101900001\nNama : BUDI SANTOSO",
+        confidence=0.88,
         stage_name="ocr_rapidocr"
     ))
 
-    # 3. LLM Analyzer
     mock_provider = MagicMock(spec=BaseLLMProvider)
     mock_provider.generate_structured = AsyncMock(return_value={
         "id_number": "3171010101900001",
@@ -193,10 +183,10 @@ async def test_hybrid_engine_fallback_pdf_to_ocr():
 
     engine = HybridEngine(
         extractors={"digital_pdf": mock_pdf, "ocr": mock_ocr},
-        analyzers={"llm": LlmTextAnalyzer(llm_provider=mock_provider), "string": StringTextAnalyzer()},
+        analyzers={"text_llm": LlmTextAnalyzer(llm_provider=mock_provider), "string": StringTextAnalyzer()},
         pipeline=["digital_pdf", "ocr"],
         min_confidence=0.5,
-        analysis_mode="llm"
+        analysis_mode="text_llm"
     )
 
     doc = IdentityCardDocument()

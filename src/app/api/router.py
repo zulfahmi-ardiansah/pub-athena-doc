@@ -56,7 +56,7 @@ async def extract_document(
     file: UploadFile = File(...),
     trace: bool = Query(default=False, description="Include stage-by-stage evolution trace in response"),
     engine: Optional[str] = Query(default=None, description="Optional engine override: 'string_engine', 'visual_engine', 'hybrid_engine'"),
-    analysis_mode: Optional[str] = Query(default=None, description="Optional analysis mode override: 'llm', 'string'"),
+    analysis_mode: Optional[str] = Query(default=None, description="Optional analysis mode override: 'text_llm', 'string'"),
     pipeline: Optional[str] = Query(default=None, description="Optional extraction pipeline override (comma-separated, e.g. 'digital_pdf,ocr')"),
     registry: DocumentRegistry = Depends(get_registry),
     default_engine: BaseExtractionEngine = Depends(get_engine_singleton),

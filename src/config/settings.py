@@ -26,7 +26,17 @@ class Settings(BaseSettings):
     # 2. Workflow & Pipeline
     extraction_pipeline: str = "digital_pdf,ocr,visual_llm"
     extraction_min_confidence: float = 0.5
-    analysis_mode: Literal["llm", "string"] = "llm"
+    analysis_mode: Literal["text_llm", "string"] = "text_llm"
+
+    @field_validator("analysis_mode", mode="before")
+    @classmethod
+    def normalize_analysis_mode(cls, v: Any) -> str:
+        val = str(v or "text_llm").strip().lower()
+        if val in ("llm", "text_llm"):
+            return "text_llm"
+        if val == "string":
+            return "string"
+        raise ValueError(f"Invalid analysis_mode '{v}'. Allowed values are 'text_llm' or 'string'.")
 
     # 3. Image Preprocessing
     image_preprocess: bool = True

@@ -32,9 +32,9 @@ async def test_hybrid_engine_trace_output():
 
     engine = HybridEngine(
         extractors={"ocr": mock_ocr},
-        analyzers={"llm": LlmTextAnalyzer(llm_provider=mock_provider)},
+        analyzers={"text_llm": LlmTextAnalyzer(llm_provider=mock_provider)},
         pipeline=["ocr"],
-        analysis_mode="llm"
+        analysis_mode="text_llm"
     )
     doc = IdentityCardDocument()
     sample_text_bytes = b"sample_bytes"
