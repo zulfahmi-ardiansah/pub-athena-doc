@@ -67,6 +67,21 @@ def test_factory_creates_hybrid_engine():
     assert "string" in engine.analyzers
 
 
+def test_factory_creates_hybrid_engine_with_heterogeneous_providers():
+    settings = Settings(
+        engine_type="hybrid_engine",
+        llm_text_provider="google",
+        llm_vision_provider="ollama",
+        google_api_key="fake-key",
+        extraction_pipeline="digital_pdf,ocr,visual_llm",
+        analysis_mode="llm",
+    )
+    engine = create_engine(settings)
+    assert isinstance(engine, HybridEngine)
+    assert settings.get_text_provider_type() == "google"
+    assert settings.get_vision_provider_type() == "ollama"
+
+
 # ---------------------------------------------------------------------------
 # String Engine Tests
 # ---------------------------------------------------------------------------

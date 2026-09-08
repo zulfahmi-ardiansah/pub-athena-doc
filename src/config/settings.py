@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import List, Literal
+from typing import Any, List, Literal, Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -43,7 +43,21 @@ class Settings(BaseSettings):
     tesseract_cmd: str = ""
 
     # 5. LLM Provider & Models
+    # Global fallback LLM Provider
     llm_provider: Literal["ollama", "google"] = "ollama"
+    # Specific providers for text analysis vs visual extraction (fall back to llm_provider if not set)
+    llm_text_provider: Optional[Literal["ollama", "google"]] = None
+    llm_vision_provider: Optional[Literal["ollama", "google"]] = None
+
+    @field_validator("llm_text_provider", "llm_vision_provider", mode="before")
+    @classmethod
+    def parse_optional_provider(cls, v: Any) -> Optional[str]:
+        if not v or not str(v).strip():
+            return None
+        val = str(v).strip().lower()
+        if val in ("ollama", "google"):
+            return val
+        raise ValueError(f"Invalid LLM provider '{v}'. Allowed values are 'ollama' or 'google'.")
 
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
@@ -60,6 +74,14 @@ class Settings(BaseSettings):
     google_application_credentials: str = ""
     google_text_model: str = "gemini-1.5-flash"
     google_vision_model: str = "gemini-1.5-flash"
+
+    def get_text_provider_type(self) -> Literal["ollama", "google"]:
+        """Returns the effective provider type for text analysis."""
+        return self.llm_text_provider or self.llm_provider
+
+    def get_vision_provider_type(self) -> Literal["ollama", "google"]:
+        """Returns the effective provider type for visual/image extraction."""
+        return self.llm_vision_provider or self.llm_provider
 
     def get_extraction_stages(self) -> List[str]:
         """Returns list of extraction stage names parsed from extraction_pipeline string."""

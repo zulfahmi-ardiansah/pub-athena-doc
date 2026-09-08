@@ -18,18 +18,22 @@ router = APIRouter()
 @router.get("/health", tags=["System"])
 async def health_check(settings: Settings = Depends(get_settings)) -> Dict[str, Any]:
     """Service health and active engine status."""
+    text_provider = settings.get_text_provider_type()
+    vision_provider = settings.get_vision_provider_type()
     return {
         "status": "healthy",
         "app_name": settings.app_name,
         "active_engine": settings.engine_type,
         "ocr_backend": settings.ocr_backend,
         "llm_provider": settings.llm_provider,
+        "llm_text_provider": text_provider,
+        "llm_vision_provider": vision_provider,
         "extraction_pipeline": settings.extraction_pipeline,
         "analysis_mode": settings.analysis_mode,
-        "ollama_text_model": settings.ollama_text_model if settings.llm_provider == "ollama" else None,
-        "ollama_vision_model": settings.ollama_vision_model if settings.llm_provider == "ollama" else None,
-        "google_text_model": settings.google_text_model if settings.llm_provider == "google" else None,
-        "google_vision_model": settings.google_vision_model if settings.llm_provider == "google" else None,
+        "ollama_text_model": settings.ollama_text_model if text_provider == "ollama" else None,
+        "ollama_vision_model": settings.ollama_vision_model if vision_provider == "ollama" else None,
+        "google_text_model": settings.google_text_model if text_provider == "google" else None,
+        "google_vision_model": settings.google_vision_model if vision_provider == "google" else None,
     }
 
 

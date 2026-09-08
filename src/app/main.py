@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     if (
         settings.engine_type in ("hybrid_engine", "visual_engine")
         and settings.ollama_preload
-        and settings.llm_provider == "ollama"
+        and ("ollama" in (settings.get_text_provider_type(), settings.get_vision_provider_type()))
     ):
         from src.app.api.deps import get_engine_singleton
         engine = get_engine_singleton()

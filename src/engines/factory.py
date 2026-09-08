@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 
 def create_llm_provider(settings: Settings, is_vision: bool = False) -> BaseLLMProvider:
     """Helper to instantiate configured LLM provider (Ollama or Google Gemini)."""
-    provider_type = (settings.llm_provider or "ollama").lower()
+    provider_type = settings.get_vision_provider_type() if is_vision else settings.get_text_provider_type()
+    provider_type = (provider_type or "ollama").lower()
 
     if provider_type == "google":
         model_name = settings.google_vision_model if is_vision else settings.google_text_model
@@ -83,7 +84,8 @@ def create_engine(settings: Settings) -> BaseExtractionEngine:
         )
 
     elif engine_type == "visual_engine":
-        logger.info(f"Initializing VisualEngine with LLM provider '{settings.llm_provider}'...")
+        vision_provider_type = settings.get_vision_provider_type()
+        logger.info(f"Initializing VisualEngine with Vision LLM provider '{vision_provider_type}'...")
         vision_provider = create_llm_provider(settings, is_vision=True)
         visual_analyzer = VisualLlmAnalyzer(vision_provider=vision_provider)
         return VisualEngine(
@@ -92,8 +94,11 @@ def create_engine(settings: Settings) -> BaseExtractionEngine:
         )
 
     elif engine_type == "hybrid_engine":
+        text_provider_type = settings.get_text_provider_type()
+        vision_provider_type = settings.get_vision_provider_type()
         logger.info(
-            f"Initializing HybridEngine with pipeline '{settings.extraction_pipeline}' "
+            f"Initializing HybridEngine with pipeline '{settings.extraction_pipeline}', "
+            f"text LLM provider '{text_provider_type}', vision LLM provider '{vision_provider_type}', "
             f"and analysis mode '{settings.analysis_mode}'..."
         )
         text_provider = create_llm_provider(settings, is_vision=False)

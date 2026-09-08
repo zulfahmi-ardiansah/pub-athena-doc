@@ -20,6 +20,8 @@ def test_health_endpoint():
     assert "active_engine" in data
     assert "ocr_backend" in data
     assert "llm_provider" in data
+    assert "llm_text_provider" in data
+    assert "llm_vision_provider" in data
 
 
 def test_list_documents_endpoint():
