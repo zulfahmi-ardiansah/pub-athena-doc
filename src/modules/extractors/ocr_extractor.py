@@ -57,8 +57,11 @@ class OcrExtractor(BaseTextExtractor):
     def _get_google_vision_client(self) -> Any:
         if self._vision_client is None:
             try:
+                import json
+                import os
                 from google.cloud import vision
                 from google.api_core.client_options import ClientOptions
+                from google.oauth2 import service_account
                 import google.auth
 
                 annotator_cls: Any = vision.ImageAnnotatorClient

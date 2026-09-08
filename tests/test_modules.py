@@ -1,4 +1,5 @@
 import io
+import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from PIL import Image
@@ -197,3 +198,19 @@ def test_google_genai_provider_schema_sanitization():
     sanitized_npwp = GoogleGenAIProvider._sanitize_schema_for_gemini(npwp_schema)
     validated_npwp = types.Schema.model_validate(sanitized_npwp)
     assert validated_npwp is not None
+
+
+def test_google_genai_provider_credential_modes(tmp_path):
+    # 1. API Key mode
+    provider_api_key = GoogleGenAIProvider(api_key="AIzaSyTestApiKey")
+    assert provider_api_key.api_key == "AIzaSyTestApiKey"
+    client_api = provider_api_key._get_client()
+    assert client_api is not None
+
+    # 2. JSON File path mode
+    sample_key_file = tmp_path / "service_account.json"
+    sample_key_file.write_text('{"type": "service_account", "project_id": "test-project-123"}', encoding="utf-8")
+    provider_file = GoogleGenAIProvider(credentials_file=str(sample_key_file))
+    assert provider_file.credentials_file == str(sample_key_file)
+    assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == str(sample_key_file)
+

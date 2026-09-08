@@ -1,0 +1,50 @@
+# Git & VCS
+.git/
+.gitignore
+.gitattributes
+
+# Python virtual environments & bytecode
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Testing & Linting
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDE & Editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.agents/
+.playwright-mcp/
+
+# Local Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+
+# Runtime Data, Logs, and Traces (should be mounted via Docker volumes)
+logs/
+trace/
+
+# Build and Distribution artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# Documentation & Scratch
+scratch/

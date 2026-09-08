@@ -32,7 +32,7 @@ class GoogleGenAIProvider(BaseLLMProvider):
         self.model = model
         self._client = None
 
-        if self.credentials_file and os.path.exists(self.credentials_file):
+        if self.credentials_file and os.path.isfile(self.credentials_file):
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.credentials_file
 
     @staticmethod
@@ -66,12 +66,44 @@ class GoogleGenAIProvider(BaseLLMProvider):
 
         try:
             from google import genai
+            import google.auth
+            from google.oauth2 import service_account
 
-            # Check if project_id is provided or can be auto-detected from gcloud ADC
-            project_to_use = self.project_id
-            if not project_to_use and not self.api_key:
+            # 1. Service Account JSON file
+            if self.credentials_file and os.path.isfile(self.credentials_file):
                 try:
-                    import google.auth
+                    creds = service_account.Credentials.from_service_account_file(self.credentials_file)
+                    project_to_use = self.project_id
+                    if not project_to_use:
+                        try:
+                            with open(self.credentials_file, "r", encoding="utf-8") as f:
+                                file_info = json.load(f)
+                                project_to_use = file_info.get("project_id", "")
+                        except Exception:
+                            pass
+                    if project_to_use and hasattr(creds, "with_quota_project"):
+                        creds = creds.with_quota_project(project_to_use)
+                    logger.info(f"Initializing Google GenAI client using service account file '{self.credentials_file}' (project={project_to_use}, location={self.location})")
+                    self._client = genai.Client(
+                        vertexai=True,
+                        project=project_to_use or None,
+                        location=self.location,
+                        credentials=creds,
+                    )
+                    return self._client
+                except Exception as file_err:
+                    logger.warning(f"Failed to initialize service account from file '{self.credentials_file}': {file_err}")
+
+            # 2. API Key (Google AI Studio / Gemini API)
+            if self.api_key:
+                logger.info("Initializing Google GenAI client using API key")
+                self._client = genai.Client(api_key=self.api_key)
+                return self._client
+
+            # 3. Vertex AI mode (Project ID + ADC / ambient GCP credentials)
+            project_to_use = self.project_id
+            if not project_to_use:
+                try:
                     _, default_project = google.auth.default()
                     if default_project:
                         project_to_use = default_project
@@ -79,13 +111,9 @@ class GoogleGenAIProvider(BaseLLMProvider):
                     pass
 
             if project_to_use:
-                # Vertex AI mode using gcloud ADC / Service Account
                 logger.info(f"Initializing Google GenAI client in Vertex AI mode (project={project_to_use}, location={self.location})")
-                
-                # Attach quota project to ADC credentials if available to satisfy Vertex AI requirements
                 creds = None
                 try:
-                    import google.auth
                     default_creds, _ = google.auth.default()
                     if hasattr(default_creds, "with_quota_project"):
                         creds = default_creds.with_quota_project(project_to_use)
@@ -98,11 +126,9 @@ class GoogleGenAIProvider(BaseLLMProvider):
                     location=self.location,
                     credentials=creds,
                 )
-            elif self.api_key:
-                # API Key mode
-                self._client = genai.Client(api_key=self.api_key)
             else:
-                # Default credentials fallback
+                # 4. Default ambient credentials fallback
+                logger.info("Initializing Google GenAI client with default ambient credentials")
                 self._client = genai.Client()
         except ImportError as err:
             logger.error("google-genai package not installed.")

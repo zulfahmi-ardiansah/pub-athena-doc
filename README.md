@@ -59,15 +59,13 @@ High-performance modular FastAPI service for converting images and multi-page do
 ### 1. Requirements & Setup
 
 ```bash
-# Clone repository and create virtual environment
-python -m venv .venv
+# Option A: Using uv (Recommended, Python 3.13)
+uv sync --extra dev
 
-# Activate virtual environment
+# Option B: Standard Python venv & pip
+python -m venv .venv
 source .venv/bin/activate        # Linux/macOS
 .venv\Scripts\Activate.ps1       # Windows PowerShell
-.venv\Scripts\activate.bat       # Windows Command Prompt
-
-# Install project dependencies from pyproject.toml:
 pip install -e ".[dev]"
 ```
 
@@ -105,6 +103,43 @@ Interactive API documentation available at: `http://localhost:8000/docs`
 
 ---
 
+### 4. Run with Docker & Docker Compose
+
+#### Option A: Docker CLI
+```bash
+# Build the Docker image
+docker build -t athena-doc-extractor:latest .
+
+# Run the container
+docker run -d \
+  --name athena-doc-extractor \
+  -p 8000:8000 \
+  --env-file .env \
+  -v "$(pwd)/logs:/app/logs" \
+  -v "$(pwd)/trace:/app/trace" \
+  athena-doc-extractor:latest
+```
+
+#### Option B: Docker Compose (Standard)
+```bash
+# Build and start the API service
+docker compose up -d --build
+```
+
+#### Option C: Docker Compose with Local Ollama
+```bash
+# Start API together with containerized Ollama
+docker compose --profile with-ollama up -d
+```
+
+#### Option D: Docker Compose with OpenTelemetry & Jaeger
+```bash
+# Start API with Jaeger distributed tracing dashboard (available at http://localhost:16686)
+docker compose --profile with-telemetry up -d
+```
+
+---
+
 ## API Endpoints
 
 ### 1. Health Check
@@ -121,3 +156,4 @@ Interactive API documentation available at: `http://localhost:8000/docs`
   - `engine`: override engine (`string_engine`, `visual_engine`, `hybrid_engine`)
   - `analysis_mode`: override analyzer (`text_llm`, `string`)
   - `pipeline`: override extraction sequence (`digital_pdf,ocr,visual_llm`)
+

@@ -29,6 +29,7 @@ dependencies = [
     "opentelemetry-instrumentation-httpx>=0.65b0",
     "opentelemetry-exporter-otlp-proto-grpc>=1.44.0",
     "opentelemetry-exporter-otlp-proto-http>=1.44.0",
+    "google-cloud-vision>=3.7.0",
 ]
 
 [project.optional-dependencies]

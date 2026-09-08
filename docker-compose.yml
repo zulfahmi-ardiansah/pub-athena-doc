@@ -1,0 +1,89 @@
+services:
+  # ============================================================================
+  # Athena Document Extractor API Service
+  # ============================================================================
+  athena-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: athena-doc-extractor:latest
+    container_name: athena-doc-extractor
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./logs:/app/logs
+      - ./trace:/app/trace
+      # Optional: Mount Google Cloud service account JSON credentials file/folder
+      # - ./secrets:/app/secrets:ro
+      # - ./credentials:/app/credentials:ro
+    # Allows container to reach host services (like a host-installed Ollama instance) via http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - athena-net
+
+  # ============================================================================
+  # Optional Companion: Local Ollama LLM Service
+  # Run with: docker compose --profile with-ollama up -d
+  # Configure in .env: OLLAMA_BASE_URL="http://ollama:11434"
+  # ============================================================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: athena-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    profiles:
+      - with-ollama
+    networks:
+      - athena-net
+
+  # ============================================================================
+  # Optional Companion: Jaeger Distributed Tracing & OpenTelemetry Collector
+  # Run with: docker compose --profile with-telemetry up -d
+  # Configure in .env:
+  #   OTEL_ENABLED=true
+  #   OTEL_EXPORTER_OTLP_ENDPOINT="http://jaeger:4317"
+  #   OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+  # ============================================================================
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: athena-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"  # Jaeger Web UI (http://localhost:16686)
+      - "4317:4317"    # OTLP gRPC receiver
+      - "4318:4318"    # OTLP HTTP receiver
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    profiles:
+      - with-telemetry
+    networks:
+      - athena-net
+
+# ==============================================================================
+# Persistent Named Volumes & Networks
+# ==============================================================================
+volumes:
+  ollama_data:
+    driver: local
+
+networks:
+  athena-net:
+    driver: bridge
