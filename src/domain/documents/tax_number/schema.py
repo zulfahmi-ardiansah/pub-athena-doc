@@ -6,49 +6,75 @@ from pydantic import BaseModel, Field, field_validator
 class TaxNumberSchema(BaseModel):
     """Schema for Indonesian Tax Identification Number (NPWP - Nomor Pokok Wajib Pajak)."""
 
-    tax_id_number: Optional[str] = Field(
+    tax_number: Optional[str] = Field(
         default=None,
         description="Nomor Pokok Wajib Pajak / NPWP (15 or 16 digits format)",
-        examples=["01.234.567.8-901.000", "012345678901000"]
+        examples=["01.234.567.8-901.000", "12.345.678.9-636.000"]
     )
-    taxpayer_name: Optional[str] = Field(
+    tax_payer: Optional[str] = Field(
         default=None,
-        description="Taxpayer Name (Nama Wajib Pajak)"
+        description="Taxpayer Name (Nama Wajib Pajak, e.g. 'BUDI')",
+        examples=["BUDI", "PT CONTOH MAKMUR"]
     )
-    national_id_number: Optional[str] = Field(
+    branch_office: Optional[str] = Field(
         default=None,
-        description="Linked NIK for individual NPWP (16 digits)",
-        examples=["3171010101900001"]
+        description="Tax Branch Office where registered (Kantor Pelayanan Pajak / KPP, e.g. 'KPP MADYA GRESIK')",
+        examples=["KPP MADYA GRESIK"]
     )
-    address: Optional[str] = Field(
+    branch_address: Optional[str] = Field(
         default=None,
-        description="Registered Taxpayer Address (Alamat)"
-    )
-    tax_office: Optional[str] = Field(
-        default=None,
-        description="Tax Office where registered (Kantor Pelayanan Pajak / KPP)"
+        description="Tax Branch Office Address (Alamat KPP, e.g. 'JL DR WAHIDIN SUDIROHUSODO 700 GRESIK')",
+        examples=["JL DR WAHIDIN SUDIROHUSODO 700 GRESIK"]
     )
     registration_date: Optional[str] = Field(
         default=None,
-        description="Registration date (Tanggal Terdaftar)"
+        description="Registration date (Tanggal Terdaftar, e.g. '01/01/2022' or '01-01-2022')",
+        examples=["01/01/2022"]
     )
 
-    @field_validator("tax_id_number")
+    @field_validator("tax_number", mode="before")
     @classmethod
-    def clean_and_validate_tax_id_number(cls, v: Optional[str]) -> Optional[str]:
-        if not v:
+    def clean_and_validate_tax_number(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
             return None
-        cleaned = re.sub(r"[^\d]", "", v)
-        if len(cleaned) in (15, 16):
-            return v.strip()
-        return v
-
-    @field_validator("national_id_number")
-    @classmethod
-    def clean_and_validate_national_id_number(cls, v: Optional[str]) -> Optional[str]:
-        if not v:
-            return None
-        cleaned = re.sub(r"[^\d]", "", v)
-        if len(cleaned) == 16:
+        cleaned = re.sub(r"^NPWP\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
+        cleaned_digits = re.sub(r"[^\dOo]", "", cleaned).replace("O", "0").replace("o", "0")
+        if len(cleaned_digits) in (15, 16):
             return cleaned
-        return v
+        return v.strip()
+
+    @field_validator("tax_payer", mode="before")
+    @classmethod
+    def clean_tax_payer(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
+            return None
+        cleaned = re.sub(r"^(?:NAMA\s*(?:WAJIB\s*PAJAK)?|NAME)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
+        return cleaned or None
+
+    @field_validator("branch_office", mode="before")
+    @classmethod
+    def clean_branch_office(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
+            return None
+        cleaned = v.strip()
+        cleaned = re.sub(r"^(?:KANTOR\s*PELAYANAN\s*PAJAK|KPP)\s*[:\.]?\s*", "KPP ", cleaned, flags=re.IGNORECASE).strip()
+        return cleaned or None
+
+    @field_validator("branch_address", mode="before")
+    @classmethod
+    def clean_branch_address(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
+            return None
+        cleaned = re.sub(r"^(?:ALAMAT|ADDRESS)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
+        return cleaned or None
+
+    @field_validator("registration_date", mode="before")
+    @classmethod
+    def clean_registration_date(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
+            return None
+        cleaned = re.sub(r"^(?:TANGGAL\s*TERDAFTAR|TGL\s*DAFTAR|REGISTRATION\s*DATE)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
+        date_match = re.search(r"\b(\d{2}[-/.]\d{2}[-/.]\d{4})\b", cleaned)
+        if date_match:
+            return date_match.group(1)
+        return cleaned or None
