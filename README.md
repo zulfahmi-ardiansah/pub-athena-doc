@@ -94,15 +94,14 @@ Extracts 16-digit NIK, full name, address hierarchy, religion, marital status, a
 
 ### 2. Tax Identification Number (`tax_number` / Indonesian NPWP)
 
-Extracts 15/16-digit NPWP, taxpayer name, registered KPP, and registration date:
+Extracts 15/16-digit NPWP, taxpayer name, registered KPP branch office and address, and registration date:
 
 ```json
 {
-  "tax_id": "01.234.567.8-012.000",
-  "taxpayer_name": "PT ADIDAYA WIKASITA",
-  "nik": "3171010101900001",
-  "address": "JL. GATOT SUBROTO KAV. 18",
-  "tax_office": "KPP PRATAMA SETIABUDI DUA",
+  "tax_number": "01.234.567.8-012.000",
+  "tax_payer": "PT ADIDAYA WIKASITA",
+  "branch_office": "KPP PRATAMA SETIABUDI DUA",
+  "branch_address": "JL. GATOT SUBROTO KAV. 18",
   "registration_date": "15-08-2018"
 }
 ```
