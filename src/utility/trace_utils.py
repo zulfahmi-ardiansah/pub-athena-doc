@@ -2,10 +2,24 @@ import copy
 import json
 import logging
 from pathlib import Path
+import shutil
 from typing import Any, Dict, Optional, Tuple
 from src.engines.base import ExtractionResult
 
 logger = logging.getLogger(__name__)
+
+
+def delete_request_trace(trace_dir: Path) -> None:
+    """
+    Removes a request trace directory and all its contents from disk.
+    Called on successful extraction when trace persistence is disabled.
+    """
+    try:
+        if trace_dir.exists() and trace_dir.is_dir():
+            shutil.rmtree(trace_dir, ignore_errors=True)
+            logger.info(f"Cleaned up request trace directory: {trace_dir}")
+    except Exception as err:
+        logger.warning(f"Failed to cleanup trace directory {trace_dir}: {err}")
 
 
 def sanitize_trace(trace: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:

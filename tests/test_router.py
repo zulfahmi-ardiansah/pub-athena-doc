@@ -22,6 +22,7 @@ def test_health_endpoint():
     assert "llm_provider" in data
     assert "llm_text_provider" in data
     assert "llm_vision_provider" in data
+    assert "keep_trace_artifacts" in data
 
 
 def test_list_documents_endpoint():
@@ -101,7 +102,45 @@ def test_save_request_trace_utility(tmp_path):
     assert trace_json_content["data"]["id_number"] == "1234567890123456"
 
 
-def test_extract_endpoint_creates_trace_folder_when_demo_enabled(monkeypatch, tmp_path):
+def test_extract_endpoint_deletes_trace_folder_by_default_on_success(monkeypatch, tmp_path):
+    mock_engine = MagicMock(spec=BaseExtractionEngine)
+    mock_engine.name = "hybrid_engine"
+    mock_engine.extract = AsyncMock(return_value=ExtractionResult(
+        data={"id_number": "3171010101900001", "full_name": "BUDI SANTOSO"},
+        trace={"engine": "hybrid_engine", "stages": []}
+    ))
+
+    app.dependency_overrides[get_engine_singleton] = lambda: mock_engine
+
+    from src.config.settings import get_settings
+    settings = get_settings()
+    monkeypatch.setattr(settings, "keep_trace_artifacts", False)
+    monkeypatch.setattr(settings, "trace_dir", str(tmp_path))
+
+    try:
+        dummy_file = io.BytesIO(b"fake image bytes")
+        response = client.post(
+            "/api/v1/extract/identity_card",
+            files={"file": ("sample_ktp.png", dummy_file, "image/png")},
+            params={"trace": "false"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "request_id" in data
+        req_id = data["request_id"]
+        # Trace object should not be in JSON when trace=false
+        assert "trace" not in data
+        # Trace folder should be deleted by default on success
+        assert "trace_dir" not in data
+        target_dir = tmp_path / req_id
+        assert not target_dir.exists()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_extract_endpoint_keeps_trace_folder_when_keep_trace_true(monkeypatch, tmp_path):
     mock_engine = MagicMock(spec=BaseExtractionEngine)
     mock_engine.name = "hybrid_engine"
     mock_engine.extract = AsyncMock(return_value=ExtractionResult(
@@ -134,7 +173,6 @@ def test_extract_endpoint_creates_trace_folder_when_demo_enabled(monkeypatch, tm
 
     from src.config.settings import get_settings
     settings = get_settings()
-    monkeypatch.setattr(settings, "enable_demo", True)
     monkeypatch.setattr(settings, "trace_dir", str(tmp_path))
 
     try:
@@ -142,7 +180,7 @@ def test_extract_endpoint_creates_trace_folder_when_demo_enabled(monkeypatch, tm
         response = client.post(
             "/api/v1/extract/identity_card",
             files={"file": ("sample_ktp.png", dummy_file, "image/png")},
-            params={"trace": "true"}
+            params={"trace": "true", "keep_trace": "true"}
         )
 
         assert response.status_code == 200
@@ -151,6 +189,7 @@ def test_extract_endpoint_creates_trace_folder_when_demo_enabled(monkeypatch, tm
         assert "request_id" in data
         req_id = data["request_id"]
         assert "trace_dir" in data
+        assert "trace" in data
 
         target_dir = tmp_path / req_id
         assert target_dir.exists()

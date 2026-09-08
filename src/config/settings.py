@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     enable_demo: bool = True
     max_file_size_mb: int = 15
     trace_dir: str = "trace"
+    keep_trace_artifacts: bool = False
 
     # Primary Engine Backend
     engine_type: Literal["string_engine", "visual_engine", "hybrid_engine"] = "hybrid_engine"

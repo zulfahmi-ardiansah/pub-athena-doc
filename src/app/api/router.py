@@ -8,7 +8,7 @@ from src.domain.registry import DocumentRegistry
 from src.app.api.deps import get_engine_singleton, get_registry
 from src.engines.base import BaseExtractionEngine, ExtractionResult, ExtractionError
 from src.engines.factory import create_engine
-from src.utility.trace_utils import save_request_trace, sanitize_trace
+from src.utility.trace_utils import save_request_trace, sanitize_trace, delete_request_trace
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ async def health_check(settings: Settings = Depends(get_settings)) -> Dict[str, 
         "llm_vision_provider": vision_provider,
         "extraction_pipeline": settings.extraction_pipeline,
         "analysis_mode": settings.analysis_mode,
+        "keep_trace_artifacts": settings.keep_trace_artifacts,
         "ollama_text_model": settings.ollama_text_model if text_provider == "ollama" else None,
         "ollama_vision_model": settings.ollama_vision_model if vision_provider == "ollama" else None,
         "google_text_model": settings.google_text_model if text_provider == "google" else None,
@@ -54,7 +55,8 @@ async def list_documents(registry: DocumentRegistry = Depends(get_registry)) -> 
 async def extract_document(
     document_type: str,
     file: UploadFile = File(...),
-    trace: bool = Query(default=False, description="Include stage-by-stage evolution trace in response"),
+    trace: bool = Query(default=False, description="Include stage-by-stage evolution trace in response JSON"),
+    keep_trace: Optional[bool] = Query(default=None, description="Persist trace artifacts folder on disk after success (overrides KEEP_TRACE_ARTIFACTS setting)"),
     engine: Optional[str] = Query(default=None, description="Optional engine override: 'string_engine', 'visual_engine', 'hybrid_engine'"),
     analysis_mode: Optional[str] = Query(default=None, description="Optional analysis mode override: 'text_llm', 'string'"),
     pipeline: Optional[str] = Query(default=None, description="Optional extraction pipeline override (comma-separated, e.g. 'digital_pdf,ocr')"),
@@ -64,7 +66,7 @@ async def extract_document(
 ) -> Any:
     """
     Extract structured JSON from uploaded document (PDF or Image).
-    Supports engine, pipeline, and analysis mode overrides per-request.
+    Supports engine, pipeline, analysis mode, and trace retention overrides per-request.
     """
     doc_spec = registry.get(document_type)
     if not doc_spec:
@@ -82,7 +84,7 @@ async def extract_document(
         )
 
     request_id = str(uuid.uuid4())
-    should_trace = trace or settings.enable_demo
+    effective_keep_trace = keep_trace if keep_trace is not None else settings.keep_trace_artifacts
 
     # Determine active engine instance
     active_engine = default_engine
@@ -99,12 +101,14 @@ async def extract_document(
     pipeline_override_list = [s.strip().lower() for s in pipeline.split(",") if s.strip()] if pipeline else None
 
     try:
-        kwargs: Dict[str, Any] = {"trace": should_trace}
+        # Trace is always captured during execution
+        kwargs: Dict[str, Any] = {"trace": True}
         if hasattr(active_engine, "pipeline") or active_engine.name == "hybrid_engine":
             if pipeline_override_list:
                 kwargs["pipeline_override"] = pipeline_override_list
             if analysis_mode:
-                kwargs["analysis_mode_override"] = analysis_mode.lower()
+                mode_lower = analysis_mode.lower()
+                kwargs["analysis_mode_override"] = "text_llm" if mode_lower in ("llm", "text_llm") else mode_lower
 
         result = await active_engine.extract(
             file_bytes=file_bytes,
@@ -122,22 +126,30 @@ async def extract_document(
             "data": result.data
         }
 
+        # Trace artifacts are always created on disk for the request
+        saved_trace_dir = None
         sanitized_trace = None
-        if settings.enable_demo:
-            try:
-                saved_trace_dir, sanitized_trace = save_request_trace(
-                    request_id=request_id,
-                    file_bytes=file_bytes,
-                    filename=file.filename,
-                    document_type=document_type,
-                    extraction_result=result,
-                    trace_base_dir=settings.trace_dir
-                )
-                response_payload["trace_dir"] = str(saved_trace_dir.as_posix())
-            except Exception as trace_err:
-                logger.warning(f"Failed to save trace to disk: {trace_err}")
+        try:
+            saved_trace_dir, sanitized_trace = save_request_trace(
+                request_id=request_id,
+                file_bytes=file_bytes,
+                filename=file.filename,
+                document_type=document_type,
+                extraction_result=result,
+                trace_base_dir=settings.trace_dir
+            )
+        except Exception as trace_err:
+            logger.warning(f"Failed to save trace to disk: {trace_err}")
 
-        if trace and result.trace is not None:
+        # If retention is disabled on success, delete the trace folder from disk
+        if saved_trace_dir is not None:
+            if effective_keep_trace:
+                response_payload["trace_dir"] = str(saved_trace_dir.as_posix())
+            else:
+                delete_request_trace(saved_trace_dir)
+
+        # Include trace in response JSON only when requested (trace=true)
+        if trace:
             response_payload["trace"] = sanitized_trace if sanitized_trace is not None else sanitize_trace(result.trace)
 
         return response_payload
@@ -147,20 +159,19 @@ async def extract_document(
         sanitized_trace = None
         trace_dir_str = None
         if exc.trace:
-            if settings.enable_demo:
-                try:
-                    dummy_result = ExtractionResult(data=exc.raw_data or {}, trace=exc.trace)
-                    saved_trace_dir, sanitized_trace = save_request_trace(
-                        request_id=request_id,
-                        file_bytes=file_bytes,
-                        filename=file.filename,
-                        document_type=document_type,
-                        extraction_result=dummy_result,
-                        trace_base_dir=settings.trace_dir
-                    )
-                    trace_dir_str = str(saved_trace_dir.as_posix())
-                except Exception as trace_err:
-                    logger.warning(f"Failed to save error trace to disk: {trace_err}")
+            try:
+                dummy_result = ExtractionResult(data=exc.raw_data or {}, trace=exc.trace)
+                saved_trace_dir, sanitized_trace = save_request_trace(
+                    request_id=request_id,
+                    file_bytes=file_bytes,
+                    filename=file.filename,
+                    document_type=document_type,
+                    extraction_result=dummy_result,
+                    trace_base_dir=settings.trace_dir
+                )
+                trace_dir_str = str(saved_trace_dir.as_posix())
+            except Exception as trace_err:
+                logger.warning(f"Failed to save error trace to disk: {trace_err}")
 
             if sanitized_trace is None:
                 sanitized_trace = sanitize_trace(exc.trace)
