@@ -76,3 +76,8 @@ trace/
 traces/
 .playwright-mcp
 new-demo.html
+
+# Logs
+logs/
+*.log
+*.jsonl

@@ -7,6 +7,7 @@ from src.modules.extractors.base import BaseTextExtractor
 from src.modules.analyzers.base import BaseTextAnalyzer
 from src.modules.preprocessors.base import BaseImagePreprocessor
 from src.utility.pdf_utils import is_pdf
+from src.config.telemetry import async_trace_span
 
 logger = logging.getLogger(__name__)
 
@@ -74,45 +75,47 @@ class HybridEngine(BaseExtractionEngine):
         attempted_stages: List[Dict[str, Any]] = []
 
         # Stage 1: Extraction Cascade
-        for stage_name in active_pipeline:
-            stage_key = stage_name.strip().lower()
-            extractor = self.extractors.get(stage_key)
-            if not extractor:
-                logger.warning(f"Extractor '{stage_key}' not found in registered extractors, skipping.")
-                continue
+        async with async_trace_span("pipeline.extraction_cascade", {"pipeline": str(active_pipeline)}):
+            for stage_name in active_pipeline:
+                stage_key = stage_name.strip().lower()
+                extractor = self.extractors.get(stage_key)
+                if not extractor:
+                    logger.warning(f"Extractor '{stage_key}' not found in registered extractors, skipping.")
+                    continue
 
-            # Skip digital PDF extractor for image files
-            if stage_key == "digital_pdf" and not is_pdf_file:
-                continue
+                # Skip digital PDF extractor for image files
+                if stage_key == "digital_pdf" and not is_pdf_file:
+                    continue
 
-            try:
-                out = await extractor.extract_text(
-                    file_bytes=file_bytes,
-                    filename=filename,
-                    content_type=content_type
-                )
-                attempted_stages.append({
-                    "stage": stage_key,
-                    "confidence": out.confidence,
-                    "text_length": len(out.text),
-                    "accepted": not out.is_empty and out.confidence >= self.min_confidence,
-                    "metadata": out.metadata
-                })
+                try:
+                    async with async_trace_span(f"extractor.{stage_key}"):
+                        out = await extractor.extract_text(
+                            file_bytes=file_bytes,
+                            filename=filename,
+                            content_type=content_type
+                        )
+                    attempted_stages.append({
+                        "stage": stage_key,
+                        "confidence": out.confidence,
+                        "text_length": len(out.text),
+                        "accepted": not out.is_empty and out.confidence >= self.min_confidence,
+                        "metadata": out.metadata
+                    })
 
-                if not out.is_empty and out.confidence >= self.min_confidence:
-                    best_output = out
-                    break
+                    if not out.is_empty and out.confidence >= self.min_confidence:
+                        best_output = out
+                        break
 
-                if not out.is_empty and (best_output is None or out.confidence > best_output.confidence):
-                    best_output = out
+                    if not out.is_empty and (best_output is None or out.confidence > best_output.confidence):
+                        best_output = out
 
-            except Exception as exc:
-                logger.warning(f"Extractor '{stage_key}' execution failed: {exc}")
-                attempted_stages.append({
-                    "stage": stage_key,
-                    "status": "error",
-                    "error": str(exc)
-                })
+                except Exception as exc:
+                    logger.warning(f"Extractor '{stage_key}' execution failed: {exc}")
+                    attempted_stages.append({
+                        "stage": stage_key,
+                        "status": "error",
+                        "error": str(exc)
+                    })
 
         if trace:
             stages.append({
@@ -150,10 +153,11 @@ class HybridEngine(BaseExtractionEngine):
             active_analysis_mode = fallback_mode
 
         try:
-            analyzed_data = await analyzer.analyze(
-                input_data=best_output.text,
-                document=document
-            )
+            async with async_trace_span(f"analyzer.{active_analysis_mode}", {"document.slug": document.slug}):
+                analyzed_data = await analyzer.analyze(
+                    input_data=best_output.text,
+                    document=document
+                )
         except Exception as exc:
             if trace:
                 stages.append({

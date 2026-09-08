@@ -86,6 +86,33 @@ class Settings(BaseSettings):
     google_text_model: str = "gemini-1.5-flash"
     google_vision_model: str = "gemini-1.5-flash"
 
+    # 6. Standardized Logging & Personal Information (PI) Privacy
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    log_dir: str = "logs"
+    log_format: Literal["json", "text"] = "json"
+    log_to_file: bool = True
+    log_retention_days: int = 30
+    log_max_bytes: int = 50 * 1024 * 1024  # 50 MB
+    log_backup_count: int = 10
+    pi_masking_enabled: bool = True
+    pdp_masking_enabled: Optional[bool] = None
+
+    @field_validator("pi_masking_enabled", mode="before")
+    @classmethod
+    def resolve_pi_masking(cls, v: Any, info: Any) -> bool:
+        if v is not None:
+            return bool(v)
+        return True
+
+
+    # 7. OpenTelemetry & Distributed Tracing
+    otel_enabled: bool = False
+    otel_service_name: str = "athena-doc-extractor"
+    otel_service_version: str = "0.2.0"
+    otel_exporter_otlp_endpoint: Optional[str] = None
+    otel_exporter_otlp_protocol: Literal["grpc", "http/protobuf"] = "grpc"
+    otel_sample_rate: float = 1.0
+
     def get_text_provider_type(self) -> Literal["ollama", "google"]:
         """Returns the effective provider type for text analysis."""
         return self.llm_text_provider or self.llm_provider
@@ -104,3 +131,4 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     return Settings()
+

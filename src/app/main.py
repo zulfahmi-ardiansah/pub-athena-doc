@@ -4,14 +4,18 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+
 from src.config.settings import get_settings
+from src.config.logging import setup_logging, flush_logging_handlers
+from src.config.telemetry import setup_telemetry, shutdown_telemetry
+from src.app.middleware.security import SecurityHeadersMiddleware
+from src.app.middleware.access_log import AccessLogMiddleware
+from src.app.middleware.error_handler import register_exception_handlers
 from src.app.api.router import router
 
-# Configure root logger
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
+# 1. Initialize Standardized Logging early
+_settings = get_settings()
+setup_logging(_settings)
 logger = logging.getLogger(__name__)
 
 
@@ -20,8 +24,13 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info(
         f"Starting {settings.app_name} with engine_type={settings.engine_type} "
-        f"(demo_enabled={settings.enable_demo})"
+        f"(demo_enabled={settings.enable_demo}, otel_enabled={settings.otel_enabled})"
     )
+
+    # 2. Setup OpenTelemetry
+    setup_telemetry(app, settings)
+
+    # 3. Optional Engine Warmup
     if (
         settings.engine_type in ("hybrid_engine", "visual_engine")
         and settings.ollama_preload
@@ -33,7 +42,13 @@ async def lifespan(app: FastAPI):
             await engine.warmup()
         except Exception as err:
             logger.warning(f"Engine startup warmup notice: {err}")
+
     yield
+
+    # 4. Graceful Teardown
+    logger.info(f"Shutting down {settings.app_name}...")
+    shutdown_telemetry()
+    flush_logging_handlers()
 
 
 def create_app() -> FastAPI:
@@ -41,14 +56,20 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title=settings.app_name,
-        description="FastAPI service for converting images and documents to structured JSON.",
+        description="Production-ready FastAPI service for converting images and documents to structured JSON with OpenTelemetry & Personal Information (PI) privacy compliance.",
         version="0.2.0",
         docs_url="/docs",
         redoc_url="/redoc",
         lifespan=lifespan,
     )
 
-    # CORS
+
+    # Global Exception Handlers
+    register_exception_handlers(app, is_debug=settings.debug)
+
+    # Middlewares (Executed in reverse order of addition: AccessLog -> Security -> CORS -> Router)
+    app.add_middleware(AccessLogMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
