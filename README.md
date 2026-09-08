@@ -1,6 +1,6 @@
 # Athena - Document Extractor
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue) ![Python](https://img.shields.io/badge/python-3.10+-3776AB?logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi&logoColor=white) ![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white) ![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-enabled-F5A800?logo=opentelemetry&logoColor=white)
+![Version](https://img.shields.io/badge/version-1.0.0-blue) ![Python](https://img.shields.io/badge/python-3.10+-3776AB?logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi&logoColor=white) ![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white) ![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-enabled-F5A800?logo=opentelemetry&logoColor=white)
 
 **Athena** is a FastAPI service that converts messy document images and multi-page PDFs (such as ID cards, tax forms, and receipts) into clean, typed, structured JSON. Extracting data from real-world documents is usually a headache: scanned PDFs have scrambled text layers, mobile uploads are taken at odd angles with potato cameras, and paying a cloud Vision LLM to parse every simple digital document burns through your API bill fast.
 
@@ -111,77 +111,89 @@ Extracts 15/16-digit NPWP, taxpayer name, registered KPP, and registration date:
 
 ## Web Interface
 
-Athena includes a browser-based test workspace served directly from the application when `ENABLE_DEMO=true`.
+Athena ships a browser-based test workspace, served straight from the FastAPI app itself, no separate frontend build or dev server required. It's the fastest way to poke at the pipeline without writing a single `curl` command.
 
-- **URL**: `http://localhost:8000/demo` (and `http://localhost:8000/`)
-- **Capabilities**: Drag-and-drop file upload, live image preview and zoom, runtime engine/pipeline dropdown overrides, stage-by-stage evolution trace inspector, structured field viewer, raw JSON payload viewer with one-click copy, and dark/light theme switching.
+- **URL**: `http://localhost:8000/demo` (also mounted at the app root, `http://localhost:8000/`)
+- **Toggle**: controlled by the `ENABLE_DEMO` setting (`true` by default). Set it to `false` to strip the UI out of production deployments.
+
+**Features:** drag-and-drop upload with live image preview and zoom · runtime `engine` / `pipeline` / `analysis_mode` overrides per request, no `.env` edit or restart needed · stage-by-stage trace inspector (preprocess → extract → analyze) with per-stage status, timing, and confidence · structured field viewer next to the document preview · raw JSON viewer with syntax highlighting and one-click copy · dark/light theme switching.
+
+Use it to sanity-check a new document type, compare engines side-by-side on the same file, or hand a non-technical teammate a way to try the API without Postman.
 
 ---
 
-## Quick Start with Docker (Recommended)
+## Quick Start
 
-The Docker image bundles Python 3.13, OpenCV runtime libraries, and ONNX Runtime CPU dependencies.
+Get the API running locally with [`uv`](https://docs.astral.sh/uv/), the fastest path from clone to first request. Prefer containers? Jump to [Deployment with Docker](#deployment-with-docker).
 
-### 1. Standard Setup
+### Requirements
+
+Before setting up Athena, make sure the following are available:
+
+#### Python 3.10+
+
+3.13 recommended, matching the Docker image. Verify with:
 
 ```bash
-# Clone repository and prepare environment file
+python --version
+```
+
+#### uv
+
+Used to install dependencies and keep them pinned via `uv.lock`. Install per the [official guide](https://docs.astral.sh/uv/getting-started/installation/), then verify with:
+
+```bash
+uv --version
+```
+
+#### C/C++ compiler & OpenCV system libraries
+
+Required to build `opencv-python-headless` and `rapidocr-onnxruntime`. On Debian/Ubuntu: `sudo apt-get install build-essential libgl1`. On Windows, the Build Tools for Visual Studio cover the compiler; OpenCV's Python wheel bundles its own runtime libraries.
+
+#### Ollama *(optional)*
+
+Only needed if you want local LLM inference instead of Google Gemini. Install from [ollama.com](https://ollama.com/) and confirm it's serving on port `11434`:
+
+```bash
+curl http://localhost:11434
+```
+
+### 1. Clone & configure
+
+```bash
 git clone <repo-url>
 cd adw-pdc-athena
 cp .env.example .env
+```
 
-# Build and start the API service
-docker compose up -d --build
+Open `.env` and set at minimum an `ENGINE_TYPE` and, if using `hybrid_engine` or `visual_engine`, either `OLLAMA_BASE_URL` or a Google Gemini API key, see [Configuration Reference](#configuration-reference).
+
+### 2. Sync the environment
+
+`uv sync` resolves and installs dependencies into a project-local `.venv`, pinned to `uv.lock` for reproducible installs, no manual `pip install` needed.
+
+```bash
+uv sync --extra dev
+```
+
+### 3. Activate & run
+
+```bash
+source .venv/bin/activate        # Linux/macOS
+.venv\Scripts\Activate.ps1       # Windows PowerShell
+
+uvicorn src.app.main:app --reload --port 8000
+```
+
+Or skip activation entirely and let `uv` run it in the managed environment directly:
+
+```bash
+uv run uvicorn src.app.main:app --reload --port 8000
 ```
 
 - **Web Demo UI**: <http://localhost:8000/demo>
 - **Swagger API Docs**: <http://localhost:8000/docs>
 - **Health Check**: <http://localhost:8000/health>
-
-### 2. Companion Profiles
-
-Athena supports optional companion containers via Docker Compose profiles:
-
-```bash
-# Start API with local containerized Ollama
-docker compose --profile with-ollama up -d
-
-# Start API with Jaeger distributed tracing dashboard (http://localhost:16686)
-docker compose --profile with-telemetry up -d
-```
-
----
-
-## Local Development
-
-### Requirements
-
-- **Python 3.10+** (Python 3.13 recommended)
-- **C/C++ compiler & OpenCV system libraries**
-- *(Optional)* **Ollama** running locally on port 11434
-
-### Installation
-
-**Using `uv` (Recommended):**
-```bash
-uv sync --extra dev
-source .venv/bin/activate        # Linux/macOS
-.venv\Scripts\Activate.ps1       # Windows PowerShell
-```
-
-**Using standard `venv` & `pip`:**
-```bash
-python -m venv .venv
-source .venv/bin/activate        # Linux/macOS
-.venv\Scripts\Activate.ps1       # Windows PowerShell
-pip install -e ".[dev]"
-```
-
-### Run Server
-
-```bash
-uvicorn src.app.main:app --reload --port 8000
-```
 
 ---
 
@@ -259,7 +271,9 @@ curl -X POST "http://localhost:8000/api/v1/extract/identity_card?trace=true" \
 
 ## Configuration Reference
 
-Key settings configurable via environment variables or `.env`:
+Key settings configurable via environment variables or `.env`, grouped by topic:
+
+### Engine & Pipeline
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -267,12 +281,27 @@ Key settings configurable via environment variables or `.env`:
 | `EXTRACTION_PIPELINE` | `digital_pdf,ocr,visual_llm` | Extraction sequence attempted by `hybrid_engine` |
 | `EXTRACTION_MIN_CONFIDENCE` | `0.5` | Minimum extractor confidence score before cascading to next stage |
 | `ANALYSIS_MODE` | `text_llm` | Analyzer mode: `text_llm` (LLM schema-guided) or `string` (deterministic regex) |
+
+### OCR & LLM Providers
+
+| Setting | Default | Description |
+|---------|---------|-------------|
 | `OCR_BACKEND` | `rapidocr` | OCR engine: `rapidocr` (CPU ONNX), `tesseract`, or `google_vision` |
 | `LLM_TEXT_PROVIDER` | `ollama` | Provider for structured text analysis: `ollama` or `google` |
 | `LLM_VISION_PROVIDER` | `ollama` | Provider for multimodal vision extraction: `ollama` or `google` |
+
+### Ollama
+
+| Setting | Default | Description |
+|---------|---------|-------------|
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API base URL |
 | `OLLAMA_TEXT_MODEL` | `qwen2.5:3b` | Ollama model for text extraction |
 | `OLLAMA_VISION_MODEL` | `llama3.2-vision` | Ollama model for vision extraction |
+
+### Security & Observability
+
+| Setting | Default | Description |
+|---------|---------|-------------|
 | `PI_MASKING_ENABLED` | `true` | Automatically redact NIK, NPWP, emails, and tokens in application logs |
 | `OTEL_ENABLED` | `false` | Enable OpenTelemetry distributed tracing |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP collector gRPC or HTTP endpoint (e.g. Jaeger) |
@@ -313,18 +342,115 @@ The document specification is automatically discovered by `DocumentRegistry` and
 
 ---
 
-## Testing
+## Deployment with Docker
+
+For anything beyond local hacking, the Docker image is the recommended path. It bundles Python 3.13, the OpenCV runtime libraries, and ONNX Runtime CPU dependencies that `string_engine` and `hybrid_engine` need for OCR, so there's no host-level toolchain to fight with.
+
+### 1. Standard deployment
 
 ```bash
-# Run test suite
-pytest
+# Clone repository and prepare environment file
+git clone <repo-url>
+cd adw-pdc-athena
+cp .env.example .env
 
-# Run tests with verbose output
-pytest -v -s
+# Build and start the API service
+docker compose up -d --build
+```
+
+This starts a single `athena-api` container, publishing `PORT` (default `8000`), mounting `./logs` and `./trace` for persistence, and running a `curl`-based healthcheck against `/health/live` every 30s.
+
+- **Web Demo UI**: <http://localhost:8000/demo>
+- **Swagger API Docs**: <http://localhost:8000/docs>
+- **Health Check**: <http://localhost:8000/health>
+
+### 2. Optional companion profiles
+
+Compose profiles let you attach supporting services on demand, without bloating the base deployment:
+
+| Profile | Command | Adds | Configure in `.env` |
+|---|---|---|---|
+| `with-ollama` | `docker compose --profile with-ollama up -d` | A containerized Ollama instance for local LLM inference, reachable from the API container. | `OLLAMA_BASE_URL=http://ollama:11434` |
+| `with-telemetry` | `docker compose --profile with-telemetry up -d` | Jaeger all-in-one, exposing a trace UI at `http://localhost:16686` and OTLP gRPC/HTTP receivers. | `OTEL_ENABLED=true`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317` |
+
+Profiles combine, run both at once with `docker compose --profile with-ollama --profile with-telemetry up -d` for a fully self-contained local stack (API + LLM + tracing).
+
+### 3. Credentials for Google Vision / Gemini
+
+If using `google_vision` OCR or the `google` LLM provider, mount your service account JSON and point `GOOGLE_APPLICATION_CREDENTIALS` at it. Uncomment the relevant `volumes` line in `docker-compose.yml`:
+
+```yaml
+volumes:
+  - ./secrets:/app/secrets:ro
+```
+
+### 4. Rebuilding after changes
+
+```bash
+docker compose up -d --build   # rebuild image and recreate the container
+docker compose logs -f athena-api   # tail logs
+docker compose down            # stop and remove containers (volumes persist)
 ```
 
 ---
 
-## License
+## Testing
 
-Apache 2.0. See `LICENSE` for details.
+The suite lives under [`tests/`](tests/), one module per layer (`test_engines.py`, `test_domain.py`, `test_pi_sanitizer.py`, `test_telemetry.py`, etc.), with fixtures in [`tests/conftest.py`](tests/conftest.py). LLM/OCR calls are mocked, so `pytest` runs fully offline.
+
+```bash
+pytest                    # full suite
+pytest -v -s               # verbose, with print() output
+pytest tests/test_engines.py                                        # single module
+pytest tests/test_router.py -k test_extract_endpoint_returns_valid_schema  # single test
+```
+
+---
+
+## Troubleshooting
+
+### `ModuleNotFoundError` or import errors on startup
+
+**Cause:** Dependencies not installed, or installed into the wrong environment.
+
+**Solution:** Run `uv sync --extra dev` and confirm the venv is activated (or prefix commands with `uv run`).
+
+---
+
+### OpenCV / `rapidocr-onnxruntime` fails to build or import
+
+**Cause:** Missing C/C++ compiler or system libraries needed by `opencv-python-headless`.
+
+**Solution:** Install a C/C++ toolchain (see [Requirements](#requirements)), or skip the problem entirely by running Athena via [Docker](#deployment-with-docker), which bundles these already.
+
+---
+
+### `Connection refused` calling Ollama (`OLLAMA_BASE_URL`)
+
+**Cause:** Ollama isn't running locally, or the container can't reach a host-installed Ollama.
+
+**Solution:** Start Ollama (`ollama serve`) and confirm `curl http://localhost:11434` responds. From inside Docker, point `OLLAMA_BASE_URL` at `http://host.docker.internal:11434` (host) or `http://ollama:11434` (the `with-ollama` profile container), not `localhost`.
+
+---
+
+### `422 Unprocessable Entity` on `/api/v1/extract/{document_type}`
+
+**Cause:** File exceeds `MAX_FILE_SIZE_MB`, or `document_type` isn't a registered schema slug.
+
+**Solution:** Check the limit in `.env`, and confirm the slug against `GET /api/v1/documents`.
+
+---
+
+### Google Vision / Gemini calls fail with auth errors
+
+**Cause:** `GOOGLE_APPLICATION_CREDENTIALS` isn't set or the service account JSON isn't reachable from the process.
+
+**Solution:** Locally, point the env var at your credentials file. In Docker, mount the file and uncomment the `volumes` line in `docker-compose.yml` (see [Deployment with Docker](#deployment-with-docker)).
+
+---
+
+### Docker container healthcheck stays `unhealthy`
+
+**Cause:** The app crashed on startup, or is still initializing past the healthcheck's `start_period`.
+
+**Solution:** `docker compose logs -f athena-api` to see the actual startup error, usually a bad `.env` value or an unreachable LLM/OCR backend.

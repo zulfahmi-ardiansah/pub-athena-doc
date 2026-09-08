@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "athena-doc-extractor"
-version = "0.1.0"
+version = "1.0.0"
 description = "FastAPI document & image to structured JSON extraction service with CPU & Cloud engines"
 authors = [{ name = "Athena Team" }]
 readme = "README.md"
