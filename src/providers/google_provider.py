@@ -81,10 +81,22 @@ class GoogleGenAIProvider(BaseLLMProvider):
             if project_to_use:
                 # Vertex AI mode using gcloud ADC / Service Account
                 logger.info(f"Initializing Google GenAI client in Vertex AI mode (project={project_to_use}, location={self.location})")
+                
+                # Attach quota project to ADC credentials if available to satisfy Vertex AI requirements
+                creds = None
+                try:
+                    import google.auth
+                    default_creds, _ = google.auth.default()
+                    if hasattr(default_creds, "with_quota_project"):
+                        creds = default_creds.with_quota_project(project_to_use)
+                except Exception:
+                    pass
+
                 self._client = genai.Client(
                     vertexai=True,
                     project=project_to_use,
-                    location=self.location
+                    location=self.location,
+                    credentials=creds,
                 )
             elif self.api_key:
                 # API Key mode
@@ -101,6 +113,58 @@ class GoogleGenAIProvider(BaseLLMProvider):
 
         return self._client
 
+    @staticmethod
+    def _parse_json_payload(text: str) -> Dict[str, Any]:
+        """
+        Parses JSON from model response, handling direct JSON, markdown code fences,
+        and surrounding text preamble/postscript if present.
+        """
+        cleaned = text.strip() if text else ""
+        if not cleaned:
+            raise ValueError("Empty response received from Google GenAI provider")
+
+        # 1. Direct parse attempt
+        try:
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+        # 2. Strip markdown code fences (```json ... ``` or ``` ... ```)
+        if "```" in cleaned:
+            lines = cleaned.splitlines()
+            code_lines = []
+            inside_fence = False
+            for line in lines:
+                if line.strip().startswith("```"):
+                    inside_fence = not inside_fence
+                    continue
+                if inside_fence:
+                    code_lines.append(line)
+            if code_lines:
+                candidate = "\n".join(code_lines).strip()
+                try:
+                    parsed = json.loads(candidate)
+                    if isinstance(parsed, dict):
+                        return parsed
+                except json.JSONDecodeError:
+                    pass
+
+        # 3. Substring extraction: find outermost '{' and '}'
+        first_brace = cleaned.find("{")
+        last_brace = cleaned.rfind("}")
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            candidate = cleaned[first_brace:last_brace + 1]
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+
+        raise ValueError("Response is not a valid JSON object")
+
     async def generate_structured(
         self,
         prompt: str,
@@ -112,12 +176,15 @@ class GoogleGenAIProvider(BaseLLMProvider):
         from google.genai import types
 
         sanitized_schema = self._sanitize_schema_for_gemini(json_schema)
+        # Strip publisher prefix if specified as google/model-name
+        model_name = self.model.removeprefix("google/")
 
         config = types.GenerateContentConfig(
             system_instruction=system_prompt if system_prompt else None,
             response_mime_type="application/json",
             response_schema=sanitized_schema,
-            temperature=0.0
+            temperature=0.0,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
 
         parts: List[Any] = []
@@ -127,18 +194,18 @@ class GoogleGenAIProvider(BaseLLMProvider):
                 parts.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
 
         parts.append(types.Part.from_text(text=prompt))
-        contents = types.Content(parts=parts)
+        contents = parts if len(parts) > 1 else prompt
 
         response = client.models.generate_content(
-            model=self.model,
+            model=model_name,
             contents=contents,
             config=config
         )
 
         if not response.text:
-            raise RuntimeError("Google Gemini returned empty response")
+            raise RuntimeError("Google GenAI returned empty response")
 
-        return json.loads(response.text)
+        return self._parse_json_payload(response.text)
 
     async def generate_text(
         self,
@@ -149,9 +216,11 @@ class GoogleGenAIProvider(BaseLLMProvider):
         client = self._get_client()
         from google.genai import types
 
+        model_name = self.model.removeprefix("google/")
         config = types.GenerateContentConfig(
             system_instruction=system_prompt if system_prompt else None,
-            temperature=0.0
+            temperature=0.0,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
 
         parts: List[Any] = []
@@ -161,10 +230,10 @@ class GoogleGenAIProvider(BaseLLMProvider):
                 parts.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
 
         parts.append(types.Part.from_text(text=prompt))
-        contents = types.Content(parts=parts)
+        contents = parts if len(parts) > 1 else prompt
 
         response = client.models.generate_content(
-            model=self.model,
+            model=model_name,
             contents=contents,
             config=config
         )
