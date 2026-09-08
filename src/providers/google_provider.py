@@ -35,6 +35,31 @@ class GoogleGenAIProvider(BaseLLMProvider):
         if self.credentials_file and os.path.exists(self.credentials_file):
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.credentials_file
 
+    @staticmethod
+    def _sanitize_schema_for_gemini(schema: Any) -> Any:
+        """
+        Recursively strips OpenAPI 3.1 / JSON Schema draft fields (like 'examples')
+        that Vertex AI / Google GenAI types.Schema strictly forbids.
+        """
+        if isinstance(schema, dict):
+            cleaned = {}
+            for k, v in schema.items():
+                if k in ("examples", "$defs"):
+                    continue
+                if k == "properties" and isinstance(v, dict):
+                    cleaned[k] = {
+                        prop_k: GoogleGenAIProvider._sanitize_schema_for_gemini(prop_v)
+                        for prop_k, prop_v in v.items()
+                    }
+                elif isinstance(v, (dict, list)):
+                    cleaned[k] = GoogleGenAIProvider._sanitize_schema_for_gemini(v)
+                else:
+                    cleaned[k] = v
+            return cleaned
+        elif isinstance(schema, list):
+            return [GoogleGenAIProvider._sanitize_schema_for_gemini(item) for item in schema]
+        return schema
+
     def _get_client(self):
         if self._client is not None:
             return self._client
@@ -86,10 +111,12 @@ class GoogleGenAIProvider(BaseLLMProvider):
         client = self._get_client()
         from google.genai import types
 
+        sanitized_schema = self._sanitize_schema_for_gemini(json_schema)
+
         config = types.GenerateContentConfig(
             system_instruction=system_prompt if system_prompt else None,
             response_mime_type="application/json",
-            response_schema=json_schema,
+            response_schema=sanitized_schema,
             temperature=0.0
         )
 

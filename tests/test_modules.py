@@ -11,7 +11,8 @@ from src.modules.analyzers.string_analyzer import StringTextAnalyzer
 from src.modules.analyzers.llm_analyzer import LlmTextAnalyzer
 from src.modules.analyzers.visual_llm_analyzer import VisualLlmAnalyzer
 from src.domain.documents.identity_card import IdentityCardDocument, IdentityCardSchema
-from src.domain.documents.tax_number import TaxNumberDocument
+from src.domain.documents.tax_number import TaxNumberDocument, TaxNumberSchema
+from src.providers.google_provider import GoogleGenAIProvider
 
 
 def _create_sample_png_bytes(width=100, height=50, color=(255, 255, 255)) -> bytes:
@@ -175,3 +176,18 @@ async def test_visual_llm_analyzer():
     result = await analyzer.analyze(input_data=[img_bytes], document=doc)
     assert result["tax_number"] == "12.345.678.9-636.000"
     assert result["tax_payer"] == "PT CONTOH MAKMUR"
+
+
+def test_google_genai_provider_schema_sanitization():
+    from google.genai import types
+    ktp_schema = IdentityCardSchema.model_json_schema()
+    assert "examples" in ktp_schema["properties"]["province"]
+    sanitized_ktp = GoogleGenAIProvider._sanitize_schema_for_gemini(ktp_schema)
+    assert "examples" not in sanitized_ktp["properties"]["province"]
+    validated_ktp = types.Schema.model_validate(sanitized_ktp)
+    assert validated_ktp is not None
+
+    npwp_schema = TaxNumberSchema.model_json_schema()
+    sanitized_npwp = GoogleGenAIProvider._sanitize_schema_for_gemini(npwp_schema)
+    validated_npwp = types.Schema.model_validate(sanitized_npwp)
+    assert validated_npwp is not None
