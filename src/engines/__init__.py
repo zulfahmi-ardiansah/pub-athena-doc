@@ -1,14 +1,15 @@
-from src.engines.base import BaseExtractionEngine
-from src.engines.ocr_hybrid_engine import OcrHybridEngine, LocalCpuEngine
-from src.engines.visual_model_engine import VisualModelEngine
-from src.engines.cloud_google_engine import CloudGoogleEngine
+from src.engines.base import BaseExtractionEngine, ExtractionResult, ExtractionError
+from src.engines.string_engine import StringEngine
+from src.engines.visual_engine import VisualEngine
+from src.engines.hybrid_engine import HybridEngine
 from src.engines.factory import create_engine
 
 __all__ = [
     "BaseExtractionEngine",
-    "OcrHybridEngine",
-    "LocalCpuEngine",
-    "VisualModelEngine",
-    "CloudGoogleEngine",
+    "ExtractionResult",
+    "ExtractionError",
+    "StringEngine",
+    "VisualEngine",
+    "HybridEngine",
     "create_engine",
 ]

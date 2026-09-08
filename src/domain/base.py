@@ -28,3 +28,10 @@ class BaseDocument(ABC):
     def validate_payload(self, data: Dict[str, Any]) -> BaseModel:
         """Validates and parses raw dictionary into typed Pydantic schema."""
         return self.schema_class.model_validate(data)
+
+    def parse_string(self, raw_text: str) -> BaseModel:
+        """
+        Deterministic zero-LLM string parser for converting raw OCR text directly
+        into the validated Pydantic model.
+        """
+        raise NotImplementedError(f"String parsing is not implemented for document type '{self.slug}'.")

@@ -7,51 +7,49 @@ High-performance modular FastAPI service for converting images and multi-page do
 - **Document Specialization**: Built-in Indonesian domain models for:
   - **KTP** (`identity_card`): Extract 16-digit NIK, full names, addresses, RT/RW, etc.
   - **NPWP** (`tax_number`): Extract 15/16-digit NPWP, taxpayer name, KPP, etc.
-- **Intelligent Triage Pipeline**:
-  - Multi-page digital PDFs: Fast direct text extraction via `PyMuPDF` (0 GPU, <10ms).
-  - Scanned PDFs / Photos: High-speed CPU OCR via `RapidOCR` (ONNX runtime, Apache-2.0) or `Tesseract`.
-  - Automated Image Preprocessing: Skew detection/correction (deskew), CLAHE contrast enhancement, and configurable thresholding (`otsu`/`adaptive`).
-  - Merges multi-page texts with page delimiters.
-- **Structured JSON Schema Constraints**:
-  - Forces GBNF grammar constraints on LLM token generation (100% syntactically valid JSON).
-  - Zero-hallucination rules for critical numeric IDs (NIK, NPWP).
-- **Pluggable Engine Architecture (Strategy Pattern)**:
-  - `ocr_hybrid` (or `local_cpu`): Hybrid OCR & inference using `RapidOCR`/`Tesseract` + `Ollama` (`qwen2.5:3b`).
-  - `visual_model`: Pure local multimodal vision inference using `Ollama` (`llama3.2-vision`, `qwen2.5-vl`, or `minicpm-v`).
-  - `cloud_google`: Google Cloud Gemini 1.5 Flash multimodal extraction.
+- **Decoupled Pluggable Architecture**:
+  - **File Preprocessor**: Image Preprocessor (deskew, CLAHE contrast enhancement, Otsu/adaptive thresholding, PDF rendering).
+  - **Text Extraction Modules**:
+    - Digital PDF Extractor (`PyMuPDF`) with confidence scoring.
+    - OCR-based Extractor (`RapidOCR` ONNX CPU, `Tesseract`, `Google Cloud Vision OCR`).
+    - Visual-LLM Extractor (multimodal verbatim transcription via `Ollama` or `Google Gemini`).
+  - **Text Analysis Modules**:
+    - String Text Analysis (Deterministic, zero-LLM regex/heuristic parsing).
+    - LLM-based Text Analysis (Pydantic JSON schema-constrained generation via `Ollama` or `Google Gemini`).
+    - Visual-LLM-based Text Analysis (Direct image-to-JSON multimodal inference).
+- **Three Core Engines**:
+  - `string_engine`: Preprocessor &rarr; (Digital PDF or OCR fallback) &rarr; Deterministic String Text Analysis.
+  - `visual_engine`: Preprocessor &rarr; Direct Visual-LLM Multimodal JSON Analysis.
+  - `hybrid_engine`: Preprocessor &rarr; Configurable Extraction Pipeline (`digital_pdf,ocr,visual_llm` cascading on low confidence) &rarr; Configurable Analysis (`llm` or `string`).
 
 ---
 
 ## Architecture Overview
 
 ```
-                          [ Client Request ]
-                                  │
-                                  ▼
-                   POST /api/v1/extract/{document_type}
-                                  │
-                    ┌─────────────┴─────────────┐
-                    ▼                           ▼
-          (PDF / Scanned / Digital)          (Image)
-                    │                           │
-                    ▼                           ▼
-            PyMuPDF Inspector             RapidOCR (ONNX CPU)
-         [Digital Text vs Render]               │
-                    │                           │
-                    └─────────────┬─────────────┘
-                                  ▼
-                        Aggregated Text Stream
-                                  │
-                                  ▼
-                     Structured LLM Provider
-                 (Ollama Qwen2.5 / Google Gemini)
-               [format = Pydantic JSON Schema]
-                                  │
-                                  ▼
-                    Pydantic Validation & Normalization
-                                  │
-                                  ▼
-                          [ JSON Response ]
+                                [ Client Request ]
+                                        │
+                                        ▼
+                         POST /api/v1/extract/{document_type}
+                                        │
+             ┌──────────────────────────┼──────────────────────────┐
+             ▼                          ▼                          ▼
+     [ string_engine ]          [ visual_engine ]          [ hybrid_engine ]
+             │                          │                          │
+   Image Preprocessor           Image Preprocessor         Image Preprocessor
+             │                          │                          │
+   Digital PDF or OCR           Direct Multimodal           Extraction Priority
+   (on low confidence)              Vision LLM            (PDF -> OCR -> Vision LLM)
+             │                          │                          │
+   Deterministic String                 │                  Configurable Analysis
+      Text Analysis                     │                   (LLM or String Parser)
+             │                          │                          │
+             └──────────────────────────┼──────────────────────────┘
+                                        ▼
+                         Pydantic Validation & Normalization
+                                        │
+                                        ▼
+                                [ JSON Response ]
 ```
 
 ---
@@ -70,42 +68,32 @@ source .venv/bin/activate        # Linux/macOS
 .venv\Scripts\activate.bat       # Windows Command Prompt
 
 # Install project dependencies from pyproject.toml:
-# For development (editable mode + dev tools like pytest):
 pip install -e ".[dev]"
-
-# Or for production runtime only:
-pip install .
 ```
 
 ### 2. Configure Environment
 
 Copy `.env.example` to `.env`:
 ```ini
-ENGINE_BACKEND=ocr_hybrid
+# Primary Engine: "string_engine" | "visual_engine" | "hybrid_engine"
+ENGINE_TYPE="hybrid_engine"
 
-# OCR Engine & Image Preprocessing
-OCR_ENGINE=rapidocr
-OCR_PREPROCESS=true
-OCR_DESKEW=true
-OCR_ENHANCE_CONTRAST=true
-OCR_THRESHOLD_MODE=none
+# Extraction Pipeline & Fallback Threshold (for hybrid_engine)
+EXTRACTION_PIPELINE="digital_pdf,ocr,visual_llm"
+EXTRACTION_MIN_CONFIDENCE=0.5
+ANALYSIS_MODE="llm"
 
-# Ollama LLM Configuration
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=qwen2.5:3b
-OLLAMA_KEEP_ALIVE=-1
-OLLAMA_PRELOAD=true
+# OCR Backend: "rapidocr" | "tesseract" | "google_vision"
+OCR_BACKEND="rapidocr"
+
+# LLM Provider: "ollama" | "google"
+LLM_PROVIDER="ollama"
+OLLAMA_BASE_URL="http://localhost:11434"
+OLLAMA_TEXT_MODEL="qwen2.5:3b"
+OLLAMA_VISION_MODEL="llama3.2-vision"
 ```
 
-> **Note:** `OLLAMA_PRELOAD=true` and `OLLAMA_KEEP_ALIVE=-1` ensure the model is automatically preloaded into RAM/VRAM during server startup and retained in memory indefinitely, eliminating cold-start latencies on inference.
-
-### 3. Pull Recommended Ollama Model
-
-```bash
-ollama pull qwen2.5:3b
-```
-
-### 4. Run Development Server
+### 3. Run Development Server
 
 ```bash
 uvicorn src.app.main:app --reload --port 8000
@@ -119,103 +107,15 @@ Interactive API documentation available at: `http://localhost:8000/docs`
 
 ### 1. Health Check
 `GET /health`
-```json
-{
-  "status": "healthy",
-  "app_name": "Athena Document Extractor",
-  "active_backend": "local_cpu",
-  "ollama_model": "qwen2.5:3b"
-}
-```
 
 ### 2. List Supported Documents & Schemas
 `GET /api/v1/documents`
 
 ### 3. Extract Document
-`POST /api/v1/extract/{document_type}?trace=true`
+`POST /api/v1/extract/{document_type}`
 - Form Data: `file` (PDF, PNG, JPG)
-- Query Param: `trace` (boolean, default `false`)
-- Supported `document_type`: `identity_card`, `tax_number`
-
-**Example Response with `trace=true` (`identity_card`):**
-```json
-{
-  "success": true,
-  "document_type": "identity_card",
-  "filename": "ktp_sample.jpg",
-  "data": {
-    "id_number": "3171010101900001",
-    "full_name": "BUDI SANTOSO",
-    "birth_place": "JAKARTA",
-    "birth_date": "01-01-1990",
-    "gender": "LAKI-LAKI",
-    "blood_type": "O",
-    "address": "JL. SUDIRMAN NO. 45",
-    "neighborhood_unit": "003/002",
-    "village": "BENDUNGAN HILIR",
-    "district": "TANAH ABANG",
-    "religion": "ISLAM",
-    "marital_status": "KAWIN",
-    "occupation": "KARYAWAN SWASTA",
-    "nationality": "WNI",
-    "valid_until": "SEUMUR HIDUP"
-  },
-  "trace": {
-    "engine": "local_cpu",
-    "stages": [
-      {
-        "stage": 1,
-        "name": "file_triage",
-        "details": {
-          "filename": "ktp_sample.jpg",
-          "detected_format": "image",
-          "pages": [{ "page": 1, "type": "image_ocr (rapidocr)" }]
-        }
-      },
-      {
-        "stage": 2,
-        "name": "raw_text_extraction",
-        "details": {
-          "ocr_engine": "rapidocr",
-          "extracted_text": "PROVINSI DKI JAKARTA\nNIK : 3171010101900001\nNama : BUDI SANTOSO..."
-        }
-      },
-      {
-        "stage": 3,
-        "name": "prompt_construction",
-        "details": {
-          "system_prompt": "You are an expert document extraction system...",
-          "user_prompt": "Extract the Indonesian KTP information..."
-        }
-      },
-      {
-        "stage": 4,
-        "name": "llm_structured_output",
-        "details": {
-          "provider": "ollama",
-          "model": "qwen2.5:3b",
-          "raw_llm_json": { "id_number": "3171010101900001", "full_name": "BUDI SANTOSO" }
-        }
-      },
-      {
-        "stage": 5,
-        "name": "schema_validation",
-        "details": {
-          "schema_class": "IdentityCardSchema",
-          "validated_fields": ["id_number", "full_name", "..."]
-        }
-      }
-    ]
-  }
-}
-```
-
----
-
-## Adding New Document Types
-
-1. Create a directory in `src/domain/documents/<new_type>/`.
-2. Define Pydantic schema in `schema.py`.
-3. Define prompt builders in `prompt.py`.
-4. Create document class inheriting `BaseDocument` in `__init__.py`.
-5. Register in `src/domain/registry.py`.
+- Query Params (optional):
+  - `trace`: boolean (`true` / `false`)
+  - `engine`: override engine (`string_engine`, `visual_engine`, `hybrid_engine`)
+  - `analysis_mode`: override analyzer (`llm`, `string`)
+  - `pipeline`: override extraction sequence (`digital_pdf,ocr,visual_llm`)

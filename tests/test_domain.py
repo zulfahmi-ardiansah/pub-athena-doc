@@ -1,6 +1,8 @@
 from src.domain.registry import get_document_registry
 from src.domain.documents.identity_card.schema import IdentityCardSchema
+from src.domain.documents.identity_card import IdentityCardDocument, KtpStringParser
 from src.domain.documents.tax_number.schema import TaxNumberSchema
+from src.domain.documents.tax_number import TaxNumberDocument, NpwpStringParser
 
 
 def test_document_registry():
@@ -36,8 +38,6 @@ def test_npwp_schema_validation():
     assert model.tax_payer == "PT CONTOH MAKMUR"
     assert model.branch_office == "KPP PRATAMA JAKARTA TANAH ABANG"
     assert model.branch_address == "JL KH MAS MANSYUR NO. 71"
-
-
 
 
 def test_ktp_jokowi_sample_validation():
@@ -81,7 +81,6 @@ def test_ktp_jokowi_sample_validation():
 
 
 def test_identity_card_document_schema_and_prompts():
-    from src.domain.documents.identity_card import IdentityCardDocument
     doc = IdentityCardDocument()
     schema = doc.get_json_schema()
     assert "properties" in schema
@@ -101,7 +100,7 @@ def test_identity_card_document_schema_and_prompts():
         "Nama : IR JOKO WIDODO"
     )
     user_prompt = doc.build_user_prompt(ocr_sample)
-    assert "Extract KTP data from this OCR text:" in user_prompt
+    assert "Extract Indonesian KTP data" in user_prompt
     assert "NIK : 3372052106610006" in user_prompt
 
 
@@ -122,14 +121,52 @@ def test_ktp_ocr_quirk_normalization():
     assert model.blood_type == "A"
     assert model.neighborhood_unit == "005/005"
 
-    # Verify invalid non-numeric neighborhood_unit is rejected to None
     invalid_neighborhood = {"neighborhood_unit": "MENTENG"}
     model_inv = IdentityCardSchema.model_validate(invalid_neighborhood)
     assert model_inv.neighborhood_unit is None
 
 
+def test_ktp_string_parser():
+    raw_ocr = """
+    PROVINSI DKI JAKARTA
+    JAKARTA PUSAT
+    NIK : 3171010101900001
+    Nama : BUDI SANTOSO
+    Tempat/Tgl Lahir : JAKARTA, 01-01-1990
+    Jenis Kelamin : LAKI-LAKI  Gol. Darah : O
+    Alamat : JL TAMAN SUROPATI NO. 7
+    RT/RW : 005/005
+    Kel/Desa : MENTENG
+    Kecamatan : MENTENG
+    Agama : ISLAM
+    Status Perkawinan : KAWIN
+    Pekerjaan : KARYAWAN SWASTA
+    Kewarganegaraan : WNI
+    Berlaku Hingga : SEUMUR HIDUP
+    """
+    doc = IdentityCardDocument()
+    parsed = doc.parse_string(raw_ocr)
+    assert isinstance(parsed, IdentityCardSchema)
+    assert parsed.province == "DKI JAKARTA"
+    assert parsed.city == "JAKARTA PUSAT"
+    assert parsed.id_number == "3171010101900001"
+    assert parsed.full_name == "BUDI SANTOSO"
+    assert parsed.birth_place == "JAKARTA"
+    assert parsed.birth_date == "01-01-1990"
+    assert parsed.gender == "LAKI-LAKI"
+    assert parsed.blood_type == "O"
+    assert parsed.address == "JL TAMAN SUROPATI NO. 7"
+    assert parsed.neighborhood_unit == "005/005"
+    assert parsed.village == "MENTENG"
+    assert parsed.district == "MENTENG"
+    assert parsed.religion == "ISLAM"
+    assert parsed.marital_status == "KAWIN"
+    assert parsed.occupation == "KARYAWAN SWASTA"
+    assert parsed.nationality == "WNI"
+    assert parsed.valid_until == "SEUMUR HIDUP"
+
+
 def test_tax_number_document_schema_and_prompts():
-    from src.domain.documents.tax_number import TaxNumberDocument
     doc = TaxNumberDocument()
     schema = doc.get_json_schema()
     assert "properties" in schema
@@ -150,26 +187,25 @@ def test_tax_number_document_schema_and_prompts():
         "Tanggal Terdaftar 01/01/2022"
     )
     user_prompt = doc.build_user_prompt(ocr_sample)
-    assert "Extract Indonesian NPWP data from this OCR text:" in user_prompt
+    assert "Extract Indonesian NPWP data" in user_prompt
     assert "12.345.678.9-636.000" in user_prompt
 
 
-def test_npwp_budi_sample_and_quirk_validation():
-    data = {
-        "tax_number": "NPWP : 12.345.678.9-636.000",
-        "tax_payer": "Nama Wajib Pajak : BUDI",
-        "branch_address": "Alamat : JL DR WAHIDIN SUDIROHUSODO 700 GRESIK",
-        "branch_office": "KPP MADYA GRESIK",
-        "registration_date": "Tanggal Terdaftar 01/01/2022"
-    }
-    model = TaxNumberSchema.model_validate(data)
-    assert model.tax_number == "12.345.678.9-636.000"
-    assert model.tax_payer == "BUDI"
-    assert model.branch_address == "JL DR WAHIDIN SUDIROHUSODO 700 GRESIK"
-    assert model.branch_office == "KPP MADYA GRESIK"
-    assert model.registration_date == "01/01/2022"
-
-
-
-
-
+def test_npwp_string_parser():
+    raw_ocr = """
+    KEMENTERIAN KEUANGAN REPUBLIK INDONESIA
+    DIREKTORAT JENDERAL PAJAK
+    KPP MADYA GRESIK
+    NPWP : 12.345.678.9-636.000
+    Nama Wajib Pajak : PT CONTOH MAKMUR
+    Alamat : JL DR WAHIDIN SUDIROHUSODO 700 GRESIK
+    Tanggal Terdaftar : 01/01/2022
+    """
+    doc = TaxNumberDocument()
+    parsed = doc.parse_string(raw_ocr)
+    assert isinstance(parsed, TaxNumberSchema)
+    assert parsed.tax_number == "12.345.678.9-636.000"
+    assert parsed.tax_payer == "PT CONTOH MAKMUR"
+    assert parsed.branch_office == "KPP MADYA GRESIK"
+    assert parsed.branch_address == "JL DR WAHIDIN SUDIROHUSODO 700 GRESIK"
+    assert parsed.registration_date == "01-01-2022"

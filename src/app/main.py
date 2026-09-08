@@ -19,10 +19,14 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info(
-        f"Starting {settings.app_name} with backend={settings.engine_backend} "
+        f"Starting {settings.app_name} with engine_type={settings.engine_type} "
         f"(demo_enabled={settings.enable_demo})"
     )
-    if settings.engine_backend in ("ocr_hybrid", "visual_model", "local_cpu") and settings.ollama_preload:
+    if (
+        settings.engine_type in ("hybrid_engine", "visual_engine")
+        and settings.ollama_preload
+        and settings.llm_provider == "ollama"
+    ):
         from src.app.api.deps import get_engine_singleton
         engine = get_engine_singleton()
         try:
@@ -38,7 +42,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         description="FastAPI service for converting images and documents to structured JSON.",
-        version="0.1.0",
+        version="0.2.0",
         docs_url="/docs",
         redoc_url="/redoc",
         lifespan=lifespan,
