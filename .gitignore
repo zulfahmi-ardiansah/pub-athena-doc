@@ -80,4 +80,5 @@ new-demo.html
 # Logs
 logs/
 *.log
-*.jsonl
+*.jsonl
+docs
