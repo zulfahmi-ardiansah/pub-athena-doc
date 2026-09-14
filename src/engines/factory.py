@@ -18,12 +18,13 @@ from src.modules.analyzers.visual_llm_analyzer import VisualLlmAnalyzer
 from src.providers.base import BaseLLMProvider
 from src.providers.ollama_provider import OllamaProvider
 from src.providers.google_provider import GoogleGenAIProvider
+from src.providers.openai_provider import OpenAICompatibleProvider
 
 logger = logging.getLogger(__name__)
 
 
 def create_llm_provider(settings: Settings, is_vision: bool = False) -> BaseLLMProvider:
-    """Helper to instantiate configured LLM provider (Ollama or Google Gemini)."""
+    """Helper to instantiate configured LLM provider (Ollama, Google Gemini, or OpenAI-compatible)."""
     provider_type = settings.get_vision_provider_type() if is_vision else settings.get_text_provider_type()
     provider_type = (provider_type or "ollama").lower()
 
@@ -35,6 +36,15 @@ def create_llm_provider(settings: Settings, is_vision: bool = False) -> BaseLLMP
             location=settings.google_location,
             credentials_file=settings.google_application_credentials,
             model=model_name,
+        )
+
+    if provider_type == "openai":
+        model_name = settings.openai_vision_model if is_vision else settings.openai_text_model
+        return OpenAICompatibleProvider(
+            api_key=settings.openai_api_key,
+            base_url=settings.openai_base_url,
+            model=model_name,
+            timeout_seconds=settings.openai_timeout_seconds,
         )
 
     # Default to Ollama

@@ -98,6 +98,8 @@ async def health_check(settings: Settings = Depends(get_settings)) -> Dict[str, 
         "ollama_vision_model": settings.ollama_vision_model if vision_provider == "ollama" else None,
         "google_text_model": settings.google_text_model if text_provider == "google" else None,
         "google_vision_model": settings.google_vision_model if vision_provider == "google" else None,
+        "openai_text_model": settings.openai_text_model if text_provider == "openai" else None,
+        "openai_vision_model": settings.openai_vision_model if vision_provider == "openai" else None,
     }
 
 

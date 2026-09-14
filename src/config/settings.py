@@ -55,10 +55,10 @@ class Settings(BaseSettings):
 
     # 5. LLM Provider & Models
     # Global fallback LLM Provider
-    llm_provider: Literal["ollama", "google"] = "ollama"
+    llm_provider: Literal["ollama", "google", "openai"] = "ollama"
     # Specific providers for text analysis vs visual extraction (fall back to llm_provider if not set)
-    llm_text_provider: Optional[Literal["ollama", "google"]] = None
-    llm_vision_provider: Optional[Literal["ollama", "google"]] = None
+    llm_text_provider: Optional[Literal["ollama", "google", "openai"]] = None
+    llm_vision_provider: Optional[Literal["ollama", "google", "openai"]] = None
 
     @field_validator("llm_text_provider", "llm_vision_provider", mode="before")
     @classmethod
@@ -66,9 +66,9 @@ class Settings(BaseSettings):
         if not v or not str(v).strip():
             return None
         val = str(v).strip().lower()
-        if val in ("ollama", "google"):
+        if val in ("ollama", "google", "openai"):
             return val
-        raise ValueError(f"Invalid LLM provider '{v}'. Allowed values are 'ollama' or 'google'.")
+        raise ValueError(f"Invalid LLM provider '{v}'. Allowed values are 'ollama', 'google', or 'openai'.")
 
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
@@ -85,6 +85,13 @@ class Settings(BaseSettings):
     google_application_credentials: str = ""
     google_text_model: str = "gemini-1.5-flash"
     google_vision_model: str = "gemini-1.5-flash"
+
+    # OpenAI / OpenAI-compatible (OpenAI, OpenRouter, vLLM, LM Studio, Groq, etc.)
+    openai_api_key: str = ""
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_text_model: str = "gpt-4o-mini"
+    openai_vision_model: str = "gpt-4o-mini"
+    openai_timeout_seconds: float = 60.0
 
     # 6. Standardized Logging & Personal Information (PI) Privacy
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
@@ -113,11 +120,11 @@ class Settings(BaseSettings):
     otel_exporter_otlp_protocol: Literal["grpc", "http/protobuf"] = "grpc"
     otel_sample_rate: float = 1.0
 
-    def get_text_provider_type(self) -> Literal["ollama", "google"]:
+    def get_text_provider_type(self) -> Literal["ollama", "google", "openai"]:
         """Returns the effective provider type for text analysis."""
         return self.llm_text_provider or self.llm_provider
 
-    def get_vision_provider_type(self) -> Literal["ollama", "google"]:
+    def get_vision_provider_type(self) -> Literal["ollama", "google", "openai"]:
         """Returns the effective provider type for visual/image extraction."""
         return self.llm_vision_provider or self.llm_provider
 

@@ -11,7 +11,7 @@ Athena operates across **three engines**, chosen via configuration or overridden
 | Engine | Identifier | Description | When to use |
 |--------|------------|-------------|-------------|
 | **Hybrid** *(Default)* | `hybrid_engine` | Cascades through Digital PDF -> CPU OCR -> Vision LLM based on confidence thresholds, followed by schema-guided structured LLM parsing. | General production use: optimal balance between speed, cost, and high accuracy. |
-| **Visual** | `visual_engine` | Passes preprocessed images directly to a multimodal Vision LLM (Ollama or Google Gemini) for zero-step image-to-JSON inference. | Complex visual layouts, handwritten notes, or heavily degraded documents. |
+| **Visual** | `visual_engine` | Passes preprocessed images directly to a multimodal Vision LLM (Ollama, Google Gemini, or an OpenAI-compatible endpoint) for zero-step image-to-JSON inference. | Complex visual layouts, handwritten notes, or heavily degraded documents. |
 | **String** | `string_engine` | Extracts text via PyMuPDF or local OCR (RapidOCR / Tesseract) and parses fields using deterministic regex rules with zero LLM calls. | High-throughput, offline, or resource-constrained CPU environments. |
 
 ---
@@ -32,7 +32,7 @@ Athena operates across **three engines**, chosen via configuration or overridden
     (Deskew, CLAHE)               (Deskew, CLAHE)               (Deskew, CLAHE)
             │                             │                             │
     Digital PDF / OCR             Direct Vision LLM             Extraction Waterfall
-   (RapidOCR / Tesseract)         (Ollama / Gemini)           (PDF -> OCR -> Vision LLM)
+   (RapidOCR / Tesseract)      (Ollama / Gemini / OpenAI)     (PDF -> OCR -> Vision LLM)
             │                             │                             │
     Deterministic Regex                   │                    Structured Analyzer
       Heuristic Parser                    │                   (Text LLM or Regex)
@@ -151,11 +151,15 @@ Required to build `opencv-python-headless` and `rapidocr-onnxruntime`. On Debian
 
 #### Ollama *(optional)*
 
-Only needed if you want local LLM inference instead of Google Gemini. Install from [ollama.com](https://ollama.com/) and confirm it's serving on port `11434`:
+Only needed if you want local LLM inference instead of Google Gemini or an OpenAI-compatible API. Install from [ollama.com](https://ollama.com/) and confirm it's serving on port `11434`:
 
 ```bash
 curl http://localhost:11434
 ```
+
+#### OpenAI-compatible API key *(optional)*
+
+Only needed if you want to use OpenAI, OpenRouter, or any other OpenAI Chat Completions-compatible endpoint (vLLM, LM Studio, Groq, etc.) instead of Ollama or Google Gemini. No install required, just an `OPENAI_API_KEY` and, for non-OpenAI endpoints, an `OPENAI_BASE_URL`.
 
 ### 1. Clone & configure
 
@@ -165,7 +169,7 @@ cd adw-pdc-athena
 cp .env.example .env
 ```
 
-Open `.env` and set at minimum an `ENGINE_TYPE` and, if using `hybrid_engine` or `visual_engine`, either `OLLAMA_BASE_URL` or a Google Gemini API key, see [Configuration Reference](#configuration-reference).
+Open `.env` and set at minimum an `ENGINE_TYPE` and, if using `hybrid_engine` or `visual_engine`, one of `OLLAMA_BASE_URL`, a Google Gemini API key, or an `OPENAI_API_KEY` / `OPENAI_BASE_URL` pair, see [Configuration Reference](#configuration-reference).
 
 ### 2. Sync the environment
 
@@ -286,8 +290,8 @@ Key settings configurable via environment variables or `.env`, grouped by topic:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `OCR_BACKEND` | `rapidocr` | OCR engine: `rapidocr` (CPU ONNX), `tesseract`, or `google_vision` |
-| `LLM_TEXT_PROVIDER` | `ollama` | Provider for structured text analysis: `ollama` or `google` |
-| `LLM_VISION_PROVIDER` | `ollama` | Provider for multimodal vision extraction: `ollama` or `google` |
+| `LLM_TEXT_PROVIDER` | `ollama` | Provider for structured text analysis: `ollama`, `google`, or `openai` |
+| `LLM_VISION_PROVIDER` | `ollama` | Provider for multimodal vision extraction: `ollama`, `google`, or `openai` |
 
 ### Ollama
 
@@ -296,6 +300,18 @@ Key settings configurable via environment variables or `.env`, grouped by topic:
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API base URL |
 | `OLLAMA_TEXT_MODEL` | `qwen2.5:3b` | Ollama model for text extraction |
 | `OLLAMA_VISION_MODEL` | `llama3.2-vision` | Ollama model for vision extraction |
+
+### OpenAI / OpenAI-Compatible
+
+Targets any endpoint implementing the OpenAI Chat Completions wire format: OpenAI itself, OpenRouter, vLLM, LM Studio, Groq, etc. Tries native structured outputs (`json_schema`, strict mode) first, falling back to `json_object` mode for gateways/models that don't support strict schema enforcement.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `OPENAI_API_KEY` | *(empty)* | API key for the target endpoint (leave empty for local servers that don't require one) |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Base URL of the OpenAI-compatible API, e.g. `https://openrouter.ai/api/v1` |
+| `OPENAI_TEXT_MODEL` | `gpt-4o-mini` | Model for text extraction (OpenRouter-style prefixed IDs like `openai/gpt-4o-mini` also accepted) |
+| `OPENAI_VISION_MODEL` | `gpt-4o-mini` | Model for vision extraction |
+| `OPENAI_TIMEOUT_SECONDS` | `60.0` | Request timeout in seconds |
 
 ### Security & Observability
 
@@ -445,6 +461,14 @@ pytest tests/test_router.py -k test_extract_endpoint_returns_valid_schema  # sin
 **Cause:** `GOOGLE_APPLICATION_CREDENTIALS` isn't set or the service account JSON isn't reachable from the process.
 
 **Solution:** Locally, point the env var at your credentials file. In Docker, mount the file and uncomment the `volumes` line in `docker-compose.yml` (see [Deployment with Docker](#deployment-with-docker)).
+
+---
+
+### OpenAI-compatible provider calls fail with `401`/`403`, or return malformed JSON
+
+**Cause:** Missing/invalid `OPENAI_API_KEY`, a wrong `OPENAI_BASE_URL` for the target gateway, or the model doesn't support strict `json_schema` structured outputs.
+
+**Solution:** Verify the key and base URL against your provider's docs (e.g. `https://openrouter.ai/api/v1` for OpenRouter). Structured-output failures automatically retry once in `json_object` mode, if that model still can't return valid JSON, switch to a model known to support function/schema calling.
 
 ---
 

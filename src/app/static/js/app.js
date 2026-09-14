@@ -557,11 +557,22 @@
 
     const health = await window.AthenaAPI.checkHealth();
     if (health && health.status === 'healthy') {
-      const engine = toTitleCase(health.active_engine || 'hybrid_engine');
-      const ocr = toTitleCase(health.ocr_backend || 'RapidOCR');
-      const provider = toTitleCase(health.llm_text_provider || health.llm_provider || 'local');
+      const engineType = health.active_engine || 'hybrid_engine';
+      const engine = toTitleCase(engineType);
+      const provider = toTitleCase(
+        health.llm_vision_provider || health.llm_text_provider || health.llm_provider || 'local'
+      );
+      let detail;
+      if (engineType === 'visual_engine') {
+        detail = provider;
+      } else if (engineType === 'string_engine') {
+        detail = toTitleCase(health.ocr_backend || 'RapidOCR');
+      } else {
+        const ocr = toTitleCase(health.ocr_backend || 'RapidOCR');
+        detail = `${ocr} + ${provider}`;
+      }
       if (engineDesc) {
-        engineDesc.textContent = `${engine} (${ocr} + ${provider})`;
+        engineDesc.textContent = `${engine} (${detail})`;
       }
     } else {
       if (engineDesc) {
