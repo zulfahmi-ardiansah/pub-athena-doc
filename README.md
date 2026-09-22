@@ -159,6 +159,35 @@ Extracts the 13-digit NIB, business actor name and contact details, investment s
 
 A KBLI row's "Perizinan Berusaha" block can require more than one license (e.g. both an NIB and a Sertifikat Standar), each with its own status and remarks - `licenses` captures one entry per stacked Jenis/Status/Keterangan sub-row rather than flattening them into a single field. The `string_engine` path only parses the header fields deterministically; `fields` is filled by the LLM-based engines (`hybrid_engine` / `visual_engine`) since the multi-page attachment table isn't reliably regex-parseable.
 
+### 4. Taxable Entrepreneur Confirmation Letter (`taxable_entrepreneur` / Indonesian SPPKP / PKP)
+
+Extracts the issuing tax office, NPWP, taxpayer name, business classification (KLU), address, checked tax obligation(s), and signing official details:
+
+```json
+{
+  "letter_number": "S-47PKP/WPJ.05/KP.1003/2015",
+  "tax_office_region": "KANTOR WILAYAH DJP JAKARTA BARAT",
+  "tax_office": "KPP PRATAMA JAKARTA KEBON JERUK DUA",
+  "tax_office_address": "JL. K.S. TUBUN 10, JAKARTA BARAT",
+  "tax_number": "01.329.904.5-039.000",
+  "taxpayer_name": "PT. RAMCOMAS MANDIRI",
+  "business_fields": [
+    { "code": "71100", "title": "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI" }
+  ],
+  "address": "JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA",
+  "trade_name": null,
+  "tax_obligation": "PPN",
+  "confirmed_since": "1992-03-21",
+  "issued_place": "Jakarta Barat",
+  "issued_date": "2015-04-17",
+  "signing_official_title": "a.n. Kepala Kantor Kepala Seksi Pelayanan",
+  "signing_official_name": "MUNAWAM",
+  "signing_official_number": "196005151981031001"
+}
+```
+
+`tax_obligation` only lists the checked box(es) (e.g. `[X] PPN`), joined with `; ` if more than one is checked; `trade_name` is `null` when the source prints only a placeholder dash. Both the `string_engine` and LLM-based engines fully support this document, since it's a single fixed-layout page with no repeating table.
+
 ---
 
 ## Web Interface

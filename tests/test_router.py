@@ -34,6 +34,7 @@ def test_list_documents_endpoint():
     assert "identity_card" in slugs
     assert "tax_number" in slugs
     assert "business_identification_number" in slugs
+    assert "taxable_entrepreneur" in slugs
 
 
 def test_demo_endpoint():

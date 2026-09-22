@@ -7,6 +7,11 @@ from src.domain.documents.business_number.schema import BusinessNumberSchema, Fi
 from src.domain.documents.business_number import (
     BusinessIdentificationNumberDocument,
 )
+from src.domain.documents.taxable_entrepreneur.schema import TaxableEntrepreneurSchema
+from src.domain.documents.taxable_entrepreneur import (
+    TaxableEntrepreneurDocument,
+    TaxableEntrepreneurStringParser,
+)
 
 
 def test_document_registry():
@@ -16,6 +21,7 @@ def test_document_registry():
     assert "identity_card" in slugs
     assert "tax_number" in slugs
     assert "business_identification_number" in slugs
+    assert "taxable_entrepreneur" in slugs
 
 
 def test_identity_card_schema_validation():
@@ -371,3 +377,127 @@ def test_field_item_multiple_licenses():
     assert field.licenses[0].remarks is None
     assert field.licenses[1].license_status == "Belum Terverifikasi"
     assert field.licenses[1].remarks == "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja"
+
+
+def test_taxable_entrepreneur_schema_validation():
+    data = {
+        "letter_number": "S-47PKP/WPJ.05/KP.1003/2015",
+        "tax_office_region": "KANTOR WILAYAH DJP JAKARTA BARAT",
+        "tax_office": "KPP PRATAMA JAKARTA KEBON JERUK DUA",
+        "tax_office_address": "JL. K.S. TUBUN 10, JAKARTA BARAT",
+        "tax_number": "01.329.904.5-039.000",
+        "taxpayer_name": "PT. RAMCOMAS MANDIRI",
+        "business_fields": [
+            {"code": "71100", "title": "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"}
+        ],
+        "address": "JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA",
+        "trade_name": "-",
+        "tax_obligation": "PPN",
+        "confirmed_since": "21 Maret 1992",
+        "issued_place": "Jakarta Barat",
+        "issued_date": "17 April 2015",
+        "signing_official_title": "a.n. Kepala Kantor Kepala Seksi Pelayanan",
+        "signing_official_name": "MUNAWAM",
+        "signing_official_number": "NIP.196005151981031001",
+    }
+    model = TaxableEntrepreneurSchema.model_validate(data)
+    assert model.letter_number == "S-47PKP/WPJ.05/KP.1003/2015"
+    assert model.tax_number == "01.329.904.5-039.000"
+    assert model.taxpayer_name == "PT. RAMCOMAS MANDIRI"
+    assert model.business_fields is not None
+    assert len(model.business_fields) == 1
+    assert model.business_fields[0].code == "71100"
+    assert model.business_fields[0].title == "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"
+    assert model.trade_name is None
+    assert model.tax_obligation == "PPN"
+    assert model.confirmed_since == "1992-03-21"
+    assert model.issued_date == "2015-04-17"
+    assert model.signing_official_number == "196005151981031001"
+
+
+def test_taxable_entrepreneur_document_schema_and_prompts():
+    doc = TaxableEntrepreneurDocument()
+    schema = doc.get_json_schema()
+    assert "properties" in schema
+    assert "tax_number" in schema["properties"]
+    assert "letter_number" in schema["properties"]
+    assert "business_fields" in schema["properties"]
+    assert "tax_obligation" in schema["properties"]
+
+    sys_prompt = doc.build_system_prompt()
+    assert "PKP" in sys_prompt
+    assert "Extraction Rules:" in sys_prompt
+
+    ocr_sample = (
+        "SURAT PENGUKUHAN PENGUSAHA KENA PAJAK\n"
+        "S-47PKP/WPJ.05/KP.1003/2015\n"
+    )
+    user_prompt = doc.build_user_prompt(ocr_sample)
+    assert "Extract Indonesian SPPKP" in user_prompt
+    assert "S-47PKP/WPJ.05/KP.1003/2015" in user_prompt
+
+
+def test_taxable_entrepreneur_string_parser():
+    raw_ocr = """
+    KEMENTERIAN KEUANGAN REPUBLIK INDONESIA
+    DIREKTORAT JENDERAL PAJAK
+    KANTOR WILAYAH DJP JAKARTA BARAT
+    KPP PRATAMA JAKARTA KEBON JERUK DUA
+    JL. K.S. TUBUN 10, JAKARTA BARAT
+    TELEPON 021 5643627-29 FAKSIMILE 021-6655220 SITUS www.pajak.go.id
+    EMAIL pengaduan@pajak.go.id
+
+    SURAT PENGUKUHAN PENGUSAHA KENA PAJAK
+    S-47PKP/WPJ.05/KP.1003/2015
+
+    1. Nomor Pokok Wajib Pajak : 01.329.904.5-039.000
+    2. Nama : PT. RAMCOMAS MANDIRI
+
+    3. Klasifikasi Lapangan Usaha : 71100 - JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA
+    KONSULTASI TEKNIS YBDI
+    4. Alamat : JL.KEDOYA ANGSANA BLOK B II NO.25
+    KEDOYA SELATAN KEBON JERUK
+    JAKARTA BARAT DKI JAKARTA
+
+    5. Merk Dagang/Usaha : -
+    6. Kewajiban Pajak : [X] PPN [ ] PPnBM
+
+    Telah dikukuhkan sebagai Pengusaha Kena Pajak terhitung sejak 21 Maret 1992.
+
+    Jakarta Barat, 17 April 2015
+    a.n. Kepala Kantor
+    Kepala Seksi Pelayanan,
+
+    MUNAWAM
+    NIP.196005151981031001
+    """
+    doc = TaxableEntrepreneurDocument()
+    parsed = doc.parse_string(raw_ocr)
+    assert isinstance(parsed, TaxableEntrepreneurSchema)
+    assert parsed.letter_number == "S-47PKP/WPJ.05/KP.1003/2015"
+    assert parsed.tax_office_region == "KANTOR WILAYAH DJP JAKARTA BARAT"
+    assert parsed.tax_office == "KPP PRATAMA JAKARTA KEBON JERUK DUA"
+    assert parsed.tax_office_address == "JL. K.S. TUBUN 10, JAKARTA BARAT"
+    assert parsed.tax_number == "01.329.904.5-039.000"
+    assert parsed.taxpayer_name == "PT. RAMCOMAS MANDIRI"
+    assert parsed.business_fields is not None
+    assert len(parsed.business_fields) == 1
+    assert parsed.business_fields[0].code == "71100"
+    assert parsed.business_fields[0].title == "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"
+    assert parsed.address == "JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA"
+    assert parsed.trade_name is None
+    assert parsed.tax_obligation == "PPN"
+    assert parsed.confirmed_since == "1992-03-21"
+    assert parsed.issued_place == "Jakarta Barat"
+    assert parsed.issued_date == "2015-04-17"
+    assert parsed.signing_official_title == "a.n. Kepala Kantor Kepala Seksi Pelayanan"
+    assert parsed.signing_official_name == "MUNAWAM"
+    assert parsed.signing_official_number == "196005151981031001"
+
+
+def test_taxable_entrepreneur_string_parser_direct():
+    parsed = TaxableEntrepreneurStringParser.parse(
+        "1. Nomor Pokok Wajib Pajak : 01.329.904.5-039.000\n2. Nama : PT. RAMCOMAS MANDIRI"
+    )
+    assert parsed.tax_number == "01.329.904.5-039.000"
+    assert parsed.taxpayer_name == "PT. RAMCOMAS MANDIRI"
