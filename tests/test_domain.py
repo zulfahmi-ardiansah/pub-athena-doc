@@ -633,7 +633,7 @@ def test_business_deed_schema_validation():
         },
     }
     model = BusinessDeedSchema.model_validate(data)
-    assert model.deed_type == "AKTA PENDIRIAN PERSEROAN TERBATAS"
+    assert model.deed_type == "Pendirian"
     assert model.deed_number == "2"
     assert model.deed_date == "2023-08-03"
     assert model.notary_name == "CONTOH NOTARIS, S.H., M.Kn"
@@ -689,9 +689,11 @@ def test_business_deed_string_parser_bundled_akta_and_sk():
     assert parsed.legal_decision is not None
     assert parsed.legal_decision.number == "AHU-0099999.AH.01.02.TAHUN 2023"
     assert parsed.legal_decision.issued_date == "2023-01-15"
-    # 'deed_type' and 'notary_address' vary too much by notary template for the
-    # string parser to extract reliably - left for the LLM-based engines.
-    assert parsed.deed_type is None
+    # 'deed_type' is detected from the PENDIRIAN/PERUBAHAN keyword in the deed's
+    # own title, directly above its opening formula.
+    assert parsed.deed_type == "Pendirian"
+    # 'notary_address' varies too much by notary template for the string parser
+    # to extract reliably - left for the LLM-based engines.
     assert parsed.notary_address is None
 
 
@@ -720,6 +722,31 @@ def test_business_deed_string_parser_old_numbering_format():
     parsed = BusinessDeedStringParser.parse(raw_text)
     assert parsed.legal_decision is not None
     assert parsed.legal_decision.number == "C2-10671.HT.01.01.TH.88"
+
+
+def test_business_deed_string_parser_detects_perubahan_over_stale_pendirian_recital():
+    # A deed's own title reads PERUBAHAN, but its recital text (appearing later,
+    # after the opening formula) mentions the company's original 'akta
+    # pendirian' for background - that must not override the deed's own type.
+    raw_text = (
+        "PERNYATAAN KEPUTUSAN PEMEGANG SAHAM\n"
+        "PERUBAHAN ANGGARAN DASAR\n"
+        "PT CONTOH SEJAHTERA ABADI\n"
+        "Nomor 9.\n"
+        "Pada hari ini, Rabu, tanggal 05-06-2023 (lima Juni dua ribu dua puluh "
+        "tiga).\n"
+        "Berhadapan dengan saya, RINA WIJAYA, Sarjana Hukum, Notaris di Jakarta,\n"
+        "yang anggaran dasarnya dimuat dalam akta pendirian nomor 10 tanggal "
+        "01-01-2010.\n"
+    )
+    parsed = BusinessDeedStringParser.parse(raw_text)
+    assert parsed.deed_type == "Perubahan"
+    assert parsed.deed_number == "9"
+
+
+def test_business_deed_schema_deed_type_rejects_unrecognized_text():
+    model = BusinessDeedSchema.model_validate({"deed_type": "Akta Kuasa Menjual"})
+    assert model.deed_type is None
 
 
 def test_legal_decision_standalone_validation():

@@ -219,7 +219,7 @@ Extracts the key filing metadata from an Indonesian notarial business deed (Akta
 
 ```json
 {
-  "deed_type": "Akta Pendirian Perseroan Terbatas",
+  "deed_type": "Perubahan",
   "deed_number": "151",
   "deed_date": "2022-04-19",
   "notary_name": "JOSE DIMA SATRIA, S.H., M.Kn",
@@ -231,7 +231,7 @@ Extracts the key filing metadata from an Indonesian notarial business deed (Akta
 }
 ```
 
-The `string_engine` path parses `deed_number`, `deed_date`, `notary_name`, and `legal_decision` deterministically, targeting the legally mandated drafting formulas that stay consistent across notaries and decades of Kemenkumham numbering formats (old `C2-xxxxx.HT.01.01.TH.YY` style through modern `AHU-xxxxx.AH.01.02.TAHUN YYYY`) - it also knows to ignore unrelated SK numbers a deed's recital text may reference (e.g. the notary's own appointment decree), keying only on the confirming SK's own `KEPUTUSAN MENTERI ... REPUBLIK INDONESIA` title block. `deed_type` and `notary_address` vary too much by notary template to parse reliably and are left for the LLM-based engines.
+`deed_type` is normalized to exactly `Pendirian` (establishment) or `Perubahan` (amendment), never the deed's full title text. The `string_engine` path parses `deed_type`, `deed_number`, `deed_date`, `notary_name`, and `legal_decision` deterministically, targeting the legally mandated drafting formulas that stay consistent across notaries and decades of Kemenkumham numbering formats (old `C2-xxxxx.HT.01.01.TH.YY` style through modern `AHU-xxxxx.AH.01.02.TAHUN YYYY`) - it also knows to ignore unrelated SK numbers or deed types a deed's recital text may reference (e.g. the notary's own appointment decree, or a background mention of the company's original establishment deed within an amendment deed), keying only on the current document's own title block and opening formula. `notary_address` varies too much by notary template to parse reliably and is left for the LLM-based engines.
 
 ---
 

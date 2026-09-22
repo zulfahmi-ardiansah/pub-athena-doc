@@ -10,8 +10,9 @@ def get_business_deed_system_prompt() -> str:
         "| JSON Field | Source | Extraction Rules |\n"
         "| :--- | :--- | :--- |\n"
         "| deed_type | Deed cover page/title (e.g. '= AKTA PENDIRIAN PERSEROAN TERBATAS =', 'PERNYATAAN "
-        "KEPUTUSAN PEMEGANG SAHAM PERUBAHAN ANGGARAN DASAR') | The deed's title/type verbatim, without "
-        "decorative '=' padding |\n"
+        "KEPUTUSAN PEMEGANG SAHAM PERUBAHAN ANGGARAN DASAR') | Exactly 'Pendirian' if the title contains "
+        "'PENDIRIAN' (establishment), or 'Perubahan' if it contains 'PERUBAHAN' (amendment) - never the "
+        "full title text |\n"
         "| deed_number | Deed opening ('Nomor : X.' near the top of the deed, or within the SK's "
         "'Menimbang' paragraph as 'akta nomor X') | The deed's own number |\n"
         "| deed_date | Deed opening ('Pada hari ini, [day], tanggal ...' - a numeric DD-MM-YYYY often "
@@ -35,7 +36,10 @@ def get_business_deed_system_prompt() -> str:
         "the document's own title block, or the SK the deed's own Menimbang paragraph is requesting, counts.\n"
         "4. Deed numbers are typically short (1-4 digits); do not confuse them with the SK decree number, "
         "the company's NPWP, or a 'Nomor Pendaftaran' registration number.\n"
-        "5. Output null (or an object with all null fields for 'legal_decision') only if a field is "
+        "5. 'deed_type' must come from the document's own title/cover page, not from a recital sentence "
+        "mentioning a different, earlier deed for context (a deed's background text often references its "
+        "own prior 'akta pendirian' even when this document is itself an amendment, or vice versa).\n"
+        "6. Output null (or an object with all null fields for 'legal_decision') only if a field is "
         "completely missing from the text/image.\n"
     )
 

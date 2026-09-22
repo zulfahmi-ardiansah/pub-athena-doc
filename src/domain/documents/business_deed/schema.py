@@ -48,9 +48,8 @@ class BusinessDeedSchema(BaseModel):
 
     deed_type: Optional[str] = Field(
         default=None,
-        description="Deed type (Tipe Akta), e.g. 'Akta Pendirian Perseroan Terbatas', "
-        "'Pernyataan Keputusan Pemegang Saham - Perubahan Anggaran Dasar'",
-        examples=["Akta Pendirian Perseroan Terbatas"]
+        description="Deed type (Tipe Akta): 'Pendirian' (establishment) or 'Perubahan' (amendment)",
+        examples=["Pendirian", "Perubahan"]
     )
     deed_number: Optional[str] = Field(
         default=None,
@@ -82,9 +81,12 @@ class BusinessDeedSchema(BaseModel):
     def clean_deed_type(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
-        cleaned = re.sub(r"^(?:TIPE\s*AKTA)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE)
-        cleaned = re.sub(r"^=+\s*|\s*=+$", "", cleaned).strip()
-        return cleaned or None
+        cleaned = v.strip().upper()
+        if "PENDIRIAN" in cleaned:
+            return "Pendirian"
+        if "PERUBAHAN" in cleaned:
+            return "Perubahan"
+        return None
 
     @field_validator("deed_number", mode="before")
     @classmethod
