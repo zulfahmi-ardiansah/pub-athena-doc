@@ -3,7 +3,7 @@ from typing import Any, Dict
 from src.domain.documents.tax_number.schema import TaxNumberSchema
 
 
-class NpwpStringParser:
+class TaxNumberStringParser:
     """
     Deterministic rule-based & regex parser for Indonesian Tax Card (NPWP) OCR text.
     Extracts tax number, taxpayer name, KPP branch, address, and registration date without an LLM.
@@ -15,7 +15,7 @@ class NpwpStringParser:
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
 
         # 1. Extract NPWP Number (15 or 16 digits)
-        cls._extract_npwp_number(raw_text, lines, data)
+        cls._extract_tax_number(raw_text, lines, data)
 
         # 2. Extract Branch Office (KPP)
         cls._extract_branch_office(raw_text, lines, data)
@@ -32,7 +32,7 @@ class NpwpStringParser:
         return TaxNumberSchema.model_validate(data)
 
     @classmethod
-    def _extract_npwp_number(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_tax_number(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         # Formatted NPWP pattern: 00.000.000.0-000.000 or 00.000.000.0-000
         formatted_match = re.search(r"\b(\d{2}[\.\s]\d{3}[\.\s]\d{3}[\.\s][0-9OobB][-\s]\d{3}(?:[\.\s]\d{3})?)\b", text)
         if formatted_match:

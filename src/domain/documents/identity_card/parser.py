@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 from src.domain.documents.identity_card.schema import IdentityCardSchema
 
 
-class KtpStringParser:
+class IdentificationNumberParser:
     """
     Deterministic rule-based & regex parser for Indonesian Identity Card (KTP) OCR text.
     Extracts all fields directly without requiring an LLM.

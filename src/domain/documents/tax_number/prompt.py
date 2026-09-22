@@ -9,7 +9,7 @@ def get_tax_number_system_prompt() -> str:
         "| tax_payer | Nama / Under NPWP | Full taxpayer individual or corporate entity name verbatim (e.g. 'BUDI', 'PT CONTOH MAKMUR') |\n"
         "| branch_office | KPP / Top Header | Registered tax branch office name typically at top header (e.g. 'KPP MADYA GRESIK') |\n"
         "| branch_address | Alamat / Street | Registered tax branch office address / Alamat KPP (e.g. 'JL DR WAHIDIN SUDIROHUSODO 700 GRESIK') |\n"
-        "| registration_date | Tanggal Terdaftar | Registration date (e.g. '01/01/2022' or '01-01-2022') |\n\n"
+        "| registration_date | Tanggal Terdaftar | Registration date, normalized to ISO 8601 'YYYY-MM-DD' (e.g. '2022-01-01') |\n\n"
         "STRICT GUIDELINES:\n"
         "1. Zero Hallucination: Extract values verbatim from the text/image. Do not fabricate or guess.\n"
         "2. 'tax_number' must be 15 or 16 digits (e.g. '12.345.678.9-636.000').\n"

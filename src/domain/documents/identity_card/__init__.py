@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from src.domain.base import BaseDocument
 from src.domain.documents.identity_card.schema import IdentityCardSchema
-from src.domain.documents.identity_card.parser import KtpStringParser
+from src.domain.documents.identity_card.parser import IdentificationNumberParser
 from src.domain.documents.identity_card.prompt import (
     get_identity_card_system_prompt,
     get_identity_card_user_prompt,
@@ -21,7 +21,7 @@ class IdentityCardDocument(BaseDocument):
         return get_identity_card_user_prompt(raw_text)
 
     def parse_string(self, raw_text: str) -> BaseModel:
-        return KtpStringParser.parse(raw_text)
+        return IdentificationNumberParser.parse(raw_text)
 
 
-__all__ = ["IdentityCardDocument", "IdentityCardSchema", "KtpStringParser"]
+__all__ = ["IdentityCardDocument", "IdentityCardSchema", "IdentificationNumberParser"]

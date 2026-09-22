@@ -2,6 +2,7 @@ from typing import Dict, List, Optional
 from src.domain.base import BaseDocument
 from src.domain.documents.identity_card import IdentityCardDocument
 from src.domain.documents.tax_number import TaxNumberDocument
+from src.domain.documents.business_number import BusinessIdentificationNumberDocument
 
 
 class DocumentRegistry:
@@ -12,6 +13,7 @@ class DocumentRegistry:
         # Register default supported documents
         self.register(IdentityCardDocument())
         self.register(TaxNumberDocument())
+        self.register(BusinessIdentificationNumberDocument())
 
     def register(self, doc: BaseDocument) -> None:
         """Register a new document specification."""

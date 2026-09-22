@@ -33,6 +33,7 @@ def test_list_documents_endpoint():
     slugs = [d["slug"] for d in data["documents"]]
     assert "identity_card" in slugs
     assert "tax_number" in slugs
+    assert "business_identification_number" in slugs
 
 
 def test_demo_endpoint():

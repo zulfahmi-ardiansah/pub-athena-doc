@@ -190,7 +190,7 @@ class PILoggingFilter(logging.Filter):
 
             # 3. Sanitize cached exception text if present
             if getattr(record, "exc_text", None):
-                record.exc_text = sanitize_pi_string(record.exc_text)
+                record.exc_text = sanitize_pi_string(record.exc_text) # type: ignore
 
         except Exception:
             # Prevent logging filter failures from crashing the application

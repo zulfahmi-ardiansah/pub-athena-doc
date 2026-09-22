@@ -1,6 +1,7 @@
 import re
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
+from src.utility.date_utils import normalize_to_iso_date
 
 
 class TaxNumberSchema(BaseModel):
@@ -28,8 +29,8 @@ class TaxNumberSchema(BaseModel):
     )
     registration_date: Optional[str] = Field(
         default=None,
-        description="Registration date (Tanggal Terdaftar, e.g. '01/01/2022' or '01-01-2022')",
-        examples=["01/01/2022"]
+        description="Registration date (Tanggal Terdaftar), normalized to ISO 8601 (YYYY-MM-DD)",
+        examples=["2022-01-01"]
     )
 
     @field_validator("tax_number", mode="before")
@@ -74,7 +75,5 @@ class TaxNumberSchema(BaseModel):
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:TANGGAL\s*TERDAFTAR|TGL\s*DAFTAR|REGISTRATION\s*DATE)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
-        date_match = re.search(r"\b(\d{2}[-/.]\d{2}[-/.]\d{4})\b", cleaned)
-        if date_match:
-            return date_match.group(1)
-        return cleaned or None
+        iso_date = normalize_to_iso_date(cleaned)
+        return iso_date or (cleaned or None)

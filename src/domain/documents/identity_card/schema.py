@@ -1,6 +1,7 @@
 import re
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
+from src.utility.date_utils import normalize_to_iso_date
 
 
 class IdentityCardSchema(BaseModel):
@@ -33,8 +34,8 @@ class IdentityCardSchema(BaseModel):
     )
     birth_date: Optional[str] = Field(
         default=None,
-        description="Date of birth (Tanggal Lahir, e.g. '21-06-1961')",
-        examples=["21-06-1961"]
+        description="Date of birth (Tanggal Lahir), normalized to ISO 8601 (YYYY-MM-DD)",
+        examples=["1961-06-21"]
     )
     gender: Optional[str] = Field(
         default=None,
@@ -88,8 +89,8 @@ class IdentityCardSchema(BaseModel):
     )
     valid_until: Optional[str] = Field(
         default="SEUMUR HIDUP",
-        description="Validity period (Berlaku Hingga: date or 'SEUMUR HIDUP')",
-        examples=["21-06-2017"]
+        description="Validity period (Berlaku Hingga: ISO 8601 date 'YYYY-MM-DD' or 'SEUMUR HIDUP')",
+        examples=["2017-06-21"]
     )
 
     @field_validator("province", mode="before")
@@ -128,10 +129,8 @@ class IdentityCardSchema(BaseModel):
         if not v or not isinstance(v, str):
             return None
         cleaned = v.strip()
-        date_match = re.search(r"\b(\d{2}[-/.]\d{2}[-/.]\d{4})\b", cleaned)
-        if date_match:
-            return date_match.group(1).replace("/", "-").replace(".", "-")
-        return cleaned or None
+        iso_date = normalize_to_iso_date(cleaned)
+        return iso_date or (cleaned or None)
 
     @field_validator("gender", mode="before")
     @classmethod
@@ -167,4 +166,15 @@ class IdentityCardSchema(BaseModel):
         if cleaned in ["A", "B", "AB", "O", "-"]:
             return cleaned
         return cleaned or None
+
+    @field_validator("valid_until", mode="before")
+    @classmethod
+    def clean_valid_until(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
+            return None
+        cleaned = re.sub(r"^BERLAKU\s*HINGGA\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
+        if "SEUMUR" in cleaned.upper():
+            return "SEUMUR HIDUP"
+        iso_date = normalize_to_iso_date(cleaned)
+        return iso_date or (cleaned or None)
 

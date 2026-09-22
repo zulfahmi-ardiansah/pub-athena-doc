@@ -187,17 +187,17 @@ async def test_visual_llm_analyzer():
 
 def test_google_genai_provider_schema_sanitization():
     from google.genai import types
-    ktp_schema = IdentityCardSchema.model_json_schema()
-    assert "examples" in ktp_schema["properties"]["province"]
-    sanitized_ktp = GoogleGenAIProvider._sanitize_schema_for_gemini(ktp_schema)
-    assert "examples" not in sanitized_ktp["properties"]["province"]
-    validated_ktp = types.Schema.model_validate(sanitized_ktp)
-    assert validated_ktp is not None
+    identity_card_schema = IdentityCardSchema.model_json_schema()
+    assert "examples" in identity_card_schema["properties"]["province"]
+    sanitized_identity_card = GoogleGenAIProvider._sanitize_schema_for_gemini(identity_card_schema)
+    assert "examples" not in sanitized_identity_card["properties"]["province"]
+    validated_identity_card = types.Schema.model_validate(sanitized_identity_card)
+    assert validated_identity_card is not None
 
-    npwp_schema = TaxNumberSchema.model_json_schema()
-    sanitized_npwp = GoogleGenAIProvider._sanitize_schema_for_gemini(npwp_schema)
-    validated_npwp = types.Schema.model_validate(sanitized_npwp)
-    assert validated_npwp is not None
+    tax_number_schema = TaxNumberSchema.model_json_schema()
+    sanitized_tax_number = GoogleGenAIProvider._sanitize_schema_for_gemini(tax_number_schema)
+    validated_tax_number = types.Schema.model_validate(sanitized_tax_number)
+    assert validated_tax_number is not None
 
 
 def test_google_genai_provider_credential_modes(tmp_path):

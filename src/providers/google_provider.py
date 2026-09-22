@@ -39,12 +39,15 @@ class GoogleGenAIProvider(BaseLLMProvider):
     def _sanitize_schema_for_gemini(schema: Any) -> Any:
         """
         Recursively strips OpenAPI 3.1 / JSON Schema draft fields (like 'examples')
-        that Vertex AI / Google GenAI types.Schema strictly forbids.
+        that Vertex AI / Google GenAI types.Schema strictly forbids. '$defs' is kept
+        (only recursed into) since '$ref' entries produced for nested Pydantic models
+        depend on it to resolve; dropping it while leaving '$ref' in place breaks the
+        google-genai SDK's own schema converter.
         """
         if isinstance(schema, dict):
             cleaned = {}
             for k, v in schema.items():
-                if k in ("examples", "$defs"):
+                if k == "examples":
                     continue
                 if k == "properties" and isinstance(v, dict):
                     cleaned[k] = {

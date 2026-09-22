@@ -57,7 +57,7 @@ When you submit a document to `/api/v1/extract/{document_type}`, Athena executes
 | 2 | **CV Preprocessing** | Image Preprocessor | Converts PDF pages to raster images (at `IMAGE_RENDER_DPI`), fixes rotational tilt with OpenCV deskewing, and enhances contrast using CLAHE histogram equalization. |
 | 3 | **Extract text** | Extractor Modules | In `hybrid_engine`, it grabs digital text layers first. If confidence score is below `EXTRACTION_MIN_CONFIDENCE`, it falls back to local OCR (RapidOCR or Tesseract), and finally to Vision LLM verbatim transcription. |
 | 4 | **Analyze & structure** | Analyzer Modules | Maps raw extracted text into the schema using schema-guided LLM generation (`text_llm`) or deterministic regex rules (`string`). |
-| 5 | **Validate & clean** | Pydantic Schema | Strips noise and prefixes (e.g. `PROVINSI`, `NIK:`), normalizes dates to `DD-MM-YYYY`, and formats missing values as `null`. |
+| 5 | **Validate & clean** | Pydantic Schema | Strips noise and prefixes (e.g. `PROVINSI`, `NIK:`), normalizes dates to ISO 8601 `YYYY-MM-DD`, and formats missing values as `null`. |
 | 6 | **Deliver & redact** | Telemetry & Logger | Returns the validated JSON payload, exports OpenTelemetry trace spans, and automatically masks sensitive personal data (NIK, NPWP, emails, tokens) in application logs. |
 
 ---
@@ -77,7 +77,7 @@ Extracts 16-digit NIK, full name, address hierarchy, religion, marital status, a
   "id_number": "3171010101900001",
   "full_name": "BUDI SANTOSO",
   "birth_place": "JAKARTA",
-  "birth_date": "01-01-1990",
+  "birth_date": "1990-01-01",
   "gender": "LAKI-LAKI",
   "blood_type": "O",
   "address": "JL. JENDERAL SUDIRMAN NO. 45",
@@ -102,9 +102,62 @@ Extracts 15/16-digit NPWP, taxpayer name, registered KPP branch office and addre
   "tax_payer": "PT ADIDAYA WIKASITA",
   "branch_office": "KPP PRATAMA SETIABUDI DUA",
   "branch_address": "JL. GATOT SUBROTO KAV. 18",
-  "registration_date": "15-08-2018"
+  "registration_date": "2018-08-15"
 }
 ```
+
+### 3. Business Identification Number (`business_identification_number` / Indonesian NIB)
+
+Extracts the 13-digit NIB, business actor name and contact details, investment status, issuance/amendment dates, and the full KBLI (business classification) attachment table:
+
+```json
+{
+  "number": "2210210046937",
+  "name": "PT Mitra BUMDes Nusantara",
+  "office_address": "LIPPO KUNINGAN TOWER LANTAI 11, JL. H.R. RASUNA SAID KAV. B-12",
+  "postal_code": "12940",
+  "phone_number": "02121393278",
+  "email": "mbn@mitrabumdes.co.id",
+  "investment_status": "PMDN",
+  "issued_place": "Jakarta",
+  "issued_date": "2021-10-22",
+  "amendment_number": "1",
+  "amendment_date": "2025-03-19",
+  "printed_date": "2025-03-19",
+  "signing_official_title": "Menteri Investasi dan Hilirisasi/ Kepala Badan Koordinasi Penanaman Modal",
+  "fields": [
+    {
+      "no": "1",
+      "field_code": "46321",
+      "field_title": "Perdagangan Besar Daging Sapi Dan Daging Sapi Olahan",
+      "business_location": "GD. PUSAT PERUM BULOG LT. 10 JL. JEND. GATOT SUBROTO KAV.49",
+      "postal_code": "12950",
+      "risk_level": "Rendah",
+      "licenses": [
+        { "license_type": "NIB", "license_status": "Terbit", "remarks": null }
+      ]
+    },
+    {
+      "no": "39",
+      "field_code": "46206",
+      "field_title": "Perdagangan Besar Hasil Perikanan",
+      "business_location": "GD. PUSAT PERUM BULOG LT. 10 JL. JEND. GATOT SUBROTO KAV.49",
+      "postal_code": "12950",
+      "risk_level": "Menengah Tinggi",
+      "licenses": [
+        { "license_type": "NIB", "license_status": "Terbit", "remarks": null },
+        {
+          "license_type": "Sertifikat Standar",
+          "license_status": "Belum Terverifikasi",
+          "remarks": "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 (sembilan puluh) hari kerja sebelum waktu perkiraan mulai beroperasi/produksi"
+        }
+      ]
+    }
+  ]
+}
+```
+
+A KBLI row's "Perizinan Berusaha" block can require more than one license (e.g. both an NIB and a Sertifikat Standar), each with its own status and remarks - `licenses` captures one entry per stacked Jenis/Status/Keterangan sub-row rather than flattening them into a single field. The `string_engine` path only parses the header fields deterministically; `fields` is filled by the LLM-based engines (`hybrid_engine` / `visual_engine`) since the multi-page attachment table isn't reliably regex-parseable.
 
 ---
 
@@ -246,7 +299,7 @@ curl -X POST "http://localhost:8000/api/v1/extract/identity_card?trace=true" \
     "id_number": "3171010101900001",
     "full_name": "BUDI SANTOSO",
     "birth_place": "JAKARTA",
-    "birth_date": "01-01-1990",
+    "birth_date": "1990-01-01",
     "gender": "LAKI-LAKI",
     "blood_type": "O",
     "address": "JL. JENDERAL SUDIRMAN NO. 45",
@@ -332,28 +385,39 @@ src/domain/documents/driver_license/
 ├── schema.py        # Pydantic schema with field definitions & validators
 ├── parser.py        # Deterministic regex parser for string_engine
 ├── prompt.py        # LLM system and user prompt templates
-└── __init__.py      # DocumentSpecification export
+└── __init__.py      # BaseDocument subclass export
 ```
 
-Export a `DocumentSpecification` instance in `__init__.py`:
+Subclass `BaseDocument` in `__init__.py`, wiring the schema, prompts, and (optionally) the string parser:
 
 ```python
-from src.domain.base import DocumentSpecification
+from pydantic import BaseModel
+from src.domain.base import BaseDocument
 from .schema import DriverLicenseSchema
-from .parser import DriverLicenseParser
-from .prompt import DRIVER_LICENSE_PROMPT
+from .parser import DriverLicenseStringParser
+from .prompt import get_driver_license_system_prompt, get_driver_license_user_prompt
 
-DRIVER_LICENSE_DOC = DocumentSpecification(
-    slug="driver_license",
-    title="Surat Izin Mengemudi (SIM)",
-    description="Indonesian Driver's License extraction model",
-    schema_cls=DriverLicenseSchema,
-    parser_cls=DriverLicenseParser,
-    prompt_template=DRIVER_LICENSE_PROMPT,
-)
+
+class DriverLicenseDocument(BaseDocument):
+    slug = "driver_license"
+    name = "Surat Izin Mengemudi (SIM)"
+    description = "Indonesian Driver's License extraction model"
+    schema_class = DriverLicenseSchema
+
+    def build_system_prompt(self) -> str:
+        return get_driver_license_system_prompt()
+
+    def build_user_prompt(self, raw_text: str) -> str:
+        return get_driver_license_user_prompt(raw_text)
+
+    def parse_string(self, raw_text: str) -> BaseModel:
+        return DriverLicenseStringParser.parse(raw_text)
+
+
+__all__ = ["DriverLicenseDocument", "DriverLicenseSchema", "DriverLicenseStringParser"]
 ```
 
-The document specification is automatically discovered by `DocumentRegistry` and immediately available through the API and Web Demo without modifying core engine code.
+Then register an instance in `src/domain/registry.py`'s `DocumentRegistry.__init__` (import the class at the top of the file and add `self.register(DriverLicenseDocument())`) to make it immediately available through the API and Web Demo without modifying core engine code. `parse_string` is optional — omit the override (or raise `NotImplementedError`, the `BaseDocument` default) for document types the `string_engine` can't reliably handle, e.g. multi-page tables.
 
 ---
 
