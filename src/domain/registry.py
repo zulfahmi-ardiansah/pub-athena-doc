@@ -3,8 +3,9 @@ from src.domain.base import BaseDocument
 from src.domain.documents.identity_card import IdentityCardDocument
 from src.domain.documents.tax_number import TaxNumberDocument
 from src.domain.documents.business_number import BusinessIdentificationNumberDocument
-from src.domain.documents.taxable_entrepreneur import TaxableEntrepreneurDocument
-from src.domain.documents.passport import PassportDocument
+from src.domain.documents.tax_entity import TaxEntityDocument
+from src.domain.documents.identity_passport import IdentityPassportDocument
+from src.domain.documents.business_deed import BusinessDeedDocument
 
 
 class DocumentRegistry:
@@ -16,8 +17,9 @@ class DocumentRegistry:
         self.register(IdentityCardDocument())
         self.register(TaxNumberDocument())
         self.register(BusinessIdentificationNumberDocument())
-        self.register(TaxableEntrepreneurDocument())
-        self.register(PassportDocument())
+        self.register(TaxEntityDocument())
+        self.register(IdentityPassportDocument())
+        self.register(BusinessDeedDocument())
 
     def register(self, doc: BaseDocument) -> None:
         """Register a new document specification."""

@@ -19,7 +19,7 @@ class BusinessField(BaseModel):
     )
 
 
-class TaxableEntrepreneurSchema(BaseModel):
+class TaxEntitySchema(BaseModel):
     """Schema for Indonesian Taxable Entrepreneur Confirmation Letter
     (SPPKP - Surat Pengukuhan Pengusaha Kena Pajak / PKP)."""
 

@@ -1,10 +1,10 @@
 import re
 from datetime import date
 from typing import Any, Dict, Optional, Tuple
-from src.domain.documents.passport.schema import PassportSchema
+from src.domain.documents.identity_passport.schema import IdentityPassportSchema
 
 
-class PassportStringParser:
+class IdentityPassportStringParser:
     """
     Deterministic parser for the Machine Readable Zone (MRZ) of an international
     passport bio-data page (ICAO Doc 9303 TD3 format: two fixed-width 44-character
@@ -15,7 +15,7 @@ class PassportStringParser:
     """
 
     @classmethod
-    def parse(cls, raw_text: str) -> PassportSchema:
+    def parse(cls, raw_text: str) -> IdentityPassportSchema:
         data: Dict[str, Any] = {}
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
 
@@ -24,7 +24,7 @@ class PassportStringParser:
             cls._parse_line1(line1, data)
             cls._parse_line2(line2, data)
 
-        return PassportSchema.model_validate(data)
+        return IdentityPassportSchema.model_validate(data)
 
     @classmethod
     def _find_mrz_lines(cls, lines: list) -> Tuple[Optional[str], Optional[str]]:

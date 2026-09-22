@@ -1,4 +1,4 @@
-def get_taxable_entrepreneur_system_prompt() -> str:
+def get_tax_entity_system_prompt() -> str:
     return (
         "You are an expert document extraction engine specializing in Indonesian Taxable Entrepreneur "
         "Confirmation Letters (SPPKP - Surat Pengukuhan Pengusaha Kena Pajak / PKP), issued by the "
@@ -43,7 +43,7 @@ def get_taxable_entrepreneur_system_prompt() -> str:
     )
 
 
-def get_taxable_entrepreneur_user_prompt(ocr_text: str) -> str:
+def get_tax_entity_user_prompt(ocr_text: str) -> str:
     return (
         "Extract Indonesian SPPKP (Surat Pengukuhan Pengusaha Kena Pajak) data from this OCR text into the "
         "requested JSON schema:\n\n"

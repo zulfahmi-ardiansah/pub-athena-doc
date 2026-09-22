@@ -61,7 +61,9 @@ Two functions: `get_<slug>_system_prompt()` and `get_<slug>_user_prompt(raw_text
 
 A `XxxStringParser.parse(raw_text) -> XxxSchema` classmethod, regex only, no LLM, used by `string_engine`. Its output passes through `Schema.model_validate()`, so raw regex matches get cleaned by the schema's own validators — the parser doesn't need to normalize dates or strip labels itself. Leave a field `None` rather than force a fragile regex over a multi-page or table structure; the LLM-based engines (`hybrid_engine`, `visual_engine`) cover that case.
 
-A document's standardized zone (e.g. a passport's MRZ) is fixed-position and identical across every variant, so it's a *stronger* case for a full deterministic parser than a single-country document's labels ever are — parse it by character position, not by label matching. See `src/domain/documents/passport/parser.py` for the pattern.
+A document's standardized zone (e.g. a passport's MRZ) is fixed-position and identical across every variant, so it's a *stronger* case for a full deterministic parser than a single-country document's labels ever are — parse it by character position, not by label matching. See `src/domain/documents/identity_passport/parser.py` for the pattern.
+
+A standardized zone doesn't require multiple countries — a legally mandated drafting formula (e.g. Indonesian notarial law's required deed opening, or a ministry decree's required title block) stays consistent across different notaries/offices/decades even within one country, and is just as safe to regex as an MRZ. See `src/domain/documents/business_deed/parser.py`. When regexing for such a formula, anchor to the surrounding context that makes it *that* formula (e.g. require the decree's own title block immediately before its number), not just a pattern that happens to have the right shape — free-form prose elsewhere in the same document can contain an unrelated value in the identical format (e.g. a different decree number mentioned in passing) and a shape-only regex will grab the wrong one.
 
 ## Testing
 

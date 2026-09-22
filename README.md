@@ -159,7 +159,7 @@ Extracts the 13-digit NIB, business actor name and contact details, investment s
 
 A KBLI row's "Perizinan Berusaha" block can require more than one license (e.g. both an NIB and a Sertifikat Standar), each with its own status and remarks - `licenses` captures one entry per stacked Jenis/Status/Keterangan sub-row rather than flattening them into a single field. The `string_engine` path only parses the header fields deterministically; `fields` is filled by the LLM-based engines (`hybrid_engine` / `visual_engine`) since the multi-page attachment table isn't reliably regex-parseable.
 
-### 4. Taxable Entrepreneur Confirmation Letter (`taxable_entrepreneur` / Indonesian SPPKP / PKP)
+### 4. Taxable Entrepreneur Confirmation Letter (`tax_entity` / Indonesian SPPKP / PKP)
 
 Extracts the issuing tax office, NPWP, taxpayer name, business classification (KLU), address, checked tax obligation(s), and signing official details:
 
@@ -188,7 +188,7 @@ Extracts the issuing tax office, NPWP, taxpayer name, business classification (K
 
 `tax_obligation` only lists the checked box(es) (e.g. `[X] PPN`), joined with `; ` if more than one is checked; `trade_name` is `null` when the source prints only a placeholder dash. Both the `string_engine` and LLM-based engines fully support this document, since it's a single fixed-layout page with no repeating table.
 
-### 5. Passport (`passport` / any ICAO Doc 9303 issuing country)
+### 5. Passport (`identity_passport` / any ICAO Doc 9303 issuing country)
 
 Unlike the Indonesian document types above, a passport's printed labels vary by issuing country and language ("Surname"/"Nom"/"姓"/"성명"/"Apelyido"). What's universal is the **Machine Readable Zone (MRZ)** - two fixed-width 44-character lines at the bottom of every passport bio-data page worldwide - so extraction centers on that, plus the handful of visual fields present on essentially every passport regardless of country:
 
@@ -212,6 +212,26 @@ Unlike the Indonesian document types above, a passport's printed labels vary by 
 ```
 
 The `string_engine` path parses the MRZ deterministically by fixed character position (ICAO Doc 9303 TD3 format), which works identically regardless of issuing country - it fills every MRZ-encoded field (everything above except `place_of_birth`, `date_of_issue`, and `issuing_authority`, which aren't in the MRZ and are only ever read from the printed page by the LLM-based engines).
+
+### 6. Business Deed & SK Kemenkumham (`business_deed` / Indonesian Akta + SK)
+
+Extracts the key filing metadata from an Indonesian notarial business deed (Akta Pendirian/Perubahan) together with its Kemenkumham confirmation decree (SK - Surat Keputusan Menteri Hukum dan Hak Asasi Manusia), which are commonly bundled into a single multi-page filing:
+
+```json
+{
+  "deed_type": "Akta Pendirian Perseroan Terbatas",
+  "deed_number": "151",
+  "deed_date": "2022-04-19",
+  "notary_name": "JOSE DIMA SATRIA, S.H., M.Kn",
+  "notary_address": "Jalan Benda, Jakarta Selatan",
+  "legal_decision": {
+    "number": "AHU-0028078.AH.01.02.TAHUN 2022",
+    "date": "2022-04-19"
+  }
+}
+```
+
+The `string_engine` path parses `deed_number`, `deed_date`, `notary_name`, and `legal_decision` deterministically, targeting the legally mandated drafting formulas that stay consistent across notaries and decades of Kemenkumham numbering formats (old `C2-xxxxx.HT.01.01.TH.YY` style through modern `AHU-xxxxx.AH.01.02.TAHUN YYYY`) - it also knows to ignore unrelated SK numbers a deed's recital text may reference (e.g. the notary's own appointment decree), keying only on the confirming SK's own `KEPUTUSAN MENTERI ... REPUBLIK INDONESIA` title block. `deed_type` and `notary_address` vary too much by notary template to parse reliably and are left for the LLM-based engines.
 
 ---
 

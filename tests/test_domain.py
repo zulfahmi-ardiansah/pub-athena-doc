@@ -7,13 +7,15 @@ from src.domain.documents.business_number.schema import BusinessNumberSchema, Fi
 from src.domain.documents.business_number import (
     BusinessIdentificationNumberDocument,
 )
-from src.domain.documents.taxable_entrepreneur.schema import TaxableEntrepreneurSchema
-from src.domain.documents.taxable_entrepreneur import (
-    TaxableEntrepreneurDocument,
-    TaxableEntrepreneurStringParser,
+from src.domain.documents.tax_entity.schema import TaxEntitySchema
+from src.domain.documents.tax_entity import (
+    TaxEntityDocument,
+    TaxEntityStringParser,
 )
-from src.domain.documents.passport.schema import PassportSchema
-from src.domain.documents.passport import PassportDocument, PassportStringParser
+from src.domain.documents.identity_passport.schema import IdentityPassportSchema
+from src.domain.documents.identity_passport import IdentityPassportDocument, IdentityPassportStringParser
+from src.domain.documents.business_deed.schema import BusinessDeedSchema, SKKemenkumham
+from src.domain.documents.business_deed import BusinessDeedDocument, BusinessDeedStringParser
 
 
 def test_document_registry():
@@ -23,8 +25,9 @@ def test_document_registry():
     assert "identity_card" in slugs
     assert "tax_number" in slugs
     assert "business_identification_number" in slugs
-    assert "taxable_entrepreneur" in slugs
-    assert "passport" in slugs
+    assert "tax_entity" in slugs
+    assert "identity_passport" in slugs
+    assert "business_deed" in slugs
 
 
 def test_identity_card_schema_validation():
@@ -382,7 +385,7 @@ def test_field_item_multiple_licenses():
     assert field.licenses[1].remarks == "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja"
 
 
-def test_taxable_entrepreneur_schema_validation():
+def test_tax_entity_schema_validation():
     data = {
         "letter_number": "S-47PKP/WPJ.05/KP.1003/2015",
         "tax_office_region": "KANTOR WILAYAH DJP JAKARTA BARAT",
@@ -403,7 +406,7 @@ def test_taxable_entrepreneur_schema_validation():
         "signing_official_name": "MUNAWAM",
         "signing_official_number": "NIP.196005151981031001",
     }
-    model = TaxableEntrepreneurSchema.model_validate(data)
+    model = TaxEntitySchema.model_validate(data)
     assert model.letter_number == "S-47PKP/WPJ.05/KP.1003/2015"
     assert model.tax_number == "01.329.904.5-039.000"
     assert model.taxpayer_name == "PT. RAMCOMAS MANDIRI"
@@ -418,8 +421,8 @@ def test_taxable_entrepreneur_schema_validation():
     assert model.signing_official_number == "196005151981031001"
 
 
-def test_taxable_entrepreneur_document_schema_and_prompts():
-    doc = TaxableEntrepreneurDocument()
+def test_tax_entity_document_schema_and_prompts():
+    doc = TaxEntityDocument()
     schema = doc.get_json_schema()
     assert "properties" in schema
     assert "tax_number" in schema["properties"]
@@ -440,7 +443,7 @@ def test_taxable_entrepreneur_document_schema_and_prompts():
     assert "S-47PKP/WPJ.05/KP.1003/2015" in user_prompt
 
 
-def test_taxable_entrepreneur_string_parser():
+def test_tax_entity_string_parser():
     raw_ocr = """
     KEMENTERIAN KEUANGAN REPUBLIK INDONESIA
     DIREKTORAT JENDERAL PAJAK
@@ -474,9 +477,9 @@ def test_taxable_entrepreneur_string_parser():
     MUNAWAM
     NIP.196005151981031001
     """
-    doc = TaxableEntrepreneurDocument()
+    doc = TaxEntityDocument()
     parsed = doc.parse_string(raw_ocr)
-    assert isinstance(parsed, TaxableEntrepreneurSchema)
+    assert isinstance(parsed, TaxEntitySchema)
     assert parsed.letter_number == "S-47PKP/WPJ.05/KP.1003/2015"
     assert parsed.tax_office_region == "KANTOR WILAYAH DJP JAKARTA BARAT"
     assert parsed.tax_office == "KPP PRATAMA JAKARTA KEBON JERUK DUA"
@@ -498,8 +501,8 @@ def test_taxable_entrepreneur_string_parser():
     assert parsed.signing_official_number == "196005151981031001"
 
 
-def test_taxable_entrepreneur_string_parser_direct():
-    parsed = TaxableEntrepreneurStringParser.parse(
+def test_tax_entity_string_parser_direct():
+    parsed = TaxEntityStringParser.parse(
         "1. Nomor Pokok Wajib Pajak : 01.329.904.5-039.000\n2. Nama : PT. RAMCOMAS MANDIRI"
     )
     assert parsed.tax_number == "01.329.904.5-039.000"
@@ -527,7 +530,7 @@ def _synthetic_mrz(surname: str, given_names: str, country: str, passport_number
     return line1, line2
 
 
-def test_passport_schema_validation():
+def test_identity_passport_schema_validation():
     data = {
         "document_type": "P<",
         "issuing_country": "USA<",
@@ -543,7 +546,7 @@ def test_passport_schema_validation():
         "issuing_authority": "UNITED STATES DEPARTMENT OF STATE",
         "mrz_line1": "p<usatraveler<<happy<<<<<<<<<<<<<<<<<<<<<<<<",
     }
-    model = PassportSchema.model_validate(data)
+    model = IdentityPassportSchema.model_validate(data)
     assert model.document_type == "P"
     assert model.issuing_country == "USA"
     assert model.surname == "TRAVELER"
@@ -554,8 +557,8 @@ def test_passport_schema_validation():
     assert model.mrz_line1 == "P<USATRAVELER<<HAPPY<<<<<<<<<<<<<<<<<<<<<<<<"
 
 
-def test_passport_document_schema_and_prompts():
-    doc = PassportDocument()
+def test_identity_passport_document_schema_and_prompts():
+    doc = IdentityPassportDocument()
     schema = doc.get_json_schema()
     assert "properties" in schema
     assert "mrz_line1" in schema["properties"]
@@ -572,15 +575,15 @@ def test_passport_document_schema_and_prompts():
     assert "P<USATRAVELER<<HAPPY" in user_prompt
 
 
-def test_passport_string_parser_single_given_name():
+def test_identity_passport_string_parser_single_given_name():
     line1, line2 = _synthetic_mrz(
         surname="SMITH", given_names="JANE", country="EOL", passport_number="PP3000000",
         nationality="EOL", dob_yymmdd="810714", sex="F", expiry_yymmdd="221231",
     )
     raw_ocr = f"REPUBLIC OF EOLIE\n{line1}\n{line2}\n"
-    doc = PassportDocument()
+    doc = IdentityPassportDocument()
     parsed = doc.parse_string(raw_ocr)
-    assert isinstance(parsed, PassportSchema)
+    assert isinstance(parsed, IdentityPassportSchema)
     assert parsed.document_type == "P"
     assert parsed.issuing_country == "EOL"
     assert parsed.surname == "SMITH"
@@ -596,12 +599,12 @@ def test_passport_string_parser_single_given_name():
     assert parsed.issuing_authority is None
 
 
-def test_passport_string_parser_multi_part_name():
+def test_identity_passport_string_parser_multi_part_name():
     line1, line2 = _synthetic_mrz(
         surname="DE BRUIJN", given_names="WILLEKE LISELOTTE", country="NLD", passport_number="SPECI2014",
         nationality="NLD", dob_yymmdd="650310", sex="F", expiry_yymmdd="240309",
     )
-    parsed = PassportStringParser.parse(f"{line1}\n{line2}")
+    parsed = IdentityPassportStringParser.parse(f"{line1}\n{line2}")
     assert parsed.surname == "DE BRUIJN"
     assert parsed.given_names == "WILLEKE LISELOTTE"
     assert parsed.nationality == "NLD"
@@ -609,9 +612,116 @@ def test_passport_string_parser_multi_part_name():
     assert parsed.date_of_expiry == "2024-03-09"
 
 
-def test_passport_string_parser_no_mrz_found():
-    parsed = PassportStringParser.parse("just some random text with no MRZ lines in it")
-    assert isinstance(parsed, PassportSchema)
+def test_identity_passport_string_parser_no_mrz_found():
+    parsed = IdentityPassportStringParser.parse("just some random text with no MRZ lines in it")
+    assert isinstance(parsed, IdentityPassportSchema)
     assert parsed.mrz_line1 is None
     assert parsed.mrz_line2 is None
     assert parsed.passport_number is None
+
+
+def test_business_deed_schema_validation():
+    data = {
+        "deed_type": "= AKTA PENDIRIAN PERSEROAN TERBATAS =",
+        "deed_number": "No. 2",
+        "deed_date": "03 Agustus 2023",
+        "notary_name": "CONTOH NOTARIS, S.H., M.Kn",
+        "notary_address": "Alamat Jalan Contoh Nomor 1, Cianjur, Jawa Barat",
+        "legal_decision": {
+            "number": "Nomor : AHU-0028078.AH.01.02.TAHUN 2022",
+            "date": "19 April 2022",
+        },
+    }
+    model = BusinessDeedSchema.model_validate(data)
+    assert model.deed_type == "AKTA PENDIRIAN PERSEROAN TERBATAS"
+    assert model.deed_number == "2"
+    assert model.deed_date == "2023-08-03"
+    assert model.notary_name == "CONTOH NOTARIS, S.H., M.Kn"
+    assert model.notary_address == "Jalan Contoh Nomor 1, Cianjur, Jawa Barat"
+    assert model.legal_decision is not None
+    assert model.legal_decision.number == "AHU-0028078.AH.01.02.TAHUN 2022"
+    assert model.legal_decision.date == "2022-04-19"
+
+
+def test_business_deed_document_schema_and_prompts():
+    doc = BusinessDeedDocument()
+    schema = doc.get_json_schema()
+    assert "properties" in schema
+    assert "deed_number" in schema["properties"]
+    assert "notary_name" in schema["properties"]
+    assert "legal_decision" in schema["properties"]
+
+    sys_prompt = doc.build_system_prompt()
+    assert "Kemenkumham" in sys_prompt
+    assert "Extraction Rules:" in sys_prompt
+
+    user_prompt = doc.build_user_prompt("Nomor 151.\nPada hari ini, Selasa, tanggal 19-4-2022")
+    assert "Extract Indonesian business deed" in user_prompt
+    assert "Nomor 151." in user_prompt
+
+
+def test_business_deed_string_parser_bundled_akta_and_sk():
+    # Reproduces the real quirks found against the actual sample filings: a soft
+    # hyphen between 'Nomor : N.' and 'Pada hari ini', and a dashed underline
+    # artifact splitting the notary's name across wrapped lines.
+    raw_text = (
+        "AKTA PENDIRIAN PERSEROAN TERBATAS\n"
+        "PT CONTOH SEJAHTERA ABADI\n"
+        "Nomor : 7.\xad\n"
+        "-Pada hari ini, Senin, tanggal 10-01-2023 (sepuluh Januari dua ribu dua "
+        "puluh tiga).\n"
+        "Berhadapan dengan saya, BUDI\n"
+        "--------\n"
+        "SANTOSO, Sarjana Hukum, Magister Kenotariatan, Notaris di Kota Jakarta,\n"
+        "\n"
+        "KEPUTUSAN MENTERI HUKUM DAN HAK ASASI MANUSIA REPUBLIK INDONESIA\n"
+        "NOMOR AHU-0099999.AH.01.02.TAHUN 2023\n"
+        "TENTANG\n"
+        "PERSETUJUAN PERUBAHAN ANGGARAN DASAR PERSEROAN TERBATAS\n"
+        "PT CONTOH SEJAHTERA ABADI\n"
+        "Ditetapkan di Jakarta, Tanggal 15 Januari 2023.\n"
+    )
+    parsed = BusinessDeedStringParser.parse(raw_text)
+    assert isinstance(parsed, BusinessDeedSchema)
+    assert parsed.deed_number == "7"
+    assert parsed.deed_date == "2023-01-10"
+    assert parsed.notary_name == "BUDI SANTOSO"
+    assert parsed.legal_decision is not None
+    assert parsed.legal_decision.number == "AHU-0099999.AH.01.02.TAHUN 2023"
+    assert parsed.legal_decision.date == "2023-01-15"
+    # 'deed_type' and 'notary_address' vary too much by notary template for the
+    # string parser to extract reliably - left for the LLM-based engines.
+    assert parsed.deed_type is None
+    assert parsed.notary_address is None
+
+
+def test_business_deed_string_parser_ignores_unrelated_sk_reference():
+    # A deed's own text can reference an unrelated SK number (e.g. the notary's
+    # own appointment decree printed on the letterhead) - the parser must not
+    # mistake that for the company's own confirming SK, which only comes from a
+    # 'KEPUTUSAN MENTERI ... REPUBLIK INDONESIA' title block.
+    raw_text = (
+        "NOTARIS CONTOH NAMA, S.H., M.Kn\n"
+        "SK Menteri Hukum dan Hak Asasi Manusia Republik Indonesia\n"
+        "Nomor : AHU-111.AH.01.02-Tahun 2005\n"
+        "AKTA PENDIRIAN PERSEROAN TERBATAS\n"
+        "PT CONTOH LAINNYA\n"
+    )
+    parsed = BusinessDeedStringParser.parse(raw_text)
+    assert parsed.legal_decision is None
+
+
+def test_business_deed_string_parser_old_numbering_format():
+    raw_text = (
+        "KEPUTUSAN MENTERI KEHAKIMAN REPUBLIK INDONESIA\n"
+        "NOMOR : C2-10671.HT.01.01.TH.88.-\n"
+        "MENTERI KEHAKIMAN REPUBLIK INDONESIA,\n"
+    )
+    parsed = BusinessDeedStringParser.parse(raw_text)
+    assert parsed.legal_decision is not None
+    assert parsed.legal_decision.number == "C2-10671.HT.01.01.TH.88"
+
+
+def test_legal_decision_standalone_validation():
+    sk = SKKemenkumham.model_validate({"number": "NOMOR: AHU-01173.AH.01.02.Tahun 2010", "date": "-"})
+    assert sk.number == "AHU-01173.AH.01.02.Tahun 2010"

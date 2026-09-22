@@ -1,16 +1,16 @@
 import re
 from typing import Any, Dict
-from src.domain.documents.taxable_entrepreneur.schema import TaxableEntrepreneurSchema
+from src.domain.documents.tax_entity.schema import TaxEntitySchema
 
 
-class TaxableEntrepreneurStringParser:
+class TaxEntityStringParser:
     """
     Deterministic rule-based & regex parser for Indonesian Taxable Entrepreneur
     Confirmation Letter (SPPKP/PKP) OCR text. Extracts all fields without an LLM.
     """
 
     @classmethod
-    def parse(cls, raw_text: str) -> TaxableEntrepreneurSchema:
+    def parse(cls, raw_text: str) -> TaxEntitySchema:
         data: Dict[str, Any] = {}
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
 
@@ -26,7 +26,7 @@ class TaxableEntrepreneurStringParser:
         cls._extract_issued_place_and_date(raw_text, data)
         cls._extract_signing_official(lines, data)
 
-        return TaxableEntrepreneurSchema.model_validate(data)
+        return TaxEntitySchema.model_validate(data)
 
     @classmethod
     def _extract_letter_number(cls, text: str, data: Dict[str, Any]) -> None:

@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 from src.utility.date_utils import normalize_to_iso_date
 
 
-class PassportSchema(BaseModel):
+class IdentityPassportSchema(BaseModel):
     """Schema for an international passport bio-data page (ICAO Doc 9303 TD3 format).
 
     Passports are internationally standardized via the Machine Readable Zone (MRZ,

@@ -1,4 +1,4 @@
-def get_passport_system_prompt() -> str:
+def get_identity_passport_system_prompt() -> str:
     return (
         "You are an expert document extraction engine specializing in international passport bio-data "
         "pages (ICAO Doc 9303 standard). Passports are printed in the issuing country's own language(s), "
@@ -39,7 +39,7 @@ def get_passport_system_prompt() -> str:
     )
 
 
-def get_passport_user_prompt(ocr_text: str) -> str:
+def get_identity_passport_user_prompt(ocr_text: str) -> str:
     return (
         "Extract passport bio-data page fields, including the two verbatim MRZ lines, from this OCR text "
         "into the requested JSON schema:\n\n"
