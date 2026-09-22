@@ -22,7 +22,7 @@ class IdentityCardSchema(BaseModel):
         description="Nomor Induk Kependudukan / NIK (16 digits)",
         examples=["3372052106610006"]
     )
-    full_name: Optional[str] = Field(
+    name: Optional[str] = Field(
         default=None,
         description="Full Name (Nama, e.g. 'IR JOKO WIDODO')",
         examples=["IR JOKO WIDODO"]
@@ -87,7 +87,7 @@ class IdentityCardSchema(BaseModel):
         description="Nationality (Kewarganegaraan: 'WNI' or 'WNA')",
         examples=["WNI"]
     )
-    valid_until: Optional[str] = Field(
+    expiry_date: Optional[str] = Field(
         default="SEUMUR HIDUP",
         description="Validity period (Berlaku Hingga: ISO 8601 date 'YYYY-MM-DD' or 'SEUMUR HIDUP')",
         examples=["2017-06-21"]
@@ -167,9 +167,9 @@ class IdentityCardSchema(BaseModel):
             return cleaned
         return cleaned or None
 
-    @field_validator("valid_until", mode="before")
+    @field_validator("expiry_date", mode="before")
     @classmethod
-    def clean_valid_until(cls, v: Optional[str]) -> Optional[str]:
+    def clean_expiry_date(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^BERLAKU\s*HINGGA\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()

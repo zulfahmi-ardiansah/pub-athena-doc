@@ -75,7 +75,7 @@ Extracts 16-digit NIK, full name, address hierarchy, religion, marital status, a
   "province": "DKI JAKARTA",
   "city": "JAKARTA PUSAT",
   "id_number": "3171010101900001",
-  "full_name": "BUDI SANTOSO",
+  "name": "BUDI SANTOSO",
   "birth_place": "JAKARTA",
   "birth_date": "1990-01-01",
   "gender": "LAKI-LAKI",
@@ -88,7 +88,7 @@ Extracts 16-digit NIK, full name, address hierarchy, religion, marital status, a
   "marital_status": "BELUM KAWIN",
   "occupation": "KARYAWAN SWASTA",
   "nationality": "WNI",
-  "valid_until": "SEUMUR HIDUP"
+  "expiry_date": "SEUMUR HIDUP"
 }
 ```
 
@@ -99,9 +99,9 @@ Extracts 15/16-digit NPWP, taxpayer name, registered KPP branch office and addre
 ```json
 {
   "tax_number": "01.234.567.8-012.000",
-  "tax_payer": "PT ADIDAYA WIKASITA",
-  "branch_office": "KPP PRATAMA SETIABUDI DUA",
-  "branch_address": "JL. GATOT SUBROTO KAV. 18",
+  "name": "PT ADIDAYA WIKASITA",
+  "tax_office": "KPP PRATAMA SETIABUDI DUA",
+  "tax_office_address": "JL. GATOT SUBROTO KAV. 18",
   "registration_date": "2018-08-15"
 }
 ```
@@ -114,7 +114,7 @@ Extracts the 13-digit NIB, business actor name and contact details, investment s
 {
   "number": "2210210046937",
   "name": "PT Mitra BUMDes Nusantara",
-  "office_address": "LIPPO KUNINGAN TOWER LANTAI 11, JL. H.R. RASUNA SAID KAV. B-12",
+  "address": "LIPPO KUNINGAN TOWER LANTAI 11, JL. H.R. RASUNA SAID KAV. B-12",
   "postal_code": "12940",
   "phone_number": "02121393278",
   "email": "mbn@mitrabumdes.co.id",
@@ -128,8 +128,8 @@ Extracts the 13-digit NIB, business actor name and contact details, investment s
   "fields": [
     {
       "no": "1",
-      "field_code": "46321",
-      "field_title": "Perdagangan Besar Daging Sapi Dan Daging Sapi Olahan",
+      "code": "46321",
+      "title": "Perdagangan Besar Daging Sapi Dan Daging Sapi Olahan",
       "business_location": "GD. PUSAT PERUM BULOG LT. 10 JL. JEND. GATOT SUBROTO KAV.49",
       "postal_code": "12950",
       "risk_level": "Rendah",
@@ -139,8 +139,8 @@ Extracts the 13-digit NIB, business actor name and contact details, investment s
     },
     {
       "no": "39",
-      "field_code": "46206",
-      "field_title": "Perdagangan Besar Hasil Perikanan",
+      "code": "46206",
+      "title": "Perdagangan Besar Hasil Perikanan",
       "business_location": "GD. PUSAT PERUM BULOG LT. 10 JL. JEND. GATOT SUBROTO KAV.49",
       "postal_code": "12950",
       "risk_level": "Menengah Tinggi",
@@ -170,8 +170,8 @@ Extracts the issuing tax office, NPWP, taxpayer name, business classification (K
   "tax_office": "KPP PRATAMA JAKARTA KEBON JERUK DUA",
   "tax_office_address": "JL. K.S. TUBUN 10, JAKARTA BARAT",
   "tax_number": "01.329.904.5-039.000",
-  "taxpayer_name": "PT. RAMCOMAS MANDIRI",
-  "business_fields": [
+  "name": "PT. RAMCOMAS MANDIRI",
+  "fields": [
     { "code": "71100", "title": "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI" }
   ],
   "address": "JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA",
@@ -200,18 +200,18 @@ Unlike the Indonesian document types above, a passport's printed labels vary by 
   "given_names": "HAPPY",
   "passport_number": "E00007734",
   "nationality": "USA",
-  "date_of_birth": "1990-02-05",
-  "sex": "F",
-  "place_of_birth": "WASHINGTON D.C., U.S.A.",
-  "date_of_issue": "2020-10-15",
-  "date_of_expiry": "2030-10-14",
+  "birth_date": "1990-02-05",
+  "gender": "F",
+  "birth_place": "WASHINGTON D.C., U.S.A.",
+  "issued_date": "2020-10-15",
+  "expiry_date": "2030-10-14",
   "issuing_authority": "UNITED STATES DEPARTMENT OF STATE",
   "mrz_line1": "P<USATRAVELER<<HAPPY<<<<<<<<<<<<<<<<<<<<<<<<",
   "mrz_line2": "E000077347USA6502056F3010145900100120<095838"
 }
 ```
 
-The `string_engine` path parses the MRZ deterministically by fixed character position (ICAO Doc 9303 TD3 format), which works identically regardless of issuing country - it fills every MRZ-encoded field (everything above except `place_of_birth`, `date_of_issue`, and `issuing_authority`, which aren't in the MRZ and are only ever read from the printed page by the LLM-based engines).
+The `string_engine` path parses the MRZ deterministically by fixed character position (ICAO Doc 9303 TD3 format), which works identically regardless of issuing country - it fills every MRZ-encoded field (everything above except `birth_place`, `issued_date`, and `issuing_authority`, which aren't in the MRZ and are only ever read from the printed page by the LLM-based engines).
 
 ### 6. Business Deed & SK Kemenkumham (`business_deed` / Indonesian Akta + SK)
 
@@ -226,7 +226,7 @@ Extracts the key filing metadata from an Indonesian notarial business deed (Akta
   "notary_address": "Jalan Benda, Jakarta Selatan",
   "legal_decision": {
     "number": "AHU-0028078.AH.01.02.TAHUN 2022",
-    "date": "2022-04-19"
+    "issued_date": "2022-04-19"
   }
 }
 ```
@@ -371,7 +371,7 @@ curl -X POST "http://localhost:8000/api/v1/extract/identity_card?trace=true" \
     "province": "DKI JAKARTA",
     "city": "JAKARTA PUSAT",
     "id_number": "3171010101900001",
-    "full_name": "BUDI SANTOSO",
+    "name": "BUDI SANTOSO",
     "birth_place": "JAKARTA",
     "birth_date": "1990-01-01",
     "gender": "LAKI-LAKI",
@@ -384,7 +384,7 @@ curl -X POST "http://localhost:8000/api/v1/extract/identity_card?trace=true" \
     "marital_status": "BELUM KAWIN",
     "occupation": "KARYAWAN SWASTA",
     "nationality": "WNI",
-    "valid_until": "SEUMUR HIDUP"
+    "expiry_date": "SEUMUR HIDUP"
   },
   "trace": {
     "stages": [

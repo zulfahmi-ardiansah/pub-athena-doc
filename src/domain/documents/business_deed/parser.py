@@ -47,7 +47,7 @@ class BusinessDeedStringParser:
             re.IGNORECASE,
         )
         if date_match:
-            sk["date"] = date_match.group(2).strip()
+            sk["issued_date"] = date_match.group(2).strip()
 
         if sk:
             data["legal_decision"] = sk

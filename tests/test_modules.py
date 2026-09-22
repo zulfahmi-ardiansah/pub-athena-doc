@@ -151,7 +151,7 @@ async def test_string_text_analyzer():
     assert isinstance(result, dict)
     assert result["id_number"] == "3171010101900001"
     assert result["province"] == "DKI JAKARTA"
-    assert result["full_name"] == "BUDI"
+    assert result["name"] == "BUDI"
 
 
 @pytest.mark.asyncio
@@ -159,14 +159,14 @@ async def test_llm_text_analyzer():
     mock_provider = AsyncMock()
     mock_provider.generate_structured = AsyncMock(return_value={
         "id_number": "3171010101900001",
-        "full_name": "BUDI SANTOSO",
+        "name": "BUDI SANTOSO",
         "province": "DKI JAKARTA"
     })
     analyzer = LlmTextAnalyzer(llm_provider=mock_provider)
     doc = IdentityCardDocument()
     result = await analyzer.analyze(input_data="some raw ocr text", document=doc)
     assert result["id_number"] == "3171010101900001"
-    assert result["full_name"] == "BUDI SANTOSO"
+    assert result["name"] == "BUDI SANTOSO"
 
 
 @pytest.mark.asyncio
@@ -174,15 +174,15 @@ async def test_visual_llm_analyzer():
     mock_provider = AsyncMock()
     mock_provider.generate_structured = AsyncMock(return_value={
         "tax_number": "12.345.678.9-636.000",
-        "tax_payer": "PT CONTOH MAKMUR",
-        "branch_office": "KPP MADYA GRESIK"
+        "name": "PT CONTOH MAKMUR",
+        "tax_office": "KPP MADYA GRESIK"
     })
     analyzer = VisualLlmAnalyzer(vision_provider=mock_provider)
     doc = TaxNumberDocument()
     img_bytes = _create_sample_png_bytes()
     result = await analyzer.analyze(input_data=[img_bytes], document=doc)
     assert result["tax_number"] == "12.345.678.9-636.000"
-    assert result["tax_payer"] == "PT CONTOH MAKMUR"
+    assert result["name"] == "PT CONTOH MAKMUR"
 
 
 def test_google_genai_provider_schema_sanitization():

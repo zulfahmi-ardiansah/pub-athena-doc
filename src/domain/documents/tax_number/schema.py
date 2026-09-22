@@ -12,17 +12,17 @@ class TaxNumberSchema(BaseModel):
         description="Nomor Pokok Wajib Pajak / NPWP (15 or 16 digits format)",
         examples=["01.234.567.8-901.000", "12.345.678.9-636.000"]
     )
-    tax_payer: Optional[str] = Field(
+    name: Optional[str] = Field(
         default=None,
         description="Taxpayer Name (Nama Wajib Pajak, e.g. 'BUDI')",
         examples=["BUDI", "PT CONTOH MAKMUR"]
     )
-    branch_office: Optional[str] = Field(
+    tax_office: Optional[str] = Field(
         default=None,
         description="Tax Branch Office where registered (Kantor Pelayanan Pajak / KPP, e.g. 'KPP MADYA GRESIK')",
         examples=["KPP MADYA GRESIK"]
     )
-    branch_address: Optional[str] = Field(
+    tax_office_address: Optional[str] = Field(
         default=None,
         description="Tax Branch Office Address (Alamat KPP, e.g. 'JL DR WAHIDIN SUDIROHUSODO 700 GRESIK')",
         examples=["JL DR WAHIDIN SUDIROHUSODO 700 GRESIK"]
@@ -44,26 +44,26 @@ class TaxNumberSchema(BaseModel):
             return cleaned
         return v.strip()
 
-    @field_validator("tax_payer", mode="before")
+    @field_validator("name", mode="before")
     @classmethod
-    def clean_tax_payer(cls, v: Optional[str]) -> Optional[str]:
+    def clean_name(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:NAMA\s*(?:WAJIB\s*PAJAK)?|NAME)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
         return cleaned or None
 
-    @field_validator("branch_office", mode="before")
+    @field_validator("tax_office", mode="before")
     @classmethod
-    def clean_branch_office(cls, v: Optional[str]) -> Optional[str]:
+    def clean_tax_office(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = v.strip()
         cleaned = re.sub(r"^(?:KANTOR\s*PELAYANAN\s*PAJAK|KPP)\s*[:\.]?\s*", "KPP ", cleaned, flags=re.IGNORECASE).strip()
         return cleaned or None
 
-    @field_validator("branch_address", mode="before")
+    @field_validator("tax_office_address", mode="before")
     @classmethod
-    def clean_branch_address(cls, v: Optional[str]) -> Optional[str]:
+    def clean_tax_office_address(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:ALAMAT|ADDRESS)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()

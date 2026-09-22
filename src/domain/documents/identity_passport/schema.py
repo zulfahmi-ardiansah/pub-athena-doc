@@ -45,27 +45,27 @@ class IdentityPassportSchema(BaseModel):
         description="3-letter ICAO nationality code",
         examples=["USA", "JPN", "KOR", "NLD", "PHL"]
     )
-    date_of_birth: Optional[str] = Field(
+    birth_date: Optional[str] = Field(
         default=None,
         description="Date of birth, normalized to ISO 8601 (YYYY-MM-DD)",
         examples=["1981-07-14"]
     )
-    sex: Optional[str] = Field(
+    gender: Optional[str] = Field(
         default=None,
         description="Sex as printed/encoded: 'M', 'F', or 'X'",
         examples=["F"]
     )
-    place_of_birth: Optional[str] = Field(
+    birth_place: Optional[str] = Field(
         default=None,
         description="Place of birth, if printed (not every issuing country prints this)",
         examples=["MANILA"]
     )
-    date_of_issue: Optional[str] = Field(
+    issued_date: Optional[str] = Field(
         default=None,
         description="Date the passport was issued, normalized to ISO 8601 (YYYY-MM-DD)",
         examples=["2013-01-01"]
     )
-    date_of_expiry: Optional[str] = Field(
+    expiry_date: Optional[str] = Field(
         default=None,
         description="Date the passport expires, normalized to ISO 8601 (YYYY-MM-DD)",
         examples=["2022-12-31"]
@@ -113,9 +113,9 @@ class IdentityPassportSchema(BaseModel):
         cleaned = cleaned.replace("<", "").strip()
         return cleaned or None
 
-    @field_validator("sex", mode="before")
+    @field_validator("gender", mode="before")
     @classmethod
-    def clean_sex(cls, v: Optional[str]) -> Optional[str]:
+    def clean_gender(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = v.strip().upper().replace("<", "")
@@ -123,14 +123,14 @@ class IdentityPassportSchema(BaseModel):
             return cleaned
         return cleaned or None
 
-    @field_validator("place_of_birth", "issuing_authority", mode="before")
+    @field_validator("birth_place", "issuing_authority", mode="before")
     @classmethod
     def clean_text_fields(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         return v.strip() or None
 
-    @field_validator("date_of_birth", "date_of_issue", "date_of_expiry", mode="before")
+    @field_validator("birth_date", "issued_date", "expiry_date", mode="before")
     @classmethod
     def clean_date_fields(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):

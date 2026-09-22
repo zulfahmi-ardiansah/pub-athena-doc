@@ -118,7 +118,7 @@ async def test_string_engine_end_to_end():
         trace=True
     )
     assert result.data["id_number"] == "3171010101900001"
-    assert result.data["full_name"] == "BUDI SANTOSO"
+    assert result.data["name"] == "BUDI SANTOSO"
     assert result.trace is not None
     assert len(result.trace["stages"]) == 2
 
@@ -132,7 +132,7 @@ async def test_visual_engine_end_to_end():
     mock_vision = MagicMock(spec=BaseLLMProvider)
     mock_vision.generate_structured = AsyncMock(return_value={
         "id_number": "3171010101900001",
-        "full_name": "BUDI SANTOSO",
+        "name": "BUDI SANTOSO",
         "province": "DKI JAKARTA"
     })
 
@@ -177,7 +177,7 @@ async def test_hybrid_engine_fallback_pdf_to_ocr():
     mock_provider = MagicMock(spec=BaseLLMProvider)
     mock_provider.generate_structured = AsyncMock(return_value={
         "id_number": "3171010101900001",
-        "full_name": "BUDI SANTOSO",
+        "name": "BUDI SANTOSO",
         "province": "DKI JAKARTA"
     })
 

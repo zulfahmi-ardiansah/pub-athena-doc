@@ -14,7 +14,7 @@ class SKKemenkumham(BaseModel):
         "'C2-10671.HT.01.01.TH.88' style number",
         examples=["AHU-0028078.AH.01.02.TAHUN 2022"]
     )
-    date: Optional[str] = Field(
+    issued_date: Optional[str] = Field(
         default=None,
         description="SK decree date (Tanggal Pembuatan), normalized to ISO 8601 (YYYY-MM-DD)",
         examples=["2022-04-19"]
@@ -28,9 +28,9 @@ class SKKemenkumham(BaseModel):
         cleaned = re.sub(r"^(?:NOMOR|NO\.?)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
         return cleaned or None
 
-    @field_validator("date", mode="before")
+    @field_validator("issued_date", mode="before")
     @classmethod
-    def clean_date(cls, v: Optional[str]) -> Optional[str]:
+    def clean_issued_date(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = v.strip()

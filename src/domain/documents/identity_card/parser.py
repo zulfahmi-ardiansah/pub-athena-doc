@@ -83,10 +83,10 @@ class IdentificationNumberParser:
     def _extract_fields_from_lines(cls, lines: list, data: Dict[str, Any]) -> None:
         for line in lines:
             # Full Name
-            if not data.get("full_name") and re.search(r"^NAMA\b", line, re.IGNORECASE):
+            if not data.get("name") and re.search(r"^NAMA\b", line, re.IGNORECASE):
                 val = re.sub(r"^NAMA\s*[:\.]?\s*", "", line, flags=re.IGNORECASE).strip()
                 if val:
-                    data["full_name"] = val
+                    data["name"] = val
 
             # Tempat/Tgl Lahir
             if not data.get("birth_place") and re.search(r"TEMPAT[/\s]*(?:TGL|TANGGAL)?\s*LAHIR", line, re.IGNORECASE):
@@ -171,16 +171,16 @@ class IdentificationNumberParser:
                     data["nationality"] = "WNI"
 
             # Berlaku Hingga
-            if not data.get("valid_until") and re.search(r"BERLAKU\s*HINGGA", line, re.IGNORECASE):
+            if not data.get("expiry_date") and re.search(r"BERLAKU\s*HINGGA", line, re.IGNORECASE):
                 val = re.sub(r"^.*BERLAKU\s*HINGGA\s*[:\.]?\s*", "", line, flags=re.IGNORECASE).strip().upper()
                 if "SEUMUR" in val:
-                    data["valid_until"] = "SEUMUR HIDUP"
+                    data["expiry_date"] = "SEUMUR HIDUP"
                 else:
                     date_match = re.search(r"\b(\d{2}[-/]\d{2}[-/]\d{4})\b", val)
                     if date_match:
-                        data["valid_until"] = date_match.group(1).replace("/", "-")
+                        data["expiry_date"] = date_match.group(1).replace("/", "-")
                     elif val:
-                        data["valid_until"] = val
+                        data["expiry_date"] = val
 
     @classmethod
     def _fallback_extract_full_text(cls, text: str, data: Dict[str, Any]) -> None:
@@ -199,6 +199,6 @@ class IdentificationNumberParser:
         if not data.get("nationality"):
             data["nationality"] = "WNI"
 
-        if not data.get("valid_until"):
+        if not data.get("expiry_date"):
             if re.search(r"SEUMUR\s*HIDUP", text, re.IGNORECASE):
-                data["valid_until"] = "SEUMUR HIDUP"
+                data["expiry_date"] = "SEUMUR HIDUP"

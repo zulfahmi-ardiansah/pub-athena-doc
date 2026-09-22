@@ -17,7 +17,7 @@ class TaxEntityStringParser:
         cls._extract_letter_number(raw_text, data)
         cls._extract_tax_office(lines, data)
         cls._extract_tax_number(lines, data)
-        cls._extract_taxpayer_name(lines, data)
+        cls._extract_name(lines, data)
         cls._extract_business_classification(raw_text, data)
         cls._extract_address(raw_text, data)
         cls._extract_trade_name(lines, data)
@@ -59,12 +59,12 @@ class TaxEntityStringParser:
                 return
 
     @classmethod
-    def _extract_taxpayer_name(cls, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_name(cls, lines: list, data: Dict[str, Any]) -> None:
         for line in lines:
             if re.search(r"^2\.?\s*NAMA\s*[:\.]?\s*", line, re.IGNORECASE):
                 val = re.sub(r"^2\.?\s*NAMA\s*[:\.]?\s*", "", line, flags=re.IGNORECASE).strip()
                 if val:
-                    data["taxpayer_name"] = val
+                    data["name"] = val
                     return
 
     @classmethod
@@ -98,7 +98,7 @@ class TaxEntityStringParser:
             entries.append({"code": current_code, "title": " ".join(current_title_parts).strip()})
 
         if entries:
-            data["business_fields"] = entries
+            data["fields"] = entries
 
     @classmethod
     def _extract_address(cls, text: str, data: Dict[str, Any]) -> None:

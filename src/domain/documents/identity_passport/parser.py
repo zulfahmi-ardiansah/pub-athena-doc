@@ -10,8 +10,8 @@ class IdentityPassportStringParser:
     passport bio-data page (ICAO Doc 9303 TD3 format: two fixed-width 44-character
     lines). The MRZ layout is identical worldwide regardless of issuing country or
     language, unlike the surrounding printed/visual fields - so this parser fills
-    everything the MRZ encodes and leaves VIZ-only fields (place_of_birth,
-    date_of_issue, issuing_authority) for the LLM-based engines to read.
+    everything the MRZ encodes and leaves VIZ-only fields (birth_place,
+    issued_date, issuing_authority) for the LLM-based engines to read.
     """
 
     @classmethod
@@ -62,9 +62,9 @@ class IdentityPassportStringParser:
         data["mrz_line2"] = line2
         data["passport_number"] = line2[0:9]
         data["nationality"] = line2[10:13]
-        data["date_of_birth"] = cls._mrz_date_to_iso(line2[13:19], prefer_future=False)
-        data["sex"] = line2[20]
-        data["date_of_expiry"] = cls._mrz_date_to_iso(line2[21:27], prefer_future=True)
+        data["birth_date"] = cls._mrz_date_to_iso(line2[13:19], prefer_future=False)
+        data["gender"] = line2[20]
+        data["expiry_date"] = cls._mrz_date_to_iso(line2[21:27], prefer_future=True)
 
     @classmethod
     def _mrz_date_to_iso(cls, raw: str, prefer_future: bool) -> Optional[str]:

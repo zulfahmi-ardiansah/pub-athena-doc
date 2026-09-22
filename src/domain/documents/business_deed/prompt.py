@@ -23,7 +23,7 @@ def get_business_deed_system_prompt() -> str:
         "| notary_address | Deed letterhead 'Kantor:' line, or 'Notaris di LOCATION' phrasing | Verbatim |\n"
         "| legal_decision.number | SK decree header, right after 'NOMOR' (e.g. 'AHU-0028078.AH.01.02.TAHUN "
         "2022', or an older 'C2-10671.HT.01.01.TH.88' style number) | Verbatim |\n"
-        "| legal_decision.date | SK decree closing ('Ditetapkan di [city], [Pada] tanggal ...') | "
+        "| legal_decision.issued_date | SK decree closing ('Ditetapkan di [city], [Pada] tanggal ...') | "
         "Normalized to ISO 8601 'YYYY-MM-DD' |\n\n"
         "STRICT GUIDELINES:\n"
         "1. Zero Hallucination: Extract values verbatim from the text/image. Do not fabricate or guess.\n"

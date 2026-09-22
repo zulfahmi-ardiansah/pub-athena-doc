@@ -48,12 +48,12 @@ class TaxEntitySchema(BaseModel):
         description="Nomor Pokok Wajib Pajak / NPWP (15 or 16 digits format)",
         examples=["01.329.904.5-039.000"]
     )
-    taxpayer_name: Optional[str] = Field(
+    name: Optional[str] = Field(
         default=None,
         description="Taxpayer / business actor name (Nama)",
         examples=["PT. RAMCOMAS MANDIRI"]
     )
-    business_fields: Optional[List[BusinessField]] = Field(
+    fields: Optional[List[BusinessField]] = Field(
         default=None,
         description="Business classification (Klasifikasi Lapangan Usaha / KLU) entries"
     )
@@ -145,9 +145,9 @@ class TaxEntitySchema(BaseModel):
             return cleaned
         return v.strip()
 
-    @field_validator("taxpayer_name", mode="before")
+    @field_validator("name", mode="before")
     @classmethod
-    def clean_taxpayer_name(cls, v: Optional[str]) -> Optional[str]:
+    def clean_name(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:NAMA)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()

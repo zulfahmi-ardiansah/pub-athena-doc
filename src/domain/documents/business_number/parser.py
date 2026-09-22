@@ -18,7 +18,7 @@ class BusinessNumberStringParser:
 
         cls._extract_number(raw_text, lines, data)
         cls._extract_name(raw_text, lines, data)
-        cls._extract_office_address(raw_text, lines, data)
+        cls._extract_address(raw_text, lines, data)
         cls._extract_postal_code(raw_text, lines, data)
         cls._extract_phone_number(raw_text, lines, data)
         cls._extract_email(raw_text, lines, data)
@@ -49,12 +49,12 @@ class BusinessNumberStringParser:
                     return
 
     @classmethod
-    def _extract_office_address(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_address(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         for line in lines:
             if re.search(r"^(?:2\.\s*)?ALAMAT\s*KANTOR\s*[:\.]?\s*", line, re.IGNORECASE):
                 val = re.sub(r"^(?:2\.\s*)?ALAMAT\s*KANTOR\s*[:\.]?\s*", "", line, flags=re.IGNORECASE).strip()
                 if val:
-                    data["office_address"] = val
+                    data["address"] = val
                     return
 
     @classmethod

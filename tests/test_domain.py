@@ -33,28 +33,28 @@ def test_document_registry():
 def test_identity_card_schema_validation():
     data = {
         "id_number": "3171-0101-0190-0001",
-        "full_name": "JOHN DOE",
+        "name": "JOHN DOE",
         "gender": "LAKI-LAKI",
-        "valid_until": "SEUMUR HIDUP"
+        "expiry_date": "SEUMUR HIDUP"
     }
     model = IdentityCardSchema.model_validate(data)
     assert model.id_number == "3171010101900001"
-    assert model.full_name == "JOHN DOE"
+    assert model.name == "JOHN DOE"
     assert model.nationality == "WNI"
 
 
 def test_tax_number_schema_validation():
     data = {
         "tax_number": "01.234.567.8-901.000",
-        "tax_payer": "PT CONTOH MAKMUR",
-        "branch_office": "KPP PRATAMA JAKARTA TANAH ABANG",
-        "branch_address": "JL KH MAS MANSYUR NO. 71"
+        "name": "PT CONTOH MAKMUR",
+        "tax_office": "KPP PRATAMA JAKARTA TANAH ABANG",
+        "tax_office_address": "JL KH MAS MANSYUR NO. 71"
     }
     model = TaxNumberSchema.model_validate(data)
     assert model.tax_number == "01.234.567.8-901.000"
-    assert model.tax_payer == "PT CONTOH MAKMUR"
-    assert model.branch_office == "KPP PRATAMA JAKARTA TANAH ABANG"
-    assert model.branch_address == "JL KH MAS MANSYUR NO. 71"
+    assert model.name == "PT CONTOH MAKMUR"
+    assert model.tax_office == "KPP PRATAMA JAKARTA TANAH ABANG"
+    assert model.tax_office_address == "JL KH MAS MANSYUR NO. 71"
 
 
 def test_identity_card_jokowi_sample_validation():
@@ -62,7 +62,7 @@ def test_identity_card_jokowi_sample_validation():
         "province": "PROVINSI DKI JAKARTA",
         "city": "JAKARTA PUSAT",
         "id_number": "NIK : 3372052106610006",
-        "full_name": "IR JOKO WIDODO",
+        "name": "IR JOKO WIDODO",
         "birth_place": "SURAKARTA",
         "birth_date": "21-06-1961",
         "gender": "LAKI-LAKI",
@@ -75,13 +75,13 @@ def test_identity_card_jokowi_sample_validation():
         "marital_status": "KAWIN",
         "occupation": "GUBERNUR",
         "nationality": "WNI",
-        "valid_until": "21-06-2017"
+        "expiry_date": "21-06-2017"
     }
     model = IdentityCardSchema.model_validate(data)
     assert model.province == "DKI JAKARTA"
     assert model.city == "JAKARTA PUSAT"
     assert model.id_number == "3372052106610006"
-    assert model.full_name == "IR JOKO WIDODO"
+    assert model.name == "IR JOKO WIDODO"
     assert model.birth_place == "SURAKARTA"
     assert model.birth_date == "1961-06-21"
     assert model.gender == "LAKI-LAKI"
@@ -94,7 +94,7 @@ def test_identity_card_jokowi_sample_validation():
     assert model.marital_status == "KAWIN"
     assert model.occupation == "GUBERNUR"
     assert model.nationality == "WNI"
-    assert model.valid_until == "2017-06-21"
+    assert model.expiry_date == "2017-06-21"
 
 
 def test_identity_card_document_schema_and_prompts():
@@ -167,7 +167,7 @@ def test_identity_card_string_parser():
     assert parsed.province == "DKI JAKARTA"
     assert parsed.city == "JAKARTA PUSAT"
     assert parsed.id_number == "3171010101900001"
-    assert parsed.full_name == "BUDI SANTOSO"
+    assert parsed.name == "BUDI SANTOSO"
     assert parsed.birth_place == "JAKARTA"
     assert parsed.birth_date == "1990-01-01"
     assert parsed.gender == "LAKI-LAKI"
@@ -180,7 +180,7 @@ def test_identity_card_string_parser():
     assert parsed.marital_status == "KAWIN"
     assert parsed.occupation == "KARYAWAN SWASTA"
     assert parsed.nationality == "WNI"
-    assert parsed.valid_until == "SEUMUR HIDUP"
+    assert parsed.expiry_date == "SEUMUR HIDUP"
 
 
 def test_tax_number_document_schema_and_prompts():
@@ -188,9 +188,9 @@ def test_tax_number_document_schema_and_prompts():
     schema = doc.get_json_schema()
     assert "properties" in schema
     assert "tax_number" in schema["properties"]
-    assert "tax_payer" in schema["properties"]
-    assert "branch_office" in schema["properties"]
-    assert "branch_address" in schema["properties"]
+    assert "name" in schema["properties"]
+    assert "tax_office" in schema["properties"]
+    assert "tax_office_address" in schema["properties"]
 
     sys_prompt = doc.build_system_prompt()
     assert "NPWP" in sys_prompt
@@ -222,9 +222,9 @@ def test_tax_number_string_parser():
     parsed = doc.parse_string(raw_ocr)
     assert isinstance(parsed, TaxNumberSchema)
     assert parsed.tax_number == "12.345.678.9-636.000"
-    assert parsed.tax_payer == "PT CONTOH MAKMUR"
-    assert parsed.branch_office == "KPP MADYA GRESIK"
-    assert parsed.branch_address == "JL DR WAHIDIN SUDIROHUSODO 700 GRESIK"
+    assert parsed.name == "PT CONTOH MAKMUR"
+    assert parsed.tax_office == "KPP MADYA GRESIK"
+    assert parsed.tax_office_address == "JL DR WAHIDIN SUDIROHUSODO 700 GRESIK"
     assert parsed.registration_date == "2022-01-01"
 
 
@@ -232,7 +232,7 @@ def test_business_identification_number_schema_validation():
     data = {
         "number": "1234567890123",
         "name": "PT CONTOH SEJAHTERA ABADI",
-        "office_address": "JL. JENDERAL SUDIRMAN KAV. 10, KOTA ADM. JAKARTA SELATAN",
+        "address": "JL. JENDERAL SUDIRMAN KAV. 10, KOTA ADM. JAKARTA SELATAN",
         "postal_code": "12190",
         "phone_number": "0215551234",
         "email": "info@contohsejahtera.co.id",
@@ -246,8 +246,8 @@ def test_business_identification_number_schema_validation():
         "fields": [
             {
                 "no": "39",
-                "field_code": "46206",
-                "field_title": "Perdagangan Besar Hasil Perikanan",
+                "code": "46206",
+                "title": "Perdagangan Besar Hasil Perikanan",
                 "business_location": "GD. PUSAT PERUM BULOG LT. 10 JL. JEND. GATOT SUBROTO KAV.49",
                 "postal_code": "12950",
                 "risk_level": "Menengah Tinggi",
@@ -277,7 +277,7 @@ def test_business_identification_number_schema_validation():
     assert model.printed_date == "2023-05-05"
     assert model.fields is not None
     assert len(model.fields) == 1
-    assert model.fields[0].field_code == "46206"
+    assert model.fields[0].code == "46206"
     assert model.fields[0].risk_level == "Menengah Tinggi"
     assert model.fields[0].licenses is not None
     assert len(model.fields[0].licenses) == 2
@@ -293,7 +293,7 @@ def test_business_identification_number_document_schema_and_prompts():
     assert "properties" in schema
     assert "number" in schema["properties"]
     assert "name" in schema["properties"]
-    assert "office_address" in schema["properties"]
+    assert "address" in schema["properties"]
     assert "fields" in schema["properties"]
 
     sys_prompt = doc.build_system_prompt()
@@ -329,7 +329,7 @@ def test_nib_string_parser():
     assert isinstance(parsed, BusinessNumberSchema)
     assert parsed.number == "1234567890123"
     assert parsed.name == "PT CONTOH SEJAHTERA ABADI"
-    assert parsed.office_address == "JL. JENDERAL SUDIRMAN KAV. 10, Kota Adm. Jakarta Selatan"
+    assert parsed.address == "JL. JENDERAL SUDIRMAN KAV. 10, Kota Adm. Jakarta Selatan"
     assert parsed.postal_code == "12190"
     assert parsed.phone_number == "0215551234"
     assert parsed.email == "info@contohsejahtera.co.id"
@@ -366,8 +366,8 @@ def test_license_item_value_normalization():
 def test_field_item_multiple_licenses():
     field = FieldItem.model_validate({
         "no": "39",
-        "field_code": "46206",
-        "field_title": "Perdagangan Besar Hasil Perikanan",
+        "code": "46206",
+        "title": "Perdagangan Besar Hasil Perikanan",
         "licenses": [
             {"license_type": "NIB", "license_status": "Terbit", "remarks": "-"},
             {
@@ -392,8 +392,8 @@ def test_tax_entity_schema_validation():
         "tax_office": "KPP PRATAMA JAKARTA KEBON JERUK DUA",
         "tax_office_address": "JL. K.S. TUBUN 10, JAKARTA BARAT",
         "tax_number": "01.329.904.5-039.000",
-        "taxpayer_name": "PT. RAMCOMAS MANDIRI",
-        "business_fields": [
+        "name": "PT. RAMCOMAS MANDIRI",
+        "fields": [
             {"code": "71100", "title": "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"}
         ],
         "address": "JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA",
@@ -409,11 +409,11 @@ def test_tax_entity_schema_validation():
     model = TaxEntitySchema.model_validate(data)
     assert model.letter_number == "S-47PKP/WPJ.05/KP.1003/2015"
     assert model.tax_number == "01.329.904.5-039.000"
-    assert model.taxpayer_name == "PT. RAMCOMAS MANDIRI"
-    assert model.business_fields is not None
-    assert len(model.business_fields) == 1
-    assert model.business_fields[0].code == "71100"
-    assert model.business_fields[0].title == "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"
+    assert model.name == "PT. RAMCOMAS MANDIRI"
+    assert model.fields is not None
+    assert len(model.fields) == 1
+    assert model.fields[0].code == "71100"
+    assert model.fields[0].title == "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"
     assert model.trade_name is None
     assert model.tax_obligation == "PPN"
     assert model.confirmed_since == "1992-03-21"
@@ -427,7 +427,7 @@ def test_tax_entity_document_schema_and_prompts():
     assert "properties" in schema
     assert "tax_number" in schema["properties"]
     assert "letter_number" in schema["properties"]
-    assert "business_fields" in schema["properties"]
+    assert "fields" in schema["properties"]
     assert "tax_obligation" in schema["properties"]
 
     sys_prompt = doc.build_system_prompt()
@@ -485,11 +485,11 @@ def test_tax_entity_string_parser():
     assert parsed.tax_office == "KPP PRATAMA JAKARTA KEBON JERUK DUA"
     assert parsed.tax_office_address == "JL. K.S. TUBUN 10, JAKARTA BARAT"
     assert parsed.tax_number == "01.329.904.5-039.000"
-    assert parsed.taxpayer_name == "PT. RAMCOMAS MANDIRI"
-    assert parsed.business_fields is not None
-    assert len(parsed.business_fields) == 1
-    assert parsed.business_fields[0].code == "71100"
-    assert parsed.business_fields[0].title == "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"
+    assert parsed.name == "PT. RAMCOMAS MANDIRI"
+    assert parsed.fields is not None
+    assert len(parsed.fields) == 1
+    assert parsed.fields[0].code == "71100"
+    assert parsed.fields[0].title == "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"
     assert parsed.address == "JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA"
     assert parsed.trade_name is None
     assert parsed.tax_obligation == "PPN"
@@ -506,7 +506,7 @@ def test_tax_entity_string_parser_direct():
         "1. Nomor Pokok Wajib Pajak : 01.329.904.5-039.000\n2. Nama : PT. RAMCOMAS MANDIRI"
     )
     assert parsed.tax_number == "01.329.904.5-039.000"
-    assert parsed.taxpayer_name == "PT. RAMCOMAS MANDIRI"
+    assert parsed.name == "PT. RAMCOMAS MANDIRI"
 
 
 def _synthetic_mrz(surname: str, given_names: str, country: str, passport_number: str,
@@ -538,11 +538,11 @@ def test_identity_passport_schema_validation():
         "given_names": "HAPPY",
         "passport_number": "E00007734",
         "nationality": "USA",
-        "date_of_birth": "05 FEB 1990",
-        "sex": "F",
-        "place_of_birth": "WASHINGTON D.C., U.S.A.",
-        "date_of_issue": "15 OCT 2020",
-        "date_of_expiry": "14 OCT 2030",
+        "birth_date": "05 FEB 1990",
+        "gender": "F",
+        "birth_place": "WASHINGTON D.C., U.S.A.",
+        "issued_date": "15 OCT 2020",
+        "expiry_date": "14 OCT 2030",
         "issuing_authority": "UNITED STATES DEPARTMENT OF STATE",
         "mrz_line1": "p<usatraveler<<happy<<<<<<<<<<<<<<<<<<<<<<<<",
     }
@@ -551,9 +551,9 @@ def test_identity_passport_schema_validation():
     assert model.issuing_country == "USA"
     assert model.surname == "TRAVELER"
     assert model.passport_number == "E00007734"
-    assert model.date_of_birth == "1990-02-05"
-    assert model.date_of_issue == "2020-10-15"
-    assert model.date_of_expiry == "2030-10-14"
+    assert model.birth_date == "1990-02-05"
+    assert model.issued_date == "2020-10-15"
+    assert model.expiry_date == "2030-10-14"
     assert model.mrz_line1 == "P<USATRAVELER<<HAPPY<<<<<<<<<<<<<<<<<<<<<<<<"
 
 
@@ -590,12 +590,12 @@ def test_identity_passport_string_parser_single_given_name():
     assert parsed.given_names == "JANE"
     assert parsed.passport_number == "PP3000000"
     assert parsed.nationality == "EOL"
-    assert parsed.date_of_birth == "1981-07-14"
-    assert parsed.sex == "F"
-    assert parsed.date_of_expiry == "2022-12-31"
+    assert parsed.birth_date == "1981-07-14"
+    assert parsed.gender == "F"
+    assert parsed.expiry_date == "2022-12-31"
     # VIZ-only fields aren't in the MRZ, so the string parser correctly leaves them unset
-    assert parsed.place_of_birth is None
-    assert parsed.date_of_issue is None
+    assert parsed.birth_place is None
+    assert parsed.issued_date is None
     assert parsed.issuing_authority is None
 
 
@@ -608,8 +608,8 @@ def test_identity_passport_string_parser_multi_part_name():
     assert parsed.surname == "DE BRUIJN"
     assert parsed.given_names == "WILLEKE LISELOTTE"
     assert parsed.nationality == "NLD"
-    assert parsed.date_of_birth == "1965-03-10"
-    assert parsed.date_of_expiry == "2024-03-09"
+    assert parsed.birth_date == "1965-03-10"
+    assert parsed.expiry_date == "2024-03-09"
 
 
 def test_identity_passport_string_parser_no_mrz_found():
@@ -629,7 +629,7 @@ def test_business_deed_schema_validation():
         "notary_address": "Alamat Jalan Contoh Nomor 1, Cianjur, Jawa Barat",
         "legal_decision": {
             "number": "Nomor : AHU-0028078.AH.01.02.TAHUN 2022",
-            "date": "19 April 2022",
+            "issued_date": "19 April 2022",
         },
     }
     model = BusinessDeedSchema.model_validate(data)
@@ -640,7 +640,7 @@ def test_business_deed_schema_validation():
     assert model.notary_address == "Jalan Contoh Nomor 1, Cianjur, Jawa Barat"
     assert model.legal_decision is not None
     assert model.legal_decision.number == "AHU-0028078.AH.01.02.TAHUN 2022"
-    assert model.legal_decision.date == "2022-04-19"
+    assert model.legal_decision.issued_date == "2022-04-19"
 
 
 def test_business_deed_document_schema_and_prompts():
@@ -688,7 +688,7 @@ def test_business_deed_string_parser_bundled_akta_and_sk():
     assert parsed.notary_name == "BUDI SANTOSO"
     assert parsed.legal_decision is not None
     assert parsed.legal_decision.number == "AHU-0099999.AH.01.02.TAHUN 2023"
-    assert parsed.legal_decision.date == "2023-01-15"
+    assert parsed.legal_decision.issued_date == "2023-01-15"
     # 'deed_type' and 'notary_address' vary too much by notary template for the
     # string parser to extract reliably - left for the LLM-based engines.
     assert parsed.deed_type is None

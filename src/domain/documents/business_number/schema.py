@@ -55,12 +55,12 @@ class FieldItem(BaseModel):
         description="Row number in the KBLI attachment table",
         examples=["1"]
     )
-    field_code: Optional[str] = Field(
+    code: Optional[str] = Field(
         default=None,
         description="5-digit KBLI (Klasifikasi Baku Lapangan Usaha Indonesia) code",
         examples=["46321"]
     )
-    field_title: Optional[str] = Field(
+    title: Optional[str] = Field(
         default=None,
         description="Business classification title/description (Judul KBLI)",
         examples=["Perdagangan Besar Daging Sapi Dan Daging Sapi Olahan"]
@@ -99,7 +99,7 @@ class BusinessNumberSchema(BaseModel):
         description="Business actor name (Nama Pelaku Usaha)",
         examples=["PT Mitra BUMDes Nusantara"]
     )
-    office_address: Optional[str] = Field(
+    address: Optional[str] = Field(
         default=None,
         description="Office address (Alamat Kantor)",
         examples=["LIPPO KUNINGAN TOWER LANTAI 11, JL. H.R. RASUNA SAID KAV. B-12"]
@@ -178,9 +178,9 @@ class BusinessNumberSchema(BaseModel):
         cleaned = re.sub(r"^(?:NAMA\s*PELAKU\s*USAHA)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
         return cleaned or None
 
-    @field_validator("office_address", mode="before")
+    @field_validator("address", mode="before")
     @classmethod
-    def clean_office_address(cls, v: Optional[str]) -> Optional[str]:
+    def clean_address(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:ALAMAT\s*KANTOR)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()

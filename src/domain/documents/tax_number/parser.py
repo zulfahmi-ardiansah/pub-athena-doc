@@ -18,10 +18,10 @@ class TaxNumberStringParser:
         cls._extract_tax_number(raw_text, lines, data)
 
         # 2. Extract Branch Office (KPP)
-        cls._extract_branch_office(raw_text, lines, data)
+        cls._extract_tax_office(raw_text, lines, data)
 
         # 3. Extract Taxpayer Name
-        cls._extract_tax_payer(raw_text, lines, data)
+        cls._extract_name(raw_text, lines, data)
 
         # 4. Extract Address
         cls._extract_address(raw_text, lines, data)
@@ -53,22 +53,22 @@ class TaxNumberStringParser:
             data["tax_number"] = digit_match.group(1)
 
     @classmethod
-    def _extract_branch_office(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_tax_office(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         # Look for KPP header line
         for line in lines:
             if re.search(r"\b(?:KANTOR\s*PELAYANAN\s*PAJAK|KPP)\b", line, re.IGNORECASE):
                 cleaned = re.sub(r"^.*(?:KANTOR\s*PELAYANAN\s*PAJAK|KPP)\s*[:\.]?\s*", "KPP ", line, flags=re.IGNORECASE).strip()
-                data["branch_office"] = cleaned
+                data["tax_office"] = cleaned
                 return
 
     @classmethod
-    def _extract_tax_payer(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_name(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         for i, line in enumerate(lines):
             # Direct Nama label
             if re.search(r"^(?:NAMA\s*(?:WAJIB\s*PAJAK)?|NAME)\s*[:\.]?\s*", line, re.IGNORECASE):
                 val = re.sub(r"^(?:NAMA\s*(?:WAJIB\s*PAJAK)?|NAME)\s*[:\.]?\s*", "", line, flags=re.IGNORECASE).strip()
                 if val:
-                    data["tax_payer"] = val
+                    data["name"] = val
                     return
 
             # Line right after NPWP number line if no colon
@@ -76,7 +76,7 @@ class TaxNumberStringParser:
                 if i + 1 < len(lines):
                     candidate = lines[i + 1].strip()
                     if not re.search(r"\b(?:KPP|ALAMAT|TERDAFTAR|NPWP)\b", candidate, re.IGNORECASE):
-                        data["tax_payer"] = candidate
+                        data["name"] = candidate
                         return
 
     @classmethod
@@ -85,7 +85,7 @@ class TaxNumberStringParser:
             if re.search(r"^(?:ALAMAT|ADDRESS)\s*[:\.]?\s*", line, re.IGNORECASE):
                 val = re.sub(r"^(?:ALAMAT|ADDRESS)\s*[:\.]?\s*", "", line, flags=re.IGNORECASE).strip()
                 if val:
-                    data["branch_address"] = val
+                    data["tax_office_address"] = val
                     return
 
     @classmethod
