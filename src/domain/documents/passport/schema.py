@@ -1,0 +1,148 @@
+import re
+from typing import Optional
+from pydantic import BaseModel, Field, field_validator
+from src.utility.date_utils import normalize_to_iso_date
+
+
+class PassportSchema(BaseModel):
+    """Schema for an international passport bio-data page (ICAO Doc 9303 TD3 format).
+
+    Passports are internationally standardized via the Machine Readable Zone (MRZ,
+    the two fixed-width lines at the bottom of the page), but the printed/visual
+    fields around it are labeled per-country in that country's own language(s).
+    This schema captures the fields common across countries: the MRZ itself
+    (verbatim, for audit/checksum use) plus the handful of visual fields that
+    appear on essentially every passport regardless of issuing country.
+    """
+
+    document_type: Optional[str] = Field(
+        default=None,
+        description="MRZ document code, normally 'P' for an ordinary passport",
+        examples=["P"]
+    )
+    issuing_country: Optional[str] = Field(
+        default=None,
+        description="3-letter ICAO issuing country/organization code",
+        examples=["USA", "JPN", "KOR", "NLD", "PHL"]
+    )
+    surname: Optional[str] = Field(
+        default=None,
+        description="Holder's surname/family name",
+        examples=["SMITH"]
+    )
+    given_names: Optional[str] = Field(
+        default=None,
+        description="Holder's given name(s)",
+        examples=["JANE"]
+    )
+    passport_number: Optional[str] = Field(
+        default=None,
+        description="Passport document number",
+        examples=["PP3000000"]
+    )
+    nationality: Optional[str] = Field(
+        default=None,
+        description="3-letter ICAO nationality code",
+        examples=["USA", "JPN", "KOR", "NLD", "PHL"]
+    )
+    date_of_birth: Optional[str] = Field(
+        default=None,
+        description="Date of birth, normalized to ISO 8601 (YYYY-MM-DD)",
+        examples=["1981-07-14"]
+    )
+    sex: Optional[str] = Field(
+        default=None,
+        description="Sex as printed/encoded: 'M', 'F', or 'X'",
+        examples=["F"]
+    )
+    place_of_birth: Optional[str] = Field(
+        default=None,
+        description="Place of birth, if printed (not every issuing country prints this)",
+        examples=["MANILA"]
+    )
+    date_of_issue: Optional[str] = Field(
+        default=None,
+        description="Date the passport was issued, normalized to ISO 8601 (YYYY-MM-DD)",
+        examples=["2013-01-01"]
+    )
+    date_of_expiry: Optional[str] = Field(
+        default=None,
+        description="Date the passport expires, normalized to ISO 8601 (YYYY-MM-DD)",
+        examples=["2022-12-31"]
+    )
+    issuing_authority: Optional[str] = Field(
+        default=None,
+        description="Authority that issued the passport",
+        examples=["INTERIOR MINISTRY", "DFA MANILA", "UNITED STATES DEPARTMENT OF STATE"]
+    )
+    mrz_line1: Optional[str] = Field(
+        default=None,
+        description="Raw first line of the Machine Readable Zone, verbatim (44 characters, TD3 format)",
+        examples=["P<EOLSMITH<<JANE<<<<<<<<<<<<<<<<<<<<<<<<<<<<"]
+    )
+    mrz_line2: Optional[str] = Field(
+        default=None,
+        description="Raw second line of the Machine Readable Zone, verbatim (44 characters, TD3 format)",
+        examples=["PP3000009EOL8107145F2212315<<<<<<<<<<<<<<<02"]
+    )
+
+    @field_validator("document_type", "issuing_country", "nationality", mode="before")
+    @classmethod
+    def clean_code_fields(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
+            return None
+        cleaned = v.strip().upper().replace("<", "")
+        return cleaned or None
+
+    @field_validator("surname", "given_names", mode="before")
+    @classmethod
+    def clean_name_fields(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
+            return None
+        cleaned = re.sub(r"^(?:SURNAME|GIVEN\s*NAMES?)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE)
+        cleaned = cleaned.replace("<", " ")
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned or None
+
+    @field_validator("passport_number", mode="before")
+    @classmethod
+    def clean_passport_number(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
+            return None
+        cleaned = re.sub(r"^(?:PASSPORT\s*(?:NO\.?|NUMBER|N[°o])?)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE)
+        cleaned = cleaned.replace("<", "").strip()
+        return cleaned or None
+
+    @field_validator("sex", mode="before")
+    @classmethod
+    def clean_sex(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
+            return None
+        cleaned = v.strip().upper().replace("<", "")
+        if cleaned in ("M", "F", "X"):
+            return cleaned
+        return cleaned or None
+
+    @field_validator("place_of_birth", "issuing_authority", mode="before")
+    @classmethod
+    def clean_text_fields(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
+            return None
+        return v.strip() or None
+
+    @field_validator("date_of_birth", "date_of_issue", "date_of_expiry", mode="before")
+    @classmethod
+    def clean_date_fields(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
+            return None
+        cleaned = v.strip()
+        iso_date = normalize_to_iso_date(cleaned)
+        return iso_date or (cleaned or None)
+
+    @field_validator("mrz_line1", "mrz_line2", mode="before")
+    @classmethod
+    def clean_mrz_line(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not isinstance(v, str):
+            return None
+        cleaned = re.sub(r"\s+", "", v.strip().upper())
+        return cleaned or None

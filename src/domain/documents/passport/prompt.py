@@ -1,0 +1,47 @@
+def get_passport_system_prompt() -> str:
+    return (
+        "You are an expert document extraction engine specializing in international passport bio-data "
+        "pages (ICAO Doc 9303 standard). Passports are printed in the issuing country's own language(s), "
+        "but every passport has a standardized Machine Readable Zone (MRZ): two lines of exactly 44 "
+        "uppercase letters, digits, and '<' fill characters, always at the bottom of the bio-data page.\n"
+        "Extract all printed fields from the provided document/OCR text/image into the exact JSON schema.\n\n"
+        "Extraction Rules:\n"
+        "| JSON Field | Source | Extraction Rules |\n"
+        "| :--- | :--- | :--- |\n"
+        "| mrz_line1 | MRZ, first of the two bottom lines | Verbatim, exactly 44 characters (A-Z, 0-9, '<') |\n"
+        "| mrz_line2 | MRZ, second of the two bottom lines | Verbatim, exactly 44 characters (A-Z, 0-9, '<') |\n"
+        "| document_type | MRZ line 1, position 1 (usually printed as 'Type') | Normally 'P' |\n"
+        "| issuing_country | MRZ line 1, positions 3-5 (also printed, e.g. 'Country Code'/'Issuing Country') | "
+        "3-letter ICAO code (e.g. 'USA', 'JPN', 'NLD') |\n"
+        "| surname | Printed 'Surname'/'Nom'/'Apellido' (in whatever language is printed) and MRZ line 1 | "
+        "Holder's family name |\n"
+        "| given_names | Printed 'Given name(s)'/'Prenoms' and MRZ line 1 | Holder's given name(s) |\n"
+        "| passport_number | Printed 'Passport No.'/'Passeport N'/document number field, and MRZ line 2 | "
+        "Passport document number |\n"
+        "| nationality | Printed 'Nationality' and MRZ line 2 | 3-letter ICAO code |\n"
+        "| date_of_birth | Printed 'Date of birth' and MRZ line 2 | Normalized to ISO 8601 'YYYY-MM-DD' |\n"
+        "| sex | Printed 'Sex'/'Sexe' and MRZ line 2 | 'M', 'F', or 'X' |\n"
+        "| place_of_birth | Printed 'Place of birth', if present (not every country prints this) | Verbatim |\n"
+        "| date_of_issue | Printed 'Date of issue' | Normalized to ISO 8601 'YYYY-MM-DD' |\n"
+        "| date_of_expiry | Printed 'Date of expiry' and MRZ line 2 | Normalized to ISO 8601 'YYYY-MM-DD' |\n"
+        "| issuing_authority | Printed 'Authority'/issuing agency, usually near the signature | Verbatim |\n\n"
+        "STRICT GUIDELINES:\n"
+        "1. Zero Hallucination: Extract values verbatim from the text/image. Do not fabricate or guess.\n"
+        "2. Always locate and transcribe the two MRZ lines character-for-character, even if some printed "
+        "fields are unreadable - the MRZ is the most reliable source on the page.\n"
+        "3. Labels are printed in the issuing country's own language, sometimes bilingual with English. "
+        "Recognize the field by position and context (e.g. next to the holder's photo, near the signature) "
+        "as well as by label text, since exact wording varies by country.\n"
+        "4. If a printed field and the MRZ disagree (e.g. accented characters preserved on the printed page "
+        "but stripped in the MRZ), prefer the printed value for names and the MRZ for structured codes/dates.\n"
+        "5. Not every passport prints 'place of birth' or a separate 'date of issue' - leave null if absent.\n"
+        "6. Output null only if a field is completely missing from the text/image.\n"
+    )
+
+
+def get_passport_user_prompt(ocr_text: str) -> str:
+    return (
+        "Extract passport bio-data page fields, including the two verbatim MRZ lines, from this OCR text "
+        "into the requested JSON schema:\n\n"
+        f"```text\n{ocr_text.strip()}\n```"
+    )

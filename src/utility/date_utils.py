@@ -16,6 +16,21 @@ _INDONESIAN_MONTHS = {
     "desember": "12",
 }
 
+_ENGLISH_MONTHS = {
+    "jan": "01", "january": "01",
+    "feb": "02", "february": "02",
+    "mar": "03", "march": "03",
+    "apr": "04", "april": "04",
+    "may": "05",
+    "jun": "06", "june": "06",
+    "jul": "07", "july": "07",
+    "aug": "08", "august": "08",
+    "sep": "09", "sept": "09", "september": "09",
+    "oct": "10", "october": "10",
+    "nov": "11", "november": "11",
+    "dec": "12", "december": "12",
+}
+
 
 def normalize_to_iso_date(value: Optional[str]) -> Optional[str]:
     """
@@ -41,10 +56,13 @@ def normalize_to_iso_date(value: Optional[str]) -> Optional[str]:
         day, month, year = numeric_match.groups()
         return f"{year}-{int(month):02d}-{int(day):02d}"
 
-    text_match = re.search(r"\b(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\b", cleaned)
+    # Optional non-Latin/other-language prefix before the month token, for
+    # bilingual dates like '10 MAA/MAR 1965' or '01 2월/FEB 1987'.
+    text_match = re.search(r"\b(\d{1,2})\s+(?:\S*/)?([A-Za-z]{3,9})\.?\s+(\d{4})\b", cleaned)
     if text_match:
         day, month_name, year = text_match.groups()
-        month_num = _INDONESIAN_MONTHS.get(month_name.strip().lower())
+        month_key = month_name.strip().lower()
+        month_num = _INDONESIAN_MONTHS.get(month_key) or _ENGLISH_MONTHS.get(month_key)
         if month_num:
             return f"{year}-{month_num}-{int(day):02d}"
 

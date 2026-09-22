@@ -12,6 +12,8 @@ from src.domain.documents.taxable_entrepreneur import (
     TaxableEntrepreneurDocument,
     TaxableEntrepreneurStringParser,
 )
+from src.domain.documents.passport.schema import PassportSchema
+from src.domain.documents.passport import PassportDocument, PassportStringParser
 
 
 def test_document_registry():
@@ -22,6 +24,7 @@ def test_document_registry():
     assert "tax_number" in slugs
     assert "business_identification_number" in slugs
     assert "taxable_entrepreneur" in slugs
+    assert "passport" in slugs
 
 
 def test_identity_card_schema_validation():
@@ -501,3 +504,114 @@ def test_taxable_entrepreneur_string_parser_direct():
     )
     assert parsed.tax_number == "01.329.904.5-039.000"
     assert parsed.taxpayer_name == "PT. RAMCOMAS MANDIRI"
+
+
+def _synthetic_mrz(surname: str, given_names: str, country: str, passport_number: str,
+                    nationality: str, dob_yymmdd: str, sex: str, expiry_yymmdd: str) -> tuple:
+    name_field = f"{surname}<<{given_names}".replace(" ", "<")
+    line1 = f"P<{country}{name_field}"
+    line1 = line1 + "<" * (44 - len(line1))
+    line2 = (
+        f"{passport_number:<9}"[:9].replace(" ", "<")
+        + "0"
+        + nationality
+        + dob_yymmdd
+        + "0"
+        + sex
+        + expiry_yymmdd
+        + "0"
+        + "<" * 14
+        + "0"
+        + "0"
+    )
+    return line1, line2
+
+
+def test_passport_schema_validation():
+    data = {
+        "document_type": "P<",
+        "issuing_country": "USA<",
+        "surname": "TRAVELER",
+        "given_names": "HAPPY",
+        "passport_number": "E00007734",
+        "nationality": "USA",
+        "date_of_birth": "05 FEB 1990",
+        "sex": "F",
+        "place_of_birth": "WASHINGTON D.C., U.S.A.",
+        "date_of_issue": "15 OCT 2020",
+        "date_of_expiry": "14 OCT 2030",
+        "issuing_authority": "UNITED STATES DEPARTMENT OF STATE",
+        "mrz_line1": "p<usatraveler<<happy<<<<<<<<<<<<<<<<<<<<<<<<",
+    }
+    model = PassportSchema.model_validate(data)
+    assert model.document_type == "P"
+    assert model.issuing_country == "USA"
+    assert model.surname == "TRAVELER"
+    assert model.passport_number == "E00007734"
+    assert model.date_of_birth == "1990-02-05"
+    assert model.date_of_issue == "2020-10-15"
+    assert model.date_of_expiry == "2030-10-14"
+    assert model.mrz_line1 == "P<USATRAVELER<<HAPPY<<<<<<<<<<<<<<<<<<<<<<<<"
+
+
+def test_passport_document_schema_and_prompts():
+    doc = PassportDocument()
+    schema = doc.get_json_schema()
+    assert "properties" in schema
+    assert "mrz_line1" in schema["properties"]
+    assert "mrz_line2" in schema["properties"]
+    assert "passport_number" in schema["properties"]
+    assert "issuing_country" in schema["properties"]
+
+    sys_prompt = doc.build_system_prompt()
+    assert "MRZ" in sys_prompt
+    assert "Extraction Rules:" in sys_prompt
+
+    user_prompt = doc.build_user_prompt("P<USATRAVELER<<HAPPY")
+    assert "MRZ" in user_prompt
+    assert "P<USATRAVELER<<HAPPY" in user_prompt
+
+
+def test_passport_string_parser_single_given_name():
+    line1, line2 = _synthetic_mrz(
+        surname="SMITH", given_names="JANE", country="EOL", passport_number="PP3000000",
+        nationality="EOL", dob_yymmdd="810714", sex="F", expiry_yymmdd="221231",
+    )
+    raw_ocr = f"REPUBLIC OF EOLIE\n{line1}\n{line2}\n"
+    doc = PassportDocument()
+    parsed = doc.parse_string(raw_ocr)
+    assert isinstance(parsed, PassportSchema)
+    assert parsed.document_type == "P"
+    assert parsed.issuing_country == "EOL"
+    assert parsed.surname == "SMITH"
+    assert parsed.given_names == "JANE"
+    assert parsed.passport_number == "PP3000000"
+    assert parsed.nationality == "EOL"
+    assert parsed.date_of_birth == "1981-07-14"
+    assert parsed.sex == "F"
+    assert parsed.date_of_expiry == "2022-12-31"
+    # VIZ-only fields aren't in the MRZ, so the string parser correctly leaves them unset
+    assert parsed.place_of_birth is None
+    assert parsed.date_of_issue is None
+    assert parsed.issuing_authority is None
+
+
+def test_passport_string_parser_multi_part_name():
+    line1, line2 = _synthetic_mrz(
+        surname="DE BRUIJN", given_names="WILLEKE LISELOTTE", country="NLD", passport_number="SPECI2014",
+        nationality="NLD", dob_yymmdd="650310", sex="F", expiry_yymmdd="240309",
+    )
+    parsed = PassportStringParser.parse(f"{line1}\n{line2}")
+    assert parsed.surname == "DE BRUIJN"
+    assert parsed.given_names == "WILLEKE LISELOTTE"
+    assert parsed.nationality == "NLD"
+    assert parsed.date_of_birth == "1965-03-10"
+    assert parsed.date_of_expiry == "2024-03-09"
+
+
+def test_passport_string_parser_no_mrz_found():
+    parsed = PassportStringParser.parse("just some random text with no MRZ lines in it")
+    assert isinstance(parsed, PassportSchema)
+    assert parsed.mrz_line1 is None
+    assert parsed.mrz_line2 is None
+    assert parsed.passport_number is None

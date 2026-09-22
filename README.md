@@ -188,6 +188,31 @@ Extracts the issuing tax office, NPWP, taxpayer name, business classification (K
 
 `tax_obligation` only lists the checked box(es) (e.g. `[X] PPN`), joined with `; ` if more than one is checked; `trade_name` is `null` when the source prints only a placeholder dash. Both the `string_engine` and LLM-based engines fully support this document, since it's a single fixed-layout page with no repeating table.
 
+### 5. Passport (`passport` / any ICAO Doc 9303 issuing country)
+
+Unlike the Indonesian document types above, a passport's printed labels vary by issuing country and language ("Surname"/"Nom"/"姓"/"성명"/"Apelyido"). What's universal is the **Machine Readable Zone (MRZ)** - two fixed-width 44-character lines at the bottom of every passport bio-data page worldwide - so extraction centers on that, plus the handful of visual fields present on essentially every passport regardless of country:
+
+```json
+{
+  "document_type": "P",
+  "issuing_country": "USA",
+  "surname": "TRAVELER",
+  "given_names": "HAPPY",
+  "passport_number": "E00007734",
+  "nationality": "USA",
+  "date_of_birth": "1990-02-05",
+  "sex": "F",
+  "place_of_birth": "WASHINGTON D.C., U.S.A.",
+  "date_of_issue": "2020-10-15",
+  "date_of_expiry": "2030-10-14",
+  "issuing_authority": "UNITED STATES DEPARTMENT OF STATE",
+  "mrz_line1": "P<USATRAVELER<<HAPPY<<<<<<<<<<<<<<<<<<<<<<<<",
+  "mrz_line2": "E000077347USA6502056F3010145900100120<095838"
+}
+```
+
+The `string_engine` path parses the MRZ deterministically by fixed character position (ICAO Doc 9303 TD3 format), which works identically regardless of issuing country - it fills every MRZ-encoded field (everything above except `place_of_birth`, `date_of_issue`, and `issuing_authority`, which aren't in the MRZ and are only ever read from the printed page by the LLM-based engines).
+
 ---
 
 ## Web Interface

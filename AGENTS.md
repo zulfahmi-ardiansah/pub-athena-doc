@@ -31,7 +31,7 @@ No linter or formatter is configured in this repo (no ruff/black config in `pypr
 
 Work through these steps in order; each has its own completion criterion.
 
-1. **Get a real sample.** Read an actual specimen of the document (a PDF/image in `reference/`, or one the user provides) before writing a single field. Done when you can list every printed field, every repeating/tabular structure, and every quirk (multi-value cells, placeholder dashes, textual dates) the source actually contains — not just the fields you'd guess it has.
+1. **Get a real sample.** Read an actual specimen of the document (a PDF/image in `reference/`, or one the user provides) before writing a single field. Done when you can list every printed field, every repeating/tabular structure, and every quirk (multi-value cells, placeholder dashes, textual dates) the source actually contains — not just the fields you'd guess it has. If several variants exist (e.g. the same document from different countries, like `passport`), read all of them before designing the schema: look for an invariant, standardized zone shared across every variant (a passport's MRZ, a QR/barcode payload) and prefer it over any single variant's visual labels, which differ by issuing region/language and can't be parsed with one generic regex.
 2. **Scaffold the folder.** Create `src/domain/documents/<slug>/` with `schema.py`, `parser.py`, `prompt.py`, `__init__.py`, mirroring `src/domain/documents/tax_number/` file-for-file. `<slug>` is the descriptive English name, not an acronym (`tax_number`, not `npwp`). Done when all four files exist and import cleanly.
 3. **Write the schema** (`schema.py`) per the schema reference below. Done when every field the sample showed has a `Field` entry and, where the raw text needs cleanup, a `field_validator`.
 4. **Write the prompt** (`prompt.py`) per the prompt reference below. Done when the field/label/rule table covers every schema field and the guidelines call out every quirk step 1 found.
@@ -60,6 +60,8 @@ Two functions: `get_<slug>_system_prompt()` and `get_<slug>_user_prompt(raw_text
 ## Parser reference (`parser.py`)
 
 A `XxxStringParser.parse(raw_text) -> XxxSchema` classmethod, regex only, no LLM, used by `string_engine`. Its output passes through `Schema.model_validate()`, so raw regex matches get cleaned by the schema's own validators — the parser doesn't need to normalize dates or strip labels itself. Leave a field `None` rather than force a fragile regex over a multi-page or table structure; the LLM-based engines (`hybrid_engine`, `visual_engine`) cover that case.
+
+A document's standardized zone (e.g. a passport's MRZ) is fixed-position and identical across every variant, so it's a *stronger* case for a full deterministic parser than a single-country document's labels ever are — parse it by character position, not by label matching. See `src/domain/documents/passport/parser.py` for the pattern.
 
 ## Testing
 
