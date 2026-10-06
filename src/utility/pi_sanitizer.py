@@ -20,6 +20,7 @@ RE_EMAIL = re.compile(r"\b([a-zA-Z0-9_.+-])[a-zA-Z0-9_.+-]*([a-zA-Z0-9_.+-])@([a
 RE_CREDIT_CARD = re.compile(r"\b(\d{4})[ -]?\d{4}[ -]?\d{4}[ -]?(\d{4})\b")
 
 RE_KITAS_IDENTIFIER = re.compile(r"\b(NIORA|Permit\s+Number|Passport\s+Number)(\s*:\s*)([A-Z0-9-]{6,})\b", re.IGNORECASE)
+RE_BANK_ACCOUNT_LABEL = re.compile(r"\b((?:No\.?\s*Rekening(?:\s*SeaBank)?|Account\s*(?:No\.?|Number)|ACC\.?\s*No\.?))(\s*:\s*)(\d[\d-]{5,})\b", re.IGNORECASE)
 
 # 6. Auth Tokens & Secret Keys
 RE_BEARER_TOKEN = re.compile(r"\bBearer\s+[A-Za-z0-9_\-\.]+", re.IGNORECASE)
@@ -54,6 +55,7 @@ IDENTIFIER_FIELD_NAMES: Set[str] = {
     "credit_card",
     "card_number",
     "bank_account",
+    "account_number",
     "nomor_rekening",
     "niora",
     "permit_number",
@@ -93,6 +95,15 @@ def mask_kitas_identifier(value: str) -> str:
     return value[:2] + "*" * (len(value) - 4) + value[-2:] if len(value) > 4 else "*" * len(value)
 
 
+def mask_bank_account(value: str) -> str:
+    """Mask account digits while retaining printed separators and two edge digits."""
+    chars = list(value)
+    positions = [index for index, char in enumerate(chars) if char.isdigit()]
+    for index in (positions if len(positions) <= 4 else positions[2:-2]):
+        chars[index] = "*"
+    return "".join(chars)
+
+
 def sanitize_pi_string(text: str) -> str:
     """
     Sanitizes a free-text string by redacting all known Personal Information (PI)
@@ -117,6 +128,7 @@ def sanitize_pi_string(text: str) -> str:
     text = RE_CREDIT_CARD.sub(r"\1-****-****-\2", text)
 
     text = RE_KITAS_IDENTIFIER.sub(lambda match: match.group(1) + match.group(2) + mask_kitas_identifier(match.group(3)), text)
+    text = RE_BANK_ACCOUNT_LABEL.sub(lambda match: match.group(1) + match.group(2) + mask_bank_account(match.group(3)), text)
 
     # Redact Phone Numbers
     text = RE_PHONE_ID.sub(r"\1\2****\3", text)
@@ -146,7 +158,12 @@ def sanitize_pi_dict(
                 if isinstance(value, str):
                     sanitized[key] = sanitize_pi_string(value)
                     if sanitized[key] == value and len(value) > 6:
-                        sanitized[key] = mask_kitas_identifier(value) if any(s in key_str for s in ("niora", "permit_number", "passport_number")) else value[:6] + "*" * (len(value) - 10) + value[-4:]
+                        if any(s in key_str for s in ("niora", "permit_number", "passport_number")):
+                            sanitized[key] = mask_kitas_identifier(value)
+                        elif any(s in key_str for s in ("bank_account", "account_number")):
+                            sanitized[key] = mask_bank_account(value)
+                        else:
+                            sanitized[key] = value[:6] + "*" * (len(value) - 10) + value[-4:]
                 elif isinstance(value, (int, float)):
                     val_str = str(value)
                     if len(val_str) == 16:

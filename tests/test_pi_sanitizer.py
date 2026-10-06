@@ -8,10 +8,18 @@ from src.utility.pi_sanitizer import (
     mask_email,
     mask_credit_card,
     mask_kitas_identifier,
+    mask_bank_account,
     sanitize_pi_string,
     sanitize_pi_dict,
     PILoggingFilter,
 )
+
+
+def test_mask_bank_account_information():
+    assert mask_bank_account("148-00-1234567-8") == "14*-**-******7-8"
+    assert mask_bank_account("4101234") == "41***34"
+    assert sanitize_pi_string("No. Rekening : 148-00-1234567-8") == "No. Rekening : 14*-**-******7-8"
+    assert sanitize_pi_dict({"account_number": "4101234"}) == {"account_number": "41***34"}
 
 
 def test_mask_kitas_identifiers():

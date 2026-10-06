@@ -18,6 +18,7 @@ from src.domain.documents.business_deed.schema import BusinessDeedSchema, SKKeme
 from src.domain.documents.business_deed import BusinessDeedDocument, BusinessDeedStringParser
 from src.domain.documents.identity_stay import IdentityStayDocument, IdentityStaySchema
 from src.domain.documents.certificate_local_value import CertificateLocalValueDocument, CertificateLocalValueSchema
+from src.domain.documents.bank_account_information import BankAccountInformationDocument, BankAccountInformationSchema
 
 
 def test_document_registry():
@@ -32,8 +33,93 @@ def test_document_registry():
     assert "business_deed" in slugs
     assert "identity_stay" in slugs
     assert "certificate_local_value" in slugs
+    assert "bank_account_information" in slugs
     assert "limited_stay_permit" not in slugs
     assert "domestic_content_certificate" not in slugs
+
+
+def test_bank_account_information_schema_and_prompt():
+    doc = BankAccountInformationDocument()
+    properties = doc.get_json_schema()["properties"]
+    assert set(properties) == {"bank_name", "bank_branch", "account_number", "account_holder_name", "account_type"}
+    prompt = doc.build_system_prompt()
+    assert all(field in prompt for field in properties)
+    assert "balances" in prompt and "transaction tables" in prompt
+    assert "```text\nNo. Rekening : 00001-2345\n```" in doc.build_user_prompt("No. Rekening : 00001-2345")
+    model = BankAccountInformationSchema.model_validate({
+        "account_number": "No. Rekening : 00001-2345",
+        "account_holder_name": "Atas Nama : PT CONTOH MAKMUR",
+        "account_type": "Jenis Rekening : Tabungan",
+    })
+    assert model.account_number == "00001-2345"
+    assert model.account_holder_name == "PT CONTOH MAKMUR"
+    assert model.account_type == "Tabungan"
+    assert BankAccountInformationSchema.model_validate({"bank_branch": "Cabang: KCP Jakarta Cibis Nine"}).bank_branch == "KCP Jakarta Cibis Nine"
+    assert BankAccountInformationSchema.model_validate({"bank_branch": "KCP SUNGKONO"}).bank_branch == "KCP SUNGKONO"
+    assert BankAccountInformationSchema.model_validate({"account_number": "0000****1234"}).account_number is None
+
+
+def test_bank_account_information_passbook_parser():
+    raw_text = """
+    Tabungan BRI Simpedes
+    Kantor BANK BRI : 3868 UNIT MENES LABUAN
+    CIF : RG91491
+    No. Rekening : 3868-01-000123-45-6
+    Nama : BUDI SANTOSO
+    No. Seri : 12345678
+    """
+    parsed = BankAccountInformationDocument().parse_string(raw_text)
+    assert parsed.bank_name == "Bank Rakyat Indonesia"
+    assert parsed.bank_branch == "3868 UNIT MENES LABUAN"
+    assert parsed.account_number == "3868-01-000123-45-6"
+    assert parsed.account_holder_name == "BUDI SANTOSO"
+    assert parsed.account_type == "Simpedes"
+    assert "customer_id" not in parsed.model_dump()
+    assert "passbook_serial_number" not in parsed.model_dump()
+
+
+def test_bank_account_information_unlabeled_bca_passbook_parser():
+    parsed = BankAccountInformationDocument().parse_string("""
+    KCP SUNGKONO
+    0001234567
+    JANE DOE
+    16/06/2020 BCA SUNGKONO
+    BANK CENTRAL ASIA
+    """)
+    assert parsed.bank_name == "Bank Central Asia"
+    assert parsed.bank_branch == "KCP SUNGKONO"
+    assert parsed.account_number == "0001234567"
+    assert parsed.account_holder_name == "JANE DOE"
+
+
+def test_bank_account_information_statement_and_letter_parser():
+    statement = BankAccountInformationDocument().parse_string("""
+    mandiri
+    Rekening Koran (Account Statement)
+    Account No : 1270000001234 - PT CONTOH JAYA
+    Currency : IDR
+    Branch : KCP Jakarta Cibis Nine
+    Opening Balance : 27,939,044.12
+    Closing Balance : 17,543,779.44
+    """)
+    assert statement.bank_name == "Bank Mandiri"
+    assert statement.bank_branch == "KCP Jakarta Cibis Nine"
+    assert statement.account_number == "1270000001234"
+    assert statement.account_holder_name == "PT CONTOH JAYA"
+    assert "opening_balance" not in statement.model_dump()
+    assert "transactions" not in statement.model_dump()
+
+    letter = BankAccountInformationDocument().parse_string("""
+    PT CONTOH MAKMUR
+    Untuk Pembayaran dapat di transfer ke Rekening:
+    Bank Danamon, Cabang Puri Kencana
+    ACC. No. : 4101234
+    Atas Nama : PT CONTOH MAKMUR
+    """)
+    assert letter.bank_name == "Bank Danamon"
+    assert letter.bank_branch == "Puri Kencana"
+    assert letter.account_number == "4101234"
+    assert letter.account_holder_name == "PT CONTOH MAKMUR"
 
 
 def test_certificate_local_value_schema_and_prompt():

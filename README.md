@@ -295,6 +295,22 @@ Extracts product details, TKDN value, verification and certificate numbers, comp
 
 Older samples say *Tanda Sah Capaian* and newer samples say *Sertifikat*. Both use the same document slug. `local_value` is a JSON number without the percent sign; a printed `Terlampir` or dash becomes `null`. `validity_years` records the stated duration without calculating an expiry date. `report_number` and `certificate_number` come from separate printed labels.
 
+### 9. Bank Account Information (`bank_account_information`)
+
+Extracts the account-holding bank, branch, account number, holder, and account type from a passbook, statement, or account letter:
+
+```json
+{
+  "bank_name": "Bank Rakyat Indonesia",
+  "bank_branch": "3868 UNIT MENES LABUAN",
+  "account_number": "3868-01-000123-45-6",
+  "account_holder_name": "BUDI SANTOSO",
+  "account_type": "Simpedes"
+}
+```
+
+The account number remains a string so leading zeros and printed separators survive. Statement balances and transaction rows are outside this document model. The `string_engine` reads labeled account details and the consistent unlabeled branch/number/name lines on BCA passbooks; the LLM-based engines can read other layouts.
+
 ---
 
 ## Web Interface

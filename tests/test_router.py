@@ -39,6 +39,7 @@ def test_list_documents_endpoint():
     assert "business_deed" in slugs
     assert "identity_stay" in slugs
     assert "certificate_local_value" in slugs
+    assert "bank_account_information" in slugs
     assert "limited_stay_permit" not in slugs
     assert "domestic_content_certificate" not in slugs
 
