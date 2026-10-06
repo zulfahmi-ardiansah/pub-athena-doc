@@ -16,6 +16,8 @@ from src.domain.documents.identity_passport.schema import IdentityPassportSchema
 from src.domain.documents.identity_passport import IdentityPassportDocument, IdentityPassportStringParser
 from src.domain.documents.business_deed.schema import BusinessDeedSchema, SKKemenkumham
 from src.domain.documents.business_deed import BusinessDeedDocument, BusinessDeedStringParser
+from src.domain.documents.identity_stay import IdentityStayDocument, IdentityStaySchema
+from src.domain.documents.certificate_local_value import CertificateLocalValueDocument, CertificateLocalValueSchema
 
 
 def test_document_registry():
@@ -28,6 +30,221 @@ def test_document_registry():
     assert "tax_entity" in slugs
     assert "identity_passport" in slugs
     assert "business_deed" in slugs
+    assert "identity_stay" in slugs
+    assert "certificate_local_value" in slugs
+    assert "limited_stay_permit" not in slugs
+    assert "domestic_content_certificate" not in slugs
+
+
+def test_certificate_local_value_schema_and_prompt():
+    doc = CertificateLocalValueDocument()
+    properties = doc.get_json_schema()["properties"]
+    assert set(properties) == set(CertificateLocalValueSchema.model_fields)
+    prompt = doc.build_system_prompt()
+    assert "TKDN" in prompt
+    assert all(field in prompt for field in properties)
+    assert "Terlampir" in prompt and "YYYY-MM-DD" in prompt
+    assert "```text\nNilai TKDN : 96,72%\n```" in doc.build_user_prompt("Nilai TKDN : 96,72%")
+
+
+def test_certificate_local_value_schema_normalization():
+    model = CertificateLocalValueSchema.model_validate({
+        "product_name": "Jenis Produk : Basket Ecenggondok",
+        "local_value": "Nilai TKDN : 96,72%",
+        "product_standard": "Standard Produk : -",
+        "brand": "Merk : -",
+        "company_tax_number": "NPWP : 82.934.355.7-543.000",
+        "industry": "Bidang Usaha : Industri Barang Bangunan Dari Kayu (KBLI: 16221)",
+        "issued_date": "Issued Date : 28 Juli 2021",
+    })
+    assert model.product_name == "Basket Ecenggondok"
+    assert model.local_value == 96.72
+    assert '"local_value":96.72' in model.model_dump_json()
+    assert model.product_standard is None
+    assert model.brand is None
+    assert model.company_tax_number == "82.934.355.7-543.000"
+    assert model.industry == "Industri Barang Bangunan Dari Kayu (KBLI: 16221)"
+    assert model.issued_date == "2021-07-28"
+    assert CertificateLocalValueSchema.model_validate({"local_value": "Nilai TKDN : (Terlampir)"}).local_value is None
+    assert CertificateLocalValueSchema.model_validate({"local_value": "Nilai TKDN : 96.72"}).local_value == 96.72
+    assert CertificateLocalValueSchema.model_validate({"local_value": 96.72}).local_value == 96.72
+    assert CertificateLocalValueSchema.model_validate({"validity_years": "berlaku 2 tahun"}).validity_years == 2
+    assert CertificateLocalValueSchema.model_validate({"validity_years": 3}).validity_years == 3
+    assert CertificateLocalValueSchema.model_validate({"validity_years": "-"}).validity_years is None
+
+
+def test_certificate_local_value_string_parser_legacy_title():
+    raw_text = """
+    TANDA SAH CAPAIAN TINGKAT KOMPONEN DALAM NEGERI
+    No. TKDN : 12-018
+    Jenis Produk : Basket Ecenggondok
+    Tipe : Ecenggondok
+    Spesifikasi : 38 x 27 x 19 cm
+    Kode HS : 44209010
+    Merk : -
+    Nilai TKDN : 96,72%
+    Terbilang : Sembilan puluh enam koma tujuh dua persen
+    Standard Produk : -
+    Sertifikat Produk : -
+    No. Laporan : LPA-3426/PK-3506/PTKDN.DIPA-INFRAS/VII/21
+    yang telah ditandasahkan oleh Kementerian Perindustrian dan berlaku 3 tahun terhitung sejak tanggal tanda sah,
+    diberikan kepada:
+    Nama Perusahaan : CV. Contoh Indonesia
+    Alamat : Jl. Contoh No. 7, Bantul
+    D.I. Yogyakarta
+    NPWP : 82.934.355.7-543.000
+    Bidang Usaha : Industri Barang Bangunan Dari Kayu (KBLI: 16221)
+    No. Tanda Sah : 4623/SJ-IND.8/TKDN/7/2021
+    Jakarta, 28 Juli 2021
+    Kepala Pusat Peningkatan Penggunaan Produk Dalam Negeri
+    Nila Kumalasari
+    #23361
+    """
+    parsed = CertificateLocalValueDocument().parse_string(raw_text)
+    assert "certificate_title" not in parsed.model_dump()
+    assert "tkdn_registration_number" not in parsed.model_dump()
+    assert parsed.product_name == "Basket Ecenggondok"
+    assert parsed.product_type == "Ecenggondok"
+    assert parsed.product_specification == "38 x 27 x 19 cm"
+    assert parsed.hs_code == "44209010"
+    assert parsed.brand is None
+    assert parsed.local_value == 96.72
+    assert "tkdn_in_words" not in parsed.model_dump()
+    assert parsed.product_standard is None
+    assert parsed.product_certificate is None
+    assert parsed.report_number == "LPA-3426/PK-3506/PTKDN.DIPA-INFRAS/VII/21"
+    assert parsed.validity_years == 3
+    assert '"validity_years":3' in parsed.model_dump_json()
+    assert parsed.company_name == "CV. Contoh Indonesia"
+    assert parsed.company_address == "Jl. Contoh No. 7, Bantul D.I. Yogyakarta"
+    assert parsed.company_tax_number == "82.934.355.7-543.000"
+    assert parsed.industry == "Industri Barang Bangunan Dari Kayu (KBLI: 16221)"
+    assert parsed.certificate_number == "4623/SJ-IND.8/TKDN/7/2021"
+    assert parsed.issued_place == "Jakarta"
+    assert parsed.issued_date == "2021-07-28"
+    assert parsed.signing_official_title == "Kepala Pusat Peningkatan Penggunaan Produk Dalam Negeri"
+    assert parsed.signing_official_name == "Nila Kumalasari"
+    assert parsed.qr_reference == "23361"
+
+
+def test_certificate_local_value_string_parser_new_title_and_attachment():
+    raw_text = """
+    SERTIFIKAT TINGKAT KOMPONEN DALAM NEGERI
+    Jenis Produk : Box Panel
+    Tipe : -
+    Spesifikasi : Ukuran: 200x200x120mm s.d.
+    2000x3200x800mm
+    Kode HS : 85371011
+    Merk : IONEE PROTONE
+    Nilai TKDN : Terlampir
+    Terbilang : Lima puluh lima koma satu dua persen
+    Standar Produk : -
+    Sertifikat Produk : -
+    No. Laporan : TKDN - 1611 - 2505797
+    berlaku 3 tahun terhitung sejak tanggal tanda sah,
+    Nama Perusahaan : PT Contoh Jaya Sentosa
+    Alamat : Dusun Kebonagung RT.002 RW. 003
+    Keboagung, Puri, Kabupaten Mojokerto
+    NPWP : 50.559.741.9-602.000
+    Jenis Industri : Industri Peralatan Listrik Lainnya (KBLI: 27900)
+    No. Tanda Sah : 16335/SJ-IND.8/E-TKDN/10/2025
+    Jakarta, 23 Oktober 2025
+    Kepala Pusat Peningkatan Penggunaan Produk Dalam Negeri
+    Heru Kustanto
+    """
+    parsed = CertificateLocalValueDocument().parse_string(raw_text)
+    assert parsed.product_specification == "Ukuran: 200x200x120mm s.d. 2000x3200x800mm"
+    assert parsed.product_type is None
+    assert parsed.local_value is None
+    assert parsed.industry == "Industri Peralatan Listrik Lainnya (KBLI: 27900)"
+    assert parsed.issued_date == "2025-10-23"
+    assert parsed.qr_reference is None
+
+
+def test_identity_stay_schema_and_prompt():
+    doc = IdentityStayDocument()
+    properties = doc.get_json_schema()["properties"]
+    assert set(properties) == set(IdentityStaySchema.model_fields)
+    prompt = doc.build_system_prompt()
+    assert "KITAS" in prompt
+    assert all(field in prompt for field in properties)
+    assert "null" in prompt and "YYYY-MM-DD" in prompt
+    assert "```text\nNIORA : AB12345678\n```" in doc.build_user_prompt("NIORA : AB12345678")
+
+
+def test_identity_stay_schema_normalization():
+    model = IdentityStaySchema.model_validate({
+        "niora": "NIORA : AB12345678",
+        "permit_number": "Permit Number : 2C21AB1234YZ",
+        "birth_place": "Place / Date of Birth : SINGAPORE / 04-03-1984",
+        "birth_date": "Place / Date of Birth : SINGAPORE / 04-03-1984",
+        "permit_expiry_date": "Stay/Multiple Entries Permit Expiry : 18-12-2020",
+        "passport_expiry_date": "Passport Expiry : 11-01-2028",
+        "issued_date": "Issued Date : 26 Januari 2024",
+        "guarantor_name": "-",
+    })
+    assert model.niora == "AB12345678"
+    assert model.permit_number == "2C21AB1234YZ"
+    assert model.birth_place == "SINGAPORE"
+    assert model.birth_date == "1984-03-04"
+    assert model.permit_expiry_date == "2020-12-18"
+    assert model.passport_expiry_date == "2028-01-11"
+    assert model.issued_date == "2024-01-26"
+    assert model.guarantor_name is None
+
+
+def test_identity_stay_string_parser():
+    raw_text = """
+    KANIM KELAS I KHUSUS NON TPI JAKARTA SELATAN
+    JL. CONTOH NO. 10 JAKARTA SELATAN
+    IZIN TINGGAL TERBATAS ELEKTRONIK
+    NIORA : AB12345678
+    Permit Number : 2C21AB1234YZ
+    Stay/Multiple Entries Permit Expiry : 18-12-2020
+    Stay Permit Index : 1B
+    Full Name : JANE DOE
+    Place / Date of Birth : SINGAPORE / 04-03-1984
+    Passport Number : P1234567
+    Passport Expiry : 11-01-2028
+    Nationality : SINGAPURA
+    Gender : FEMALE
+    Address : JL. CONTOH NO. 10 RT 001 RW 002
+    KEBAYORAN LAMA
+    Occupation : INVESTOR
+    Status : INVESTMENT
+    Guarantor Name : PT CONTOH INDONESIA
+    Jakarta, 26-01-2024
+    Head of Kelas I Khusus Non TPI Jakarta Selatan Immigration Office.
+    """
+    parsed = IdentityStayDocument().parse_string(raw_text)
+    assert parsed.issuing_office == "KANIM KELAS I KHUSUS NON TPI JAKARTA SELATAN"
+    assert parsed.issuing_office_address == "JL. CONTOH NO. 10 JAKARTA SELATAN"
+    assert parsed.niora == "AB12345678"
+    assert parsed.permit_number == "2C21AB1234YZ"
+    assert parsed.permit_expiry_date == "2020-12-18"
+    assert parsed.permit_index == "1B"
+    assert parsed.full_name == "JANE DOE"
+    assert parsed.birth_place == "SINGAPORE"
+    assert parsed.birth_date == "1984-03-04"
+    assert parsed.passport_number == "P1234567"
+    assert parsed.passport_expiry_date == "2028-01-11"
+    assert parsed.nationality == "SINGAPURA"
+    assert parsed.gender == "FEMALE"
+    assert parsed.address == "JL. CONTOH NO. 10 RT 001 RW 002 KEBAYORAN LAMA"
+    assert parsed.occupation == "INVESTOR"
+    assert parsed.status == "INVESTMENT"
+    assert parsed.guarantor_name == "PT CONTOH INDONESIA"
+    assert parsed.issued_place == "Jakarta"
+    assert parsed.issued_date == "2024-01-26"
+    assert parsed.signing_official_title.startswith("Head of Kelas I")
+
+
+def test_identity_stay_obscured_values_remain_null():
+    parsed = IdentityStayDocument().parse_string("NIORA :\nPermit Number :\nGuarantor Name : -\nPassport Expiry : -")
+    assert parsed.niora is None
+    assert parsed.permit_number is None
+    assert parsed.guarantor_name is None
+    assert parsed.passport_expiry_date is None
 
 
 def test_identity_card_schema_validation():

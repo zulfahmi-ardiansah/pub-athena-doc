@@ -233,6 +233,68 @@ Extracts the key filing metadata from an Indonesian notarial business deed (Akta
 
 `deed_type` is normalized to exactly `Pendirian` (establishment) or `Perubahan` (amendment), never the deed's full title text. The `string_engine` path parses `deed_type`, `deed_number`, `deed_date`, `notary_name`, and `legal_decision` deterministically, targeting the legally mandated drafting formulas that stay consistent across notaries and decades of Kemenkumham numbering formats (old `C2-xxxxx.HT.01.01.TH.YY` style through modern `AHU-xxxxx.AH.01.02.TAHUN YYYY`) - it also knows to ignore unrelated SK numbers or deed types a deed's recital text may reference (e.g. the notary's own appointment decree, or a background mention of the company's original establishment deed within an amendment deed), keying only on the current document's own title block and opening formula. `notary_address` varies too much by notary template to parse reliably and is left for the LLM-based engines.
 
+### 7. KITAS Identity Stay (`identity_stay`)
+
+Extracts the holder's identity, immigration and passport identifiers, separate permit and passport expiry dates, stay status, and issuance details from an electronic limited stay permit:
+
+```json
+{
+  "issuing_office": "KANIM KELAS I KHUSUS NON TPI JAKARTA SELATAN",
+  "issuing_office_address": "JL. CONTOH NO. 10 JAKARTA SELATAN",
+  "niora": "AB12345678",
+  "permit_number": "2C21AB1234YZ",
+  "permit_expiry_date": "2025-04-18",
+  "permit_index": "1B",
+  "full_name": "JANE DOE",
+  "birth_place": "SINGAPORE",
+  "birth_date": "1984-03-04",
+  "passport_number": "P1234567",
+  "passport_expiry_date": "2028-01-11",
+  "nationality": "SINGAPURA",
+  "gender": "FEMALE",
+  "address": "JL. CONTOH NO. 10 RT 001 RW 002, KEBAYORAN LAMA",
+  "occupation": "INVESTOR",
+  "status": "INVESTMENT",
+  "guarantor_name": null,
+  "issued_place": "Jakarta",
+  "issued_date": "2024-01-26",
+  "signing_official_title": "Head of Immigration Office"
+}
+```
+
+The `guarantor_name` and footer issue details are optional because they are absent from some samples. The `string_engine` path reads labeled rows and the issue line; covered or illegible values remain `null`.
+
+### 8. TKDN Local Value Certificate (`certificate_local_value`)
+
+Extracts product details, TKDN value, verification and certificate numbers, company details, validity period, and issuer details from a TKDN certificate:
+
+```json
+{
+  "product_name": "Basket Ecenggondok",
+  "product_type": "Ecenggondok",
+  "product_specification": "38 x 27 x 19 cm",
+  "hs_code": "44209010",
+  "brand": null,
+  "local_value": 96.72,
+  "product_standard": null,
+  "product_certificate": null,
+  "report_number": "LPA-3426/PK-3506/PTKDN.DIPA-INFRAS/VII/21",
+  "validity_years": 3,
+  "company_name": "CV. Contoh Indonesia",
+  "company_address": "Jl. Contoh No. 7, Bantul, D.I. Yogyakarta",
+  "company_tax_number": "82.934.355.7-543.000",
+  "industry": "Industri Barang Bangunan Dari Kayu (KBLI: 16221)",
+  "certificate_number": "4623/SJ-IND.8/TKDN/7/2021",
+  "issued_place": "Jakarta",
+  "issued_date": "2021-07-28",
+  "signing_official_title": "Kepala Pusat Peningkatan Penggunaan Produk Dalam Negeri",
+  "signing_official_name": "Nila Kumalasari",
+  "qr_reference": "23361"
+}
+```
+
+Older samples say *Tanda Sah Capaian* and newer samples say *Sertifikat*. Both use the same document slug. `local_value` is a JSON number without the percent sign; a printed `Terlampir` or dash becomes `null`. `validity_years` records the stated duration without calculating an expiry date. `report_number` and `certificate_number` come from separate printed labels.
+
 ---
 
 ## Web Interface

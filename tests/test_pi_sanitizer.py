@@ -7,10 +7,21 @@ from src.utility.pi_sanitizer import (
     mask_phone,
     mask_email,
     mask_credit_card,
+    mask_kitas_identifier,
     sanitize_pi_string,
     sanitize_pi_dict,
     PILoggingFilter,
 )
+
+
+def test_mask_kitas_identifiers():
+    assert mask_kitas_identifier("AB12345678") == "AB******78"
+    assert sanitize_pi_string("NIORA : AB12345678 Permit Number : 2C21AB1234YZ Passport Number : P1234567") == (
+        "NIORA : AB******78 Permit Number : 2C********YZ Passport Number : P1****67"
+    )
+    assert sanitize_pi_dict({"niora": "AB12345678", "permit_number": "2C21AB1234YZ", "passport_number": "P1234567"}) == {
+        "niora": "AB******78", "permit_number": "2C********YZ", "passport_number": "P1****67"
+    }
 
 
 def test_mask_nik():

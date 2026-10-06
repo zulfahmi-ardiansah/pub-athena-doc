@@ -19,6 +19,8 @@ RE_EMAIL = re.compile(r"\b([a-zA-Z0-9_.+-])[a-zA-Z0-9_.+-]*([a-zA-Z0-9_.+-])@([a
 # 5. Credit card / 16-digit payment card numbers
 RE_CREDIT_CARD = re.compile(r"\b(\d{4})[ -]?\d{4}[ -]?\d{4}[ -]?(\d{4})\b")
 
+RE_KITAS_IDENTIFIER = re.compile(r"\b(NIORA|Permit\s+Number|Passport\s+Number)(\s*:\s*)([A-Z0-9-]{6,})\b", re.IGNORECASE)
+
 # 6. Auth Tokens & Secret Keys
 RE_BEARER_TOKEN = re.compile(r"\bBearer\s+[A-Za-z0-9_\-\.]+", re.IGNORECASE)
 RE_GOOGLE_API_KEY = re.compile(r"\bAIza[0-9A-Za-z\-_]{30,}\b")
@@ -53,6 +55,9 @@ IDENTIFIER_FIELD_NAMES: Set[str] = {
     "card_number",
     "bank_account",
     "nomor_rekening",
+    "niora",
+    "permit_number",
+    "passport_number",
 }
 
 
@@ -83,6 +88,11 @@ def mask_credit_card(card_str: str) -> str:
     return RE_CREDIT_CARD.sub(r"\1-****-****-\2", str(card_str))
 
 
+def mask_kitas_identifier(value: str) -> str:
+    """Mask an immigration or passport identifier while retaining its edges."""
+    return value[:2] + "*" * (len(value) - 4) + value[-2:] if len(value) > 4 else "*" * len(value)
+
+
 def sanitize_pi_string(text: str) -> str:
     """
     Sanitizes a free-text string by redacting all known Personal Information (PI)
@@ -105,6 +115,8 @@ def sanitize_pi_string(text: str) -> str:
 
     # Redact Payment Cards
     text = RE_CREDIT_CARD.sub(r"\1-****-****-\2", text)
+
+    text = RE_KITAS_IDENTIFIER.sub(lambda match: match.group(1) + match.group(2) + mask_kitas_identifier(match.group(3)), text)
 
     # Redact Phone Numbers
     text = RE_PHONE_ID.sub(r"\1\2****\3", text)
@@ -134,7 +146,7 @@ def sanitize_pi_dict(
                 if isinstance(value, str):
                     sanitized[key] = sanitize_pi_string(value)
                     if sanitized[key] == value and len(value) > 6:
-                        sanitized[key] = value[:6] + "*" * (len(value) - 10) + value[-4:]
+                        sanitized[key] = mask_kitas_identifier(value) if any(s in key_str for s in ("niora", "permit_number", "passport_number")) else value[:6] + "*" * (len(value) - 10) + value[-4:]
                 elif isinstance(value, (int, float)):
                     val_str = str(value)
                     if len(val_str) == 16:
