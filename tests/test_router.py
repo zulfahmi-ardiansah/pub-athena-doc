@@ -63,7 +63,7 @@ def test_engine_singleton_dependency():
 
 def test_save_request_trace_utility(tmp_path):
     dummy_result = ExtractionResult(
-        data={"id_number": "1234567890123456", "full_name": "TEST USER"},
+        data={"document_number": "1234567890123456", "holder_name": "TEST USER"},
         trace={
             "engine": "hybrid_engine",
             "stages": [
@@ -112,14 +112,14 @@ def test_save_request_trace_utility(tmp_path):
     trace_json_content = json.loads((trace_dir / "trace.json").read_text(encoding="utf-8"))
     assert trace_json_content["request_id"] == req_id
     assert trace_json_content["document_type"] == "identity_card"
-    assert trace_json_content["data"]["id_number"] == "1234567890123456"
+    assert trace_json_content["data"]["document_number"] == "1234567890123456"
 
 
 def test_extract_endpoint_deletes_trace_folder_by_default_on_success(monkeypatch, tmp_path):
     mock_engine = MagicMock(spec=BaseExtractionEngine)
     mock_engine.name = "hybrid_engine"
     mock_engine.extract = AsyncMock(return_value=ExtractionResult(
-        data={"id_number": "3171010101900001", "full_name": "BUDI SANTOSO"},
+        data={"document_number": "3171010101900001", "holder_name": "BUDI SANTOSO"},
         trace={"engine": "hybrid_engine", "stages": []}
     ))
 
@@ -157,7 +157,7 @@ def test_extract_endpoint_keeps_trace_folder_when_keep_trace_true(monkeypatch, t
     mock_engine = MagicMock(spec=BaseExtractionEngine)
     mock_engine.name = "hybrid_engine"
     mock_engine.extract = AsyncMock(return_value=ExtractionResult(
-        data={"id_number": "3171010101900001", "full_name": "BUDI SANTOSO"},
+        data={"document_number": "3171010101900001", "holder_name": "BUDI SANTOSO"},
         trace={
             "engine": "hybrid_engine",
             "stages": [
@@ -217,7 +217,7 @@ def test_extract_endpoint_supports_query_overrides():
     mock_engine = MagicMock(spec=BaseExtractionEngine)
     mock_engine.name = "hybrid_engine"
     mock_engine.extract = AsyncMock(return_value=ExtractionResult(
-        data={"id_number": "3171010101900001", "full_name": "BUDI SANTOSO"},
+        data={"document_number": "3171010101900001", "holder_name": "BUDI SANTOSO"},
         trace=None
     ))
 

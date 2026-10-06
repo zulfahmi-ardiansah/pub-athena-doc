@@ -47,8 +47,10 @@ CREDENTIAL_FIELD_NAMES: Set[str] = {
 IDENTIFIER_FIELD_NAMES: Set[str] = {
     "nik",
     "nomor_ktp",
+    "document_number",
     "npwp",
     "nomor_npwp",
+    "tax_number",
     "kk",
     "no_kk",
     "nomor_kk",

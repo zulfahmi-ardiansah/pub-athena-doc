@@ -7,7 +7,7 @@ class BankAccountSchema(BaseModel):
     bank_name: Optional[str] = Field(default=None, description="Name of the bank that holds the account", examples=["Bank Mandiri"])
     bank_branch: Optional[str] = Field(default=None, description="Account branch or unit as printed, including a KCP prefix when present", examples=["KCP Jakarta Cibis Nine"])
     account_number: Optional[str] = Field(default=None, description="Account number as text, preserving leading zeros and printed hyphens", examples=["148-00-1234567-8"])
-    account_holder_name: Optional[str] = Field(default=None, description="Name of the account owner, not a transaction counterparty", examples=["PT CONTOH MAKMUR"])
+    account_holder: Optional[str] = Field(default=None, description="Name of the account owner, not a transaction counterparty", examples=["PT CONTOH MAKMUR"])
     account_type: Optional[str] = Field(default=None, description="Account product or type when printed", examples=["Tabungan Mandiri"])
 
     @staticmethod
@@ -36,9 +36,9 @@ class BankAccountSchema(BaseModel):
             cleaned = re.sub(r"\s+", "", cleaned)
         return cleaned if cleaned and re.fullmatch(r"\d[\d-]*", cleaned) else None
 
-    @field_validator("account_holder_name", mode="before")
+    @field_validator("account_holder", mode="before")
     @classmethod
-    def clean_account_holder_name(cls, v: Optional[str]) -> Optional[str]:
+    def clean_account_holder(cls, v: Optional[str]) -> Optional[str]:
         return cls._clean(v, r"^(?:ATAS\s*NAMA|NAMA|ACCOUNT\s*HOLDER|ACCOUNT\s*NAME)\s*[:.]?\s*")
 
     @field_validator("account_type", mode="before")

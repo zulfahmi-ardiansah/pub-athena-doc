@@ -9,55 +9,53 @@ class CertificateCompetencyStringParser:
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
         data: Dict[str, Any] = {}
         labels = {
-            "number": r"(?:No\.?|Nomor(?:\s+Sertifikat)?|Certificate\s+Number)",
-            "name": r"(?:Nama(?:\s+(?:Peserta|Pemegang))?|Name|Recipient)",
-            "title": r"(?:Nama\s+(?:Pelatihan|Kursus)|Skema\s+Sertifikasi|Kualifikasi|Course(?:\s+Title)?|Qualification)",
-            "field": r"(?:Bidang(?:\s+Pekerjaan)?|Competency\s+Field)",
-            "institution": r"(?:Penyelenggara|Institution|Issuer)",
+            "certificate_number": r"(?:No\.?|Nomor(?:\s+Sertifikat)?|Certificate\s+Number)",
+            "certificate_holder": r"(?:Nama(?:\s+(?:Peserta|Pemegang))?|Name|Recipient)",
+            "training_title": r"(?:Nama\s+(?:Pelatihan|Kursus)|Skema\s+Sertifikasi|Kualifikasi|Course(?:\s+Title)?|Qualification)",
+            "training_field": r"(?:Bidang(?:\s+Pekerjaan)?|Competency\s+Field)",
+            "training_institution": r"(?:Penyelenggara|Institution|Issuer)",
             "training_start_date": r"(?:Tanggal\s+Mulai|Start\s+Date)",
             "training_end_date": r"(?:Tanggal\s+Selesai|End\s+Date|Completion\s+Date)",
-            "grade": r"(?:Nilai|Grade|Hasil)",
-            "issued_place": r"(?:Tempat\s+Terbit|Issued\s+Place)",
-            "issued_date": r"(?:Tanggal\s+Terbit|Issued\s+Date|Date\s+of\s+Issue)",
-            "expiry_date": r"(?:Berlaku\s+Sampai|Expiry\s+Date|Valid\s+Until)",
-            "signing_official_name": r"(?:Penandatangan|Signatory)",
-            "signing_official_title": r"(?:Jabatan|Signatory\s+Title)",
+            "training_grade": r"(?:Nilai|Grade|Hasil)",
+            "certificate_issued_place": r"(?:Tempat\s+Terbit|Issued\s+Place)",
+            "certificate_issued_date": r"(?:Tanggal\s+Terbit|Issued\s+Date|Date\s+of\s+Issue)",
+            "certificate_expiry_date": r"(?:Berlaku\s+Sampai|Expiry\s+Date|Valid\s+Until)",
         }
-        for field, label in labels.items():
-            data[field] = cls._find(lines, label)
+        for training_field, label in labels.items():
+            data[training_field] = cls._find(lines, label)
 
-        if not data["number"]:
+        if not data["certificate_number"]:
             match = re.search(r"^\s*No\.?(?!\s*Reg\b)\s+([A-Z0-9][A-Z0-9 ./-]*\d)\s*$", raw_text, re.IGNORECASE | re.MULTILINE)
             if match:
-                data["number"] = match.group(1).strip()
+                data["certificate_number"] = match.group(1).strip()
 
-        if not data["name"]:
-            data["name"] = cls._after(lines, r"^Dengan\s+ini\s+menyatakan\s+bahwa\s*[,.:]?$")
-        if not data["title"]:
-            data["title"] = cls._after(lines, r"^(?:Dengan\s+Kualifikasi\s*/\s*Kompetensi|Telah\s+lulus\s+dari\s+kelas)\s*[:.]?$")
-        if not data["field"]:
-            data["field"] = cls._after(lines, r"^(?:Pada\s+bidang\s+pekerjaan|Telah\s+kompeten\s+pada\s+bidang)\s*[:.]?$")
-        if not data["institution"]:
-            data["institution"] = next((line for line in lines if re.match(r"^Lembaga\s+Sertifikasi\s+Profesi\b", line, re.IGNORECASE)), None)
-            if not data["institution"]:
-                data["institution"] = next((line for line in lines if re.fullmatch(r"Dicoding(?:\s+Indonesia)?", line, re.IGNORECASE)), None)
-        if not data["institution"]:
-            data["institution"] = cls._find(lines, r"Authority")
-        if not data["institution"] and re.search(r"\bBadan\s+Nasional\s+Sertifikasi\s+Profesi\b", raw_text, re.IGNORECASE):
-            data["institution"] = "Badan Nasional Sertifikasi Profesi"
+        if not data["certificate_holder"]:
+            data["certificate_holder"] = cls._after(lines, r"^Dengan\s+ini\s+menyatakan\s+bahwa\s*[,.:]?$")
+        if not data["training_title"]:
+            data["training_title"] = cls._after(lines, r"^(?:Dengan\s+Kualifikasi\s*/\s*Kompetensi|Telah\s+lulus\s+dari\s+kelas)\s*[:.]?$")
+        if not data["training_field"]:
+            data["training_field"] = cls._after(lines, r"^(?:Pada\s+bidang\s+pekerjaan|Telah\s+kompeten\s+pada\s+bidang)\s*[:.]?$")
+        if not data["training_institution"]:
+            data["training_institution"] = next((line for line in lines if re.match(r"^Lembaga\s+Sertifikasi\s+Profesi\b", line, re.IGNORECASE)), None)
+            if not data["training_institution"]:
+                data["training_institution"] = next((line for line in lines if re.fullmatch(r"Dicoding(?:\s+Indonesia)?", line, re.IGNORECASE)), None)
+        if not data["training_institution"]:
+            data["training_institution"] = cls._find(lines, r"Authority")
+        if not data["training_institution"] and re.search(r"\bBadan\s+Nasional\s+Sertifikasi\s+Profesi\b", raw_text, re.IGNORECASE):
+            data["training_institution"] = "Badan Nasional Sertifikasi Profesi"
 
         for line in reversed(lines[-16:]):
             match = re.match(r"^([A-Za-z][A-Za-z .'-]{2,30}),\s*(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}|[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}|\d{1,2}[-/.]\d{1,2}[-/.]\d{4})\b", line)
             if match:
-                data["issued_place"] = data["issued_place"] or match.group(1).strip()
-                data["issued_date"] = data["issued_date"] or match.group(2)
+                data["certificate_issued_place"] = data["certificate_issued_place"] or match.group(1).strip()
+                data["certificate_issued_date"] = data["certificate_issued_date"] or match.group(2)
                 break
 
         block = re.search(r"Telah\s+memenuhi\s+persyaratan\s+dan\s+kompeten\s+pada\s+kualifikasi\s*:(.*?)Pada\s+bidang\s+pekerjaan", raw_text, re.IGNORECASE | re.DOTALL)
         if block:
-            units = re.findall(r"^\s*\d+\.\s*([A-Z][A-Z0-9]*(?:[./-][A-Z0-9]+){2,})\s*$", block.group(1), re.MULTILINE)
-            if units:
-                data["units"] = [{"code": code, "name": None} for code in units]
+            training_units = re.findall(r"^\s*\d+\.\s*([A-Z][A-Z0-9]*(?:[./-][A-Z0-9]+){2,})\s*$", block.group(1), re.MULTILINE)
+            if training_units:
+                data["training_units"] = [{"unit_code": code, "unit_name": None} for code in training_units]
 
         return CertificateCompetencySchema.model_validate(data)
 

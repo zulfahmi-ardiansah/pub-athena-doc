@@ -6,7 +6,7 @@ def get_bank_account_system_prompt() -> str:
         "| bank_name | Bank logo/name or Bank Name | The bank holding the account, not a transaction counterparty |\n"
         "| bank_branch | Kantor, Cabang, Branch, KCP | Preserve the full branch name, including KCP when printed |\n"
         "| account_number | No. Rekening, Account No./Number, ACC. No. | Preserve leading zeros and printed hyphens |\n"
-        "| account_holder_name | Nama, Atas Nama, Account Holder, name beside account number | Owner of this account |\n"
+        "| account_holder | Nama, Atas Nama, Account Holder, name beside account number | Owner of this account |\n"
         "| account_type | Product name, Jenis Rekening, Account Type/Name | Simpedes, BritAma, Tabungan, Checking, or other printed type |\n\n"
         "STRICT GUIDELINES:\n"
         "1. Extract only values shown in the document. Return null for missing, covered, or illegible values.\n"

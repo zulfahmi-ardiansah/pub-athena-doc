@@ -7,12 +7,12 @@ from src.utility.date_utils import normalize_to_iso_date
 class BusinessField(BaseModel):
     """A single business classification (Klasifikasi Lapangan Usaha / KLU) entry."""
 
-    code: Optional[str] = Field(
+    field_code: Optional[str] = Field(
         default=None,
         description="Business classification code (Kode KLU)",
         examples=["71100"]
     )
-    title: Optional[str] = Field(
+    field_title: Optional[str] = Field(
         default=None,
         description="Business classification title (Judul KLU)",
         examples=["JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"]
@@ -33,7 +33,7 @@ class TaxEntitySchema(BaseModel):
         description="Regional tax office (Kantor Wilayah DJP)",
         examples=["KANTOR WILAYAH DJP JAKARTA BARAT"]
     )
-    tax_office: Optional[str] = Field(
+    tax_office_name: Optional[str] = Field(
         default=None,
         description="Issuing local tax office (KPP Pratama)",
         examples=["KPP PRATAMA JAKARTA KEBON JERUK DUA"]
@@ -43,26 +43,26 @@ class TaxEntitySchema(BaseModel):
         description="Issuing tax office address",
         examples=["JL. K.S. TUBUN 10, JAKARTA BARAT"]
     )
-    tax_number: Optional[str] = Field(
+    business_tax_number: Optional[str] = Field(
         default=None,
         description="Nomor Pokok Wajib Pajak / NPWP (15 or 16 digits format)",
         examples=["01.329.904.5-039.000"]
     )
-    name: Optional[str] = Field(
+    business_name: Optional[str] = Field(
         default=None,
         description="Taxpayer / business actor name (Nama)",
         examples=["PT. RAMCOMAS MANDIRI"]
     )
-    fields: Optional[List[BusinessField]] = Field(
+    business_fields: Optional[List[BusinessField]] = Field(
         default=None,
         description="Business classification (Klasifikasi Lapangan Usaha / KLU) entries"
     )
-    address: Optional[str] = Field(
+    business_address: Optional[str] = Field(
         default=None,
         description="Registered business address (Alamat)",
         examples=["JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA"]
     )
-    trade_name: Optional[str] = Field(
+    business_trade: Optional[str] = Field(
         default=None,
         description="Trade / business brand name (Merk Dagang/Usaha), null if printed as a placeholder dash",
         examples=["-"]
@@ -72,17 +72,17 @@ class TaxEntitySchema(BaseModel):
         description="Checked tax obligation(s) (Kewajiban Pajak), joined with '; ' if more than one is checked",
         examples=["PPN", "PPN; PPnBM"]
     )
-    confirmed_since: Optional[str] = Field(
+    letter_confirmed_since: Optional[str] = Field(
         default=None,
         description="Date confirmed as a Taxable Entrepreneur (terhitung sejak), normalized to ISO 8601 (YYYY-MM-DD)",
         examples=["1992-03-21"]
     )
-    issued_place: Optional[str] = Field(
+    letter_issued_place: Optional[str] = Field(
         default=None,
         description="Place of issuance",
         examples=["Jakarta Barat"]
     )
-    issued_date: Optional[str] = Field(
+    letter_issued_date: Optional[str] = Field(
         default=None,
         description="Issuance date, normalized to ISO 8601 (YYYY-MM-DD)",
         examples=["2015-04-17"]
@@ -118,9 +118,9 @@ class TaxEntitySchema(BaseModel):
         cleaned = re.sub(r"^(?:KANTOR\s*WILAYAH(?:\s*DJP)?)\s*[:\.]?\s*", "KANTOR WILAYAH DJP ", v.strip(), flags=re.IGNORECASE).strip()
         return cleaned or None
 
-    @field_validator("tax_office", mode="before")
+    @field_validator("tax_office_name", mode="before")
     @classmethod
-    def clean_tax_office(cls, v: Optional[str]) -> Optional[str]:
+    def clean_tax_office_name(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:KANTOR\s*PELAYANAN\s*PAJAK|KPP)\s*[:\.]?\s*", "KPP ", v.strip(), flags=re.IGNORECASE).strip()
@@ -134,9 +134,9 @@ class TaxEntitySchema(BaseModel):
         cleaned = re.sub(r"^(?:ALAMAT)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
         return cleaned or None
 
-    @field_validator("tax_number", mode="before")
+    @field_validator("business_tax_number", mode="before")
     @classmethod
-    def clean_tax_number(cls, v: Optional[str]) -> Optional[str]:
+    def clean_business_tax_number(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:NOMOR\s*POKOK\s*WAJIB\s*PAJAK|NPWP)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
@@ -145,25 +145,25 @@ class TaxEntitySchema(BaseModel):
             return cleaned
         return v.strip()
 
-    @field_validator("name", mode="before")
+    @field_validator("business_name", mode="before")
     @classmethod
-    def clean_name(cls, v: Optional[str]) -> Optional[str]:
+    def clean_business_name(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:NAMA)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
         return cleaned or None
 
-    @field_validator("address", mode="before")
+    @field_validator("business_address", mode="before")
     @classmethod
-    def clean_address(cls, v: Optional[str]) -> Optional[str]:
+    def clean_business_address(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:ALAMAT)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
         return cleaned or None
 
-    @field_validator("trade_name", mode="before")
+    @field_validator("business_trade", mode="before")
     @classmethod
-    def clean_trade_name(cls, v: Optional[str]) -> Optional[str]:
+    def clean_business_trade(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:MERK\s*DAGANG(?:/USAHA)?)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
@@ -171,7 +171,7 @@ class TaxEntitySchema(BaseModel):
             return None
         return cleaned
 
-    @field_validator("confirmed_since", "issued_date", mode="before")
+    @field_validator("letter_confirmed_since", "letter_issued_date", mode="before")
     @classmethod
     def clean_date_fields(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
@@ -180,9 +180,9 @@ class TaxEntitySchema(BaseModel):
         iso_date = normalize_to_iso_date(cleaned)
         return iso_date or (cleaned or None)
 
-    @field_validator("issued_place", mode="before")
+    @field_validator("letter_issued_place", mode="before")
     @classmethod
-    def clean_issued_place(cls, v: Optional[str]) -> Optional[str]:
+    def clean_letter_issued_place(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         return v.strip() or None

@@ -9,18 +9,18 @@ class IdentityStayStringParser:
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
         data: Dict[str, Optional[str]] = {}
         labels = {
-            "niora": r"NIORA",
+            "permit_niora": r"NIORA",
             "permit_number": r"Permit\s*Number",
             "permit_expiry_date": r"Stay\s*/\s*Multiple\s*Entries\s*Permit\s*Expiry",
             "permit_index": r"Stay\s*Permit\s*Index",
-            "full_name": r"Full\s*Name",
-            "passport_number": r"Passport\s*Number",
-            "passport_expiry_date": r"Passport\s*Expiry",
-            "nationality": r"Nationality",
-            "gender": r"Gender",
-            "occupation": r"Occupation",
-            "status": r"Status",
-            "guarantor_name": r"Guarantor\s*Name",
+            "holder_full_name": r"Full\s*Name",
+            "holder_passport_number": r"Passport\s*Number",
+            "holder_passport_expiry_date": r"Passport\s*Expiry",
+            "holder_nationality": r"Nationality",
+            "holder_gender": r"Gender",
+            "holder_occupation": r"Occupation",
+            "holder_status": r"Status",
+            "holder_guarantor": r"Guarantor\s*Name",
         }
         for field, label in labels.items():
             data[field] = cls._value(lines, label)
@@ -29,21 +29,21 @@ class IdentityStayStringParser:
         if birth:
             match = re.match(r"(.+?)\s*/\s*(\d{1,2}[-/.]\d{1,2}[-/.]\d{4})\s*$", birth)
             if match:
-                data["birth_place"], data["birth_date"] = match.groups()
+                data["holder_birth_place"], data["holder_birth_date"] = match.groups()
 
-        data["address"] = cls._value(lines, r"Address")
+        data["holder_address"] = cls._value(lines, r"Address")
         for index, line in enumerate(lines):
             if re.match(r"^Address\s*:\s*\S", line, re.IGNORECASE) and index + 1 < len(lines):
                 next_line = lines[index + 1]
                 if next_line and not re.match(r"^(Occupation|Status|Guarantor\s*Name|DISCLAIMER)\b", next_line, re.IGNORECASE):
-                    data["address"] = f"{data['address']} {next_line}" if data["address"] else next_line
+                    data["holder_address"] = f"{data['holder_address']} {next_line}" if data["holder_address"] else next_line
                 break
 
         for index, line in enumerate(lines):
             if re.match(r"^KANIM\b", line, re.IGNORECASE):
-                data["issuing_office"] = line
+                data["permit_issuing_office"] = line
                 if index + 1 < len(lines) and re.match(r"^(?:JL\.?|JALAN\b)", lines[index + 1], re.IGNORECASE):
-                    data["issuing_office_address"] = lines[index + 1]
+                    data["permit_issuing_office_address"] = lines[index + 1]
                 break
 
         for index, line in enumerate(lines):
@@ -51,9 +51,8 @@ class IdentityStayStringParser:
                 continue
             if index + 1 < len(lines) and re.match(r"^Head\s+of\b", lines[index + 1], re.IGNORECASE):
                 place, date = line.rsplit(",", 1)
-                data["issued_place"] = place.strip()
-                data["issued_date"] = date.strip()
-                data["signing_official_title"] = lines[index + 1]
+                data["permit_issued_place"] = place.strip()
+                data["permit_issued_date"] = date.strip()
                 break
 
         return IdentityStaySchema.model_validate(data)

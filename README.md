@@ -66,29 +66,31 @@ When you submit a document to `/api/v1/extract/{document_type}`, Athena executes
 
 Athena ships with specialized domain models for Indonesian documents, returning clean structured JSON:
 
+The complete property list for each document type is in [CATALOG.md](CATALOG.md).
+
 ### 1. Identity Card (`identity_card` / Indonesian KTP)
 
 Extracts 16-digit NIK, full name, address hierarchy, religion, marital status, and validity:
 
 ```json
 {
-  "province": "DKI JAKARTA",
-  "city": "JAKARTA PUSAT",
-  "id_number": "3171010101900001",
-  "name": "BUDI SANTOSO",
-  "birth_place": "JAKARTA",
-  "birth_date": "1990-01-01",
-  "gender": "LAKI-LAKI",
-  "blood_type": "O",
-  "address": "JL. JENDERAL SUDIRMAN NO. 45",
-  "neighborhood_unit": "002/005",
-  "village": "BENDUNGAN HILIR",
-  "district": "TANAH ABANG",
-  "religion": "ISLAM",
-  "marital_status": "BELUM KAWIN",
-  "occupation": "KARYAWAN SWASTA",
-  "nationality": "WNI",
-  "expiry_date": "SEUMUR HIDUP"
+  "document_province": "DKI JAKARTA",
+  "document_city": "JAKARTA PUSAT",
+  "document_number": "3171010101900001",
+  "holder_name": "BUDI SANTOSO",
+  "holder_birth_place": "JAKARTA",
+  "holder_birth_date": "1990-01-01",
+  "holder_gender": "LAKI-LAKI",
+  "holder_blood_type": "O",
+  "holder_address": "JL. JENDERAL SUDIRMAN NO. 45",
+  "holder_neighborhood_unit": "002/005",
+  "holder_village": "BENDUNGAN HILIR",
+  "holder_district": "TANAH ABANG",
+  "holder_religion": "ISLAM",
+  "holder_marital_status": "BELUM KAWIN",
+  "holder_occupation": "KARYAWAN SWASTA",
+  "holder_nationality": "WNI",
+  "document_expiry_date": "SEUMUR HIDUP"
 }
 ```
 
@@ -99,10 +101,10 @@ Extracts 15/16-digit NPWP, taxpayer name, registered KPP branch office and addre
 ```json
 {
   "tax_number": "01.234.567.8-012.000",
-  "name": "PT ADIDAYA WIKASITA",
+  "business_name": "PT ADIDAYA WIKASITA",
   "tax_office": "KPP PRATAMA SETIABUDI DUA",
   "tax_office_address": "JL. GATOT SUBROTO KAV. 18",
-  "registration_date": "2018-08-15"
+  "tax_registration_date": "2018-08-15"
 }
 ```
 
@@ -112,44 +114,52 @@ Extracts the 13-digit NIB, business actor name and contact details, investment s
 
 ```json
 {
-  "number": "2210210046937",
-  "name": "PT Mitra BUMDes Nusantara",
-  "address": "LIPPO KUNINGAN TOWER LANTAI 11, JL. H.R. RASUNA SAID KAV. B-12",
-  "postal_code": "12940",
-  "phone_number": "02121393278",
-  "email": "mbn@mitrabumdes.co.id",
-  "investment_status": "PMDN",
-  "issued_place": "Jakarta",
-  "issued_date": "2021-10-22",
+  "business_number": "2210210046937",
+  "business_name": "PT Mitra BUMDes Nusantara",
+  "business_address": "LIPPO KUNINGAN TOWER LANTAI 11, JL. H.R. RASUNA SAID KAV. B-12",
+  "business_postal_code": "12940",
+  "business_phone_number": "02121393278",
+  "business_email": "mbn@mitrabumdes.co.id",
+  "business_investment_status": "PMDN",
+  "document_issued_place": "Jakarta",
+  "document_issued_date": "2021-10-22",
   "amendment_number": "1",
   "amendment_date": "2025-03-19",
-  "printed_date": "2025-03-19",
+  "document_printed_date": "2025-03-19",
   "signing_official_title": "Menteri Investasi dan Hilirisasi/ Kepala Badan Koordinasi Penanaman Modal",
-  "fields": [
+  "business_fields": [
     {
-      "no": "1",
-      "code": "46321",
-      "title": "Perdagangan Besar Daging Sapi Dan Daging Sapi Olahan",
-      "business_location": "GD. PUSAT PERUM BULOG LT. 10 JL. JEND. GATOT SUBROTO KAV.49",
-      "postal_code": "12950",
-      "risk_level": "Rendah",
-      "licenses": [
-        { "license_type": "NIB", "license_status": "Terbit", "remarks": null }
+      "field_number": "1",
+      "field_code": "46321",
+      "field_title": "Perdagangan Besar Daging Sapi Dan Daging Sapi Olahan",
+      "field_location": "GD. PUSAT PERUM BULOG LT. 10 JL. JEND. GATOT SUBROTO KAV.49",
+      "field_postal_code": "12950",
+      "field_risk": "Rendah",
+      "field_licenses": [
+        {
+          "license_type": "NIB",
+          "license_status": "Terbit",
+          "license_remarks": null
+        }
       ]
     },
     {
-      "no": "39",
-      "code": "46206",
-      "title": "Perdagangan Besar Hasil Perikanan",
-      "business_location": "GD. PUSAT PERUM BULOG LT. 10 JL. JEND. GATOT SUBROTO KAV.49",
-      "postal_code": "12950",
-      "risk_level": "Menengah Tinggi",
-      "licenses": [
-        { "license_type": "NIB", "license_status": "Terbit", "remarks": null },
+      "field_number": "39",
+      "field_code": "46206",
+      "field_title": "Perdagangan Besar Hasil Perikanan",
+      "field_location": "GD. PUSAT PERUM BULOG LT. 10 JL. JEND. GATOT SUBROTO KAV.49",
+      "field_postal_code": "12950",
+      "field_risk": "Menengah Tinggi",
+      "field_licenses": [
+        {
+          "license_type": "NIB",
+          "license_status": "Terbit",
+          "license_remarks": null
+        },
         {
           "license_type": "Sertifikat Standar",
           "license_status": "Belum Terverifikasi",
-          "remarks": "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 (sembilan puluh) hari kerja sebelum waktu perkiraan mulai beroperasi/produksi"
+          "license_remarks": "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 (sembilan puluh) hari kerja sebelum waktu perkiraan mulai beroperasi/produksi"
         }
       ]
     }
@@ -157,7 +167,7 @@ Extracts the 13-digit NIB, business actor name and contact details, investment s
 }
 ```
 
-A KBLI row's "Perizinan Berusaha" block can require more than one license (e.g. both an NIB and a Sertifikat Standar), each with its own status and remarks - `licenses` captures one entry per stacked Jenis/Status/Keterangan sub-row rather than flattening them into a single field. The `string_engine` path only parses the header fields deterministically; `fields` is filled by the LLM-based engines (`hybrid_engine` / `visual_engine`) since the multi-page attachment table isn't reliably regex-parseable.
+A KBLI row's "Perizinan Berusaha" block can require more than one license (e.g. both an NIB and a Sertifikat Standar), each with its own status and remarks - `field_licenses` captures one entry per stacked Jenis/Status/Keterangan sub-row rather than flattening them into a single field. The `string_engine` path only parses the header fields deterministically; `business_fields` is filled by the LLM-based engines (`hybrid_engine` / `visual_engine`) since the multi-page attachment table isn't reliably regex-parseable.
 
 ### 4. Taxable Entrepreneur Confirmation Letter (`tax_entity` / Indonesian SPPKP / PKP)
 
@@ -167,26 +177,29 @@ Extracts the issuing tax office, NPWP, taxpayer name, business classification (K
 {
   "letter_number": "S-47PKP/WPJ.05/KP.1003/2015",
   "tax_office_region": "KANTOR WILAYAH DJP JAKARTA BARAT",
-  "tax_office": "KPP PRATAMA JAKARTA KEBON JERUK DUA",
+  "tax_office_name": "KPP PRATAMA JAKARTA KEBON JERUK DUA",
   "tax_office_address": "JL. K.S. TUBUN 10, JAKARTA BARAT",
-  "tax_number": "01.329.904.5-039.000",
-  "name": "PT. RAMCOMAS MANDIRI",
-  "fields": [
-    { "code": "71100", "title": "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI" }
+  "business_tax_number": "01.329.904.5-039.000",
+  "business_name": "PT. RAMCOMAS MANDIRI",
+  "business_fields": [
+    {
+      "field_code": "71100",
+      "field_title": "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"
+    }
   ],
-  "address": "JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA",
-  "trade_name": null,
+  "business_address": "JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA",
+  "business_trade": null,
   "tax_obligation": "PPN",
-  "confirmed_since": "1992-03-21",
-  "issued_place": "Jakarta Barat",
-  "issued_date": "2015-04-17",
+  "letter_confirmed_since": "1992-03-21",
+  "letter_issued_place": "Jakarta Barat",
+  "letter_issued_date": "2015-04-17",
   "signing_official_title": "a.n. Kepala Kantor Kepala Seksi Pelayanan",
   "signing_official_name": "MUNAWAM",
   "signing_official_number": "196005151981031001"
 }
 ```
 
-`tax_obligation` only lists the checked box(es) (e.g. `[X] PPN`), joined with `; ` if more than one is checked; `trade_name` is `null` when the source prints only a placeholder dash. Both the `string_engine` and LLM-based engines fully support this document, since it's a single fixed-layout page with no repeating table.
+`tax_obligation` only lists the checked box(es) (e.g. `[X] PPN`), joined with `; ` if more than one is checked; `business_trade` is `null` when the source prints only a placeholder dash. Both the `string_engine` and LLM-based engines fully support this document, since it's a single fixed-layout page with no repeating table.
 
 ### 5. Passport (`identity_passport` / any ICAO Doc 9303 issuing country)
 
@@ -195,23 +208,23 @@ Unlike the Indonesian document types above, a passport's printed labels vary by 
 ```json
 {
   "document_type": "P",
-  "issuing_country": "USA",
-  "surname": "TRAVELER",
-  "given_names": "HAPPY",
-  "passport_number": "E00007734",
-  "nationality": "USA",
-  "birth_date": "1990-02-05",
-  "gender": "F",
-  "birth_place": "WASHINGTON D.C., U.S.A.",
-  "issued_date": "2020-10-15",
-  "expiry_date": "2030-10-14",
-  "issuing_authority": "UNITED STATES DEPARTMENT OF STATE",
-  "mrz_line1": "P<USATRAVELER<<HAPPY<<<<<<<<<<<<<<<<<<<<<<<<",
-  "mrz_line2": "E000077347USA6502056F3010145900100120<095838"
+  "document_issuing_country": "USA",
+  "holder_surname": "TRAVELER",
+  "holder_given_names": "HAPPY",
+  "holder_passport_number": "E00007734",
+  "holder_nationality": "USA",
+  "holder_birth_date": "1990-02-05",
+  "holder_gender": "F",
+  "holder_birth_place": "WASHINGTON D.C., U.S.A.",
+  "document_issued_date": "2020-10-15",
+  "document_expiry_date": "2030-10-14",
+  "document_issuing_authority": "UNITED STATES DEPARTMENT OF STATE",
+  "document_mrz_line1": "P<USATRAVELER<<HAPPY<<<<<<<<<<<<<<<<<<<<<<<<",
+  "document_mrz_line2": "E000077347USA6502056F3010145900100120<095838"
 }
 ```
 
-The `string_engine` path parses the MRZ deterministically by fixed character position (ICAO Doc 9303 TD3 format), which works identically regardless of issuing country - it fills every MRZ-encoded field (everything above except `birth_place`, `issued_date`, and `issuing_authority`, which aren't in the MRZ and are only ever read from the printed page by the LLM-based engines).
+The `string_engine` path parses the MRZ deterministically by fixed character position (ICAO Doc 9303 TD3 format), which works identically regardless of issuing country - it fills every MRZ-encoded field (everything above except `holder_birth_place`, `document_issued_date`, and `document_issuing_authority`, which aren't in the MRZ and are only ever read from the printed page by the LLM-based engines).
 
 ### 6. Business Deed & SK Kemenkumham (`business_deed` / Indonesian Akta + SK)
 
@@ -224,14 +237,12 @@ Extracts the key filing metadata from an Indonesian notarial business deed (Akta
   "deed_date": "2022-04-19",
   "notary_name": "JOSE DIMA SATRIA, S.H., M.Kn",
   "notary_address": "Jalan Benda, Jakarta Selatan",
-  "legal_decision": {
-    "number": "AHU-0028078.AH.01.02.TAHUN 2022",
-    "issued_date": "2022-04-19"
-  }
+  "decision_number": "AHU-0028078.AH.01.02.TAHUN 2022",
+  "decision_issued_date": "2022-04-19"
 }
 ```
 
-`deed_type` is normalized to exactly `Pendirian` (establishment) or `Perubahan` (amendment), never the deed's full title text. The `string_engine` path parses `deed_type`, `deed_number`, `deed_date`, `notary_name`, and `legal_decision` deterministically, targeting the legally mandated drafting formulas that stay consistent across notaries and decades of Kemenkumham numbering formats (old `C2-xxxxx.HT.01.01.TH.YY` style through modern `AHU-xxxxx.AH.01.02.TAHUN YYYY`) - it also knows to ignore unrelated SK numbers or deed types a deed's recital text may reference (e.g. the notary's own appointment decree, or a background mention of the company's original establishment deed within an amendment deed), keying only on the current document's own title block and opening formula. `notary_address` varies too much by notary template to parse reliably and is left for the LLM-based engines.
+`deed_type` is normalized to exactly `Pendirian` (establishment) or `Perubahan` (amendment), never the deed's full title text. The `string_engine` path parses `deed_type`, `deed_number`, `deed_date`, `notary_name`, `decision_number`, and `decision_issued_date` deterministically, targeting the legally mandated drafting formulas that stay consistent across notaries and decades of Kemenkumham numbering formats (old `C2-xxxxx.HT.01.01.TH.YY` style through modern `AHU-xxxxx.AH.01.02.TAHUN YYYY`) - it also knows to ignore unrelated SK numbers or deed types a deed's recital text may reference (e.g. the notary's own appointment decree, or a background mention of the company's original establishment deed within an amendment deed), keying only on the current document's own title block and opening formula. `notary_address` varies too much by notary template to parse reliably and is left for the LLM-based engines.
 
 ### 7. KITAS Identity Stay (`identity_stay`)
 
@@ -239,30 +250,29 @@ Extracts the holder's identity, immigration and passport identifiers, separate p
 
 ```json
 {
-  "issuing_office": "KANIM KELAS I KHUSUS NON TPI JAKARTA SELATAN",
-  "issuing_office_address": "JL. CONTOH NO. 10 JAKARTA SELATAN",
-  "niora": "AB12345678",
+  "permit_issuing_office": "KANIM KELAS I KHUSUS NON TPI JAKARTA SELATAN",
+  "permit_issuing_office_address": "JL. CONTOH NO. 10 JAKARTA SELATAN",
+  "permit_niora": "AB12345678",
   "permit_number": "2C21AB1234YZ",
   "permit_expiry_date": "2025-04-18",
   "permit_index": "1B",
-  "full_name": "JANE DOE",
-  "birth_place": "SINGAPORE",
-  "birth_date": "1984-03-04",
-  "passport_number": "P1234567",
-  "passport_expiry_date": "2028-01-11",
-  "nationality": "SINGAPURA",
-  "gender": "FEMALE",
-  "address": "JL. CONTOH NO. 10 RT 001 RW 002, KEBAYORAN LAMA",
-  "occupation": "INVESTOR",
-  "status": "INVESTMENT",
-  "guarantor_name": null,
-  "issued_place": "Jakarta",
-  "issued_date": "2024-01-26",
-  "signing_official_title": "Head of Immigration Office"
+  "holder_full_name": "JANE DOE",
+  "holder_birth_place": "SINGAPORE",
+  "holder_birth_date": "1984-03-04",
+  "holder_passport_number": "P1234567",
+  "holder_passport_expiry_date": "2028-01-11",
+  "holder_nationality": "SINGAPURA",
+  "holder_gender": "FEMALE",
+  "holder_address": "JL. CONTOH NO. 10 RT 001 RW 002, KEBAYORAN LAMA",
+  "holder_occupation": "INVESTOR",
+  "holder_status": "INVESTMENT",
+  "holder_guarantor": null,
+  "permit_issued_place": "Jakarta",
+  "permit_issued_date": "2024-01-26"
 }
 ```
 
-The `guarantor_name` and footer issue details are optional because they are absent from some samples. The `string_engine` path reads labeled rows and the issue line; covered or illegible values remain `null`.
+The `holder_guarantor` and footer issue details are optional because they are absent from some samples. The `string_engine` path reads labeled rows and the issue line; covered or illegible values remain `null`.
 
 ### 8. TKDN Local Value Certificate (`certificate_local_value`)
 
@@ -273,27 +283,27 @@ Extracts product details, TKDN value, verification and certificate numbers, comp
   "product_name": "Basket Ecenggondok",
   "product_type": "Ecenggondok",
   "product_specification": "38 x 27 x 19 cm",
-  "hs_code": "44209010",
-  "brand": null,
-  "local_value": 96.72,
+  "product_hs": "44209010",
+  "product_brand": null,
+  "product_local_value": 96.72,
   "product_standard": null,
   "product_certificate": null,
   "report_number": "LPA-3426/PK-3506/PTKDN.DIPA-INFRAS/VII/21",
-  "validity_years": 3,
-  "company_name": "CV. Contoh Indonesia",
-  "company_address": "Jl. Contoh No. 7, Bantul, D.I. Yogyakarta",
-  "company_tax_number": "82.934.355.7-543.000",
-  "industry": "Industri Barang Bangunan Dari Kayu (KBLI: 16221)",
+  "certificate_valid_year": 3,
+  "business_name": "CV. Contoh Indonesia",
+  "business_address": "Jl. Contoh No. 7, Bantul, D.I. Yogyakarta",
+  "business_tax_number": "82.934.355.7-543.000",
+  "business_field": "Industri Barang Bangunan Dari Kayu (KBLI: 16221)",
   "certificate_number": "4623/SJ-IND.8/TKDN/7/2021",
-  "issued_place": "Jakarta",
-  "issued_date": "2021-07-28",
+  "certificate_issued_place": "Jakarta",
+  "certificate_issued_date": "2021-07-28",
   "signing_official_title": "Kepala Pusat Peningkatan Penggunaan Produk Dalam Negeri",
   "signing_official_name": "Nila Kumalasari",
-  "qr_reference": "23361"
+  "certificate_qr_number": "23361"
 }
 ```
 
-Older samples say *Tanda Sah Capaian* and newer samples say *Sertifikat*. Both use the same document slug. `local_value` is a JSON number without the percent sign; a printed `Terlampir` or dash becomes `null`. `validity_years` records the stated duration without calculating an expiry date. `report_number` and `certificate_number` come from separate printed labels.
+Older samples say *Tanda Sah Capaian* and newer samples say *Sertifikat*. Both use the same document slug. `product_local_value` is a JSON number without the percent sign; a printed `Terlampir` or dash becomes `null`. `certificate_valid_year` records the stated duration without calculating an expiry date. `report_number` and `certificate_number` come from separate printed labels.
 
 ### 9. Bank Account (`bank_account`)
 
@@ -304,7 +314,7 @@ Extracts the account-holding bank, branch, account number, holder, and account t
   "bank_name": "Bank Rakyat Indonesia",
   "bank_branch": "3868 UNIT MENES LABUAN",
   "account_number": "3868-01-000123-45-6",
-  "account_holder_name": "BUDI SANTOSO",
+  "account_holder": "BUDI SANTOSO",
   "account_type": "Simpedes"
 }
 ```
@@ -317,26 +327,32 @@ Extracts student identity, institution details, education program, enrollment da
 
 ```json
 {
-  "number": "001234/2021",
+  "transcript_number": "001234/2021",
   "student_name": "Rudi Hartono",
   "student_number": "00123456",
-  "major": "Teknik Mesin",
-  "institution": "Politeknik Negeri Bandung",
-  "level": "D3",
+  "student_major": "Teknik Mesin",
+  "student_institution": "Politeknik Negeri Bandung",
+  "enroll_level": "D3",
   "enroll_date": "2010-09-01",
-  "credit": "110",
-  "grade": 3.36,
-  "issued_place": "Bandung",
-  "issued_date": "2015-10-12",
-  "courses": [
-    { "code": "TM101", "name": "Matematika", "credits": 2, "grade": 3, "semester": "I" }
+  "transcript_credit": "110",
+  "transcript_grade": 3.36,
+  "transcript_issued_place": "Bandung",
+  "transcript_issued_date": "2015-10-12",
+  "enroll_courses": [
+    {
+      "course_code": "TM101",
+      "course_name": "Matematika",
+      "course_credits": 2,
+      "course_grade": 3,
+      "course_semester": "I"
+    }
   ]
 }
 ```
 
-`number` is the document serial/transcript number; `student_number` is NIM/NPM. `major` records the field of study, using faculty when no program is printed. `level` records the education level/program, `credit` the total completed credits, and `grade` the overall IPK/GPA. The reference set contains academic transcripts and diploma attachments, including bilingual and rotated scans. The string parser reads labeled header fields; the LLM-based engines handle course tables and other layouts.
+`transcript_number` is the document serial/transcript number; `student_number` is NIM/NPM. `student_major` records the field of study, using faculty when no program is printed. `enroll_level` records the education level/program, `transcript_credit` the total completed credits, and `transcript_grade` the overall IPK/GPA. The reference set contains academic transcripts and diploma attachments, including bilingual and rotated scans. The string parser reads labeled header fields; the LLM-based engines handle course tables and other layouts.
 
-`grade`, course `credits`, and course `grade` are JSON numbers. Letter grades use the numeric equivalent from the document's own grading legend; when no equivalent is available, course `grade` is `null`.
+`transcript_grade`, course `course_credits`, and course `course_grade` are JSON numbers. Letter grades use the numeric equivalent from the document's own grading legend; when no equivalent is available, course `course_grade` is `null`.
 
 ### 11. Course / Competency Certificate (`certificate_competency`)
 
@@ -344,24 +360,22 @@ Extracts informal education credentials: course completion, training, and profes
 
 ```json
 {
-  "number": "64141 4211 2 000001 2018",
-  "name": "Budi Santoso",
-  "title": "Kasir",
-  "field": "Koperasi Jasa Keuangan",
-  "institution": "Lembaga Sertifikasi Profesi Koperasi Jasa Keuangan",
+  "certificate_number": "64141 4211 2 000001 2018",
+  "certificate_holder": "Budi Santoso",
+  "training_title": "Kasir",
+  "training_field": "Koperasi Jasa Keuangan",
+  "training_institution": "Lembaga Sertifikasi Profesi Koperasi Jasa Keuangan",
   "training_start_date": null,
   "training_end_date": null,
-  "grade": null,
-  "issued_place": "Jakarta",
-  "issued_date": "2018-12-21",
-  "expiry_date": null,
-  "signing_official_name": null,
-  "signing_official_title": null,
-  "units": null
+  "training_grade": null,
+  "certificate_issued_place": "Jakarta",
+  "certificate_issued_date": "2018-12-21",
+  "certificate_expiry_date": null,
+  "training_units": null
 }
 ```
 
-`title` is the course or qualification; `field` is the occupational area. `number` records the certificate number; holder registration numbers are excluded. `institution` records the issuing provider/body, using the overseeing authority only when no issuer is printed. Expiry dates are extracted only when explicitly printed; they are not calculated from a validity duration. `grade` remains a string so printed grades such as `A-` survive. `units` contains one `{ "code": "PDB.EI.01.001.01", "name": null }` item per printed competency unit. The string parser handles labeled details and consistent BNSP formulas; the LLM-based engines handle narrative course layouts and reverse-page unit tables.
+`training_title` is the course or qualification; `training_field` is the occupational area. `certificate_number` records the certificate number; holder registration numbers are excluded. `training_institution` records the issuing provider/body, using the overseeing authority only when no issuer is printed. Expiry dates are extracted only when explicitly printed; they are not calculated from a validity duration. `training_grade` remains a string so printed grades such as `A-` survive. `training_units` contains one `{ "unit_code": "PDB.EI.01.001.01", "unit_name": null }` item per printed competency unit. The string parser handles labeled details and consistent BNSP formulas; the LLM-based engines handle narrative course layouts and reverse-page unit tables.
 
 Initial samples are the certificate pages in this [public competency portfolio](https://cdn3.f-cdn.com/files/download/193905714/Curriculum%20Vitae%20Ahmad%20Saefudin.new.pdf) and [public course portfolio](https://cdn2.f-cdn.com/files/download/232015631/Portfolio_Apriyani.pdf), cached under `reference/Competency/` for inspection.
 
@@ -500,23 +514,23 @@ curl -X POST "http://localhost:8000/api/v1/extract/identity_card?trace=true" \
   "document_type": "identity_card",
   "filename": "ktp_sample.jpg",
   "data": {
-    "province": "DKI JAKARTA",
-    "city": "JAKARTA PUSAT",
-    "id_number": "3171010101900001",
-    "name": "BUDI SANTOSO",
-    "birth_place": "JAKARTA",
-    "birth_date": "1990-01-01",
-    "gender": "LAKI-LAKI",
-    "blood_type": "O",
-    "address": "JL. JENDERAL SUDIRMAN NO. 45",
-    "neighborhood_unit": "002/005",
-    "village": "BENDUNGAN HILIR",
-    "district": "TANAH ABANG",
-    "religion": "ISLAM",
-    "marital_status": "BELUM KAWIN",
-    "occupation": "KARYAWAN SWASTA",
-    "nationality": "WNI",
-    "expiry_date": "SEUMUR HIDUP"
+    "document_province": "DKI JAKARTA",
+    "document_city": "JAKARTA PUSAT",
+    "document_number": "3171010101900001",
+    "holder_name": "BUDI SANTOSO",
+    "holder_birth_place": "JAKARTA",
+    "holder_birth_date": "1990-01-01",
+    "holder_gender": "LAKI-LAKI",
+    "holder_blood_type": "O",
+    "holder_address": "JL. JENDERAL SUDIRMAN NO. 45",
+    "holder_neighborhood_unit": "002/005",
+    "holder_village": "BENDUNGAN HILIR",
+    "holder_district": "TANAH ABANG",
+    "holder_religion": "ISLAM",
+    "holder_marital_status": "BELUM KAWIN",
+    "holder_occupation": "KARYAWAN SWASTA",
+    "holder_nationality": "WNI",
+    "document_expiry_date": "SEUMUR HIDUP"
   },
   "trace": {
     "stages": [

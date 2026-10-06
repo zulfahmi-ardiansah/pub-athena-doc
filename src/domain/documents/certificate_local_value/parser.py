@@ -8,16 +8,16 @@ class CertificateLocalValueStringParser:
         "product_name": r"Jenis\s*Produk",
         "product_type": r"Tipe",
         "product_specification": r"Spesifikasi",
-        "hs_code": r"Kode\s*HS",
-        "brand": r"Merk",
-        "local_value": r"Nilai\s*TKDN",
+        "product_hs": r"Kode\s*HS",
+        "product_brand": r"Merk",
+        "product_local_value": r"Nilai\s*TKDN",
         "product_standard": r"Standar(?:d)?\s*Produk",
         "product_certificate": r"Sertifikat\s*Produk",
         "report_number": r"No\.?\s*Laporan",
-        "company_name": r"Nama\s*Perusahaan",
-        "company_address": r"Alamat",
-        "company_tax_number": r"NPWP",
-        "industry": r"(?:Bidang\s*Usaha|Jenis\s*Industri)",
+        "business_name": r"Nama\s*Perusahaan",
+        "business_address": r"Alamat",
+        "business_tax_number": r"NPWP",
+        "business_field": r"(?:Bidang\s*Usaha|Jenis\s*Industri)",
         "certificate_number": r"No\.?\s*Tanda\s*Sah",
     }
 
@@ -33,7 +33,7 @@ class CertificateLocalValueStringParser:
                 if not match:
                     continue
                 value = match.group(1).strip()
-                if field in ("product_specification", "company_address", "industry"):
+                if field in ("product_specification", "business_address", "business_field"):
                     continuation = []
                     for next_line in lines[index + 1:]:
                         if label_pattern.match(next_line) or re.match(r"^(?:yang\s+telah|diberikan\s+kepada|Jakarta\s*,|Kepala\s+Pusat)\b", next_line, re.IGNORECASE):
@@ -45,13 +45,13 @@ class CertificateLocalValueStringParser:
 
         validity = re.search(r"\bberlaku\s+(\d+)\s+tahun\b", raw_text, re.IGNORECASE)
         if validity:
-            data["validity_years"] = validity.group(1)
+            data["certificate_valid_year"] = validity.group(1)
 
         date_pattern = re.compile(r"^([A-Za-z][A-Za-z\s]+),\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4}|\d{1,2}[-/.]\d{1,2}[-/.]\d{4})$", re.IGNORECASE)
         for line in lines:
             match = date_pattern.match(line)
             if match:
-                data["issued_place"], data["issued_date"] = match.groups()
+                data["certificate_issued_place"], data["certificate_issued_date"] = match.groups()
                 break
 
         for index, line in enumerate(lines):
@@ -64,7 +64,7 @@ class CertificateLocalValueStringParser:
         for line in lines:
             match = re.fullmatch(r"#\s*(\d+)", line)
             if match:
-                data["qr_reference"] = match.group(1)
+                data["certificate_qr_number"] = match.group(1)
                 break
 
         return CertificateLocalValueSchema.model_validate(data)

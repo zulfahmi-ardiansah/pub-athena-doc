@@ -40,6 +40,18 @@ def test_mask_nik():
     assert len(masked) == 16
 
 
+def test_mask_renamed_document_identifiers():
+    assert sanitize_pi_dict({"document_number": "3201011205900001"}) == {
+        "document_number": "320101******0001"
+    }
+    assert sanitize_pi_dict({"business_tax_number": "01.234.567.8-123.456"}) == {
+        "business_tax_number": "01.***.***.*-***.456"
+    }
+    assert sanitize_pi_dict({"permit_niora": "AB12345678"}) == {
+        "permit_niora": "AB******78"
+    }
+
+
 def test_mask_npwp():
     # Formatted NPWP
     formatted = "01.234.567.8-123.456"

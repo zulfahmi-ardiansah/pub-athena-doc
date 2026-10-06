@@ -16,70 +16,70 @@ class BusinessNumberStringParser:
         data: Dict[str, Any] = {}
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
 
-        cls._extract_number(raw_text, lines, data)
-        cls._extract_name(raw_text, lines, data)
-        cls._extract_address(raw_text, lines, data)
-        cls._extract_postal_code(raw_text, lines, data)
-        cls._extract_phone_number(raw_text, lines, data)
-        cls._extract_email(raw_text, lines, data)
-        cls._extract_investment_status(raw_text, lines, data)
+        cls._extract_business_number(raw_text, lines, data)
+        cls._extract_business_name(raw_text, lines, data)
+        cls._extract_business_address(raw_text, lines, data)
+        cls._extract_business_postal_code(raw_text, lines, data)
+        cls._extract_business_phone_number(raw_text, lines, data)
+        cls._extract_business_email(raw_text, lines, data)
+        cls._extract_business_investment_status(raw_text, lines, data)
         cls._extract_issued_place_and_date(raw_text, lines, data)
         cls._extract_amendment(raw_text, lines, data)
-        cls._extract_printed_date(raw_text, lines, data)
+        cls._extract_document_printed_date(raw_text, lines, data)
 
         return BusinessNumberSchema.model_validate(data)
 
     @classmethod
-    def _extract_number(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_business_number(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         label_match = re.search(r"NOMOR\s*INDUK\s*BERUSAHA\s*[:\.]?\s*(\d{13})", text, re.IGNORECASE)
         if label_match:
-            data["number"] = label_match.group(1)
+            data["business_number"] = label_match.group(1)
             return
         digit_match = re.search(r"\b(\d{13})\b", text)
         if digit_match:
-            data["number"] = digit_match.group(1)
+            data["business_number"] = digit_match.group(1)
 
     @classmethod
-    def _extract_name(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_business_name(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         for line in lines:
             if re.search(r"^(?:1\.\s*)?NAMA\s*PELAKU\s*USAHA\s*[:\.]?\s*", line, re.IGNORECASE):
                 val = re.sub(r"^(?:1\.\s*)?NAMA\s*PELAKU\s*USAHA\s*[:\.]?\s*", "", line, flags=re.IGNORECASE).strip()
                 if val:
-                    data["name"] = val
+                    data["business_name"] = val
                     return
 
     @classmethod
-    def _extract_address(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_business_address(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         for line in lines:
             if re.search(r"^(?:2\.\s*)?ALAMAT\s*KANTOR\s*[:\.]?\s*", line, re.IGNORECASE):
                 val = re.sub(r"^(?:2\.\s*)?ALAMAT\s*KANTOR\s*[:\.]?\s*", "", line, flags=re.IGNORECASE).strip()
                 if val:
-                    data["address"] = val
+                    data["business_address"] = val
                     return
 
     @classmethod
-    def _extract_postal_code(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_business_postal_code(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         match = re.search(r"KODE\s*POS\s*[:\.]?\s*(\d{5})", text, re.IGNORECASE)
         if match:
-            data["postal_code"] = match.group(1)
+            data["business_postal_code"] = match.group(1)
 
     @classmethod
-    def _extract_phone_number(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_business_phone_number(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         match = re.search(r"NO\.?\s*TELEPON\s*[:\.]?\s*([\d\-\+\(\)\s]{6,20})", text, re.IGNORECASE)
         if match:
-            data["phone_number"] = match.group(1).strip()
+            data["business_phone_number"] = match.group(1).strip()
 
     @classmethod
-    def _extract_email(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_business_email(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         match = re.search(r"EMAIL\s*[:\.]?\s*([\w\.\-]+@[\w\.\-]+\.\w+)", text, re.IGNORECASE)
         if match:
-            data["email"] = match.group(1).strip()
+            data["business_email"] = match.group(1).strip()
 
     @classmethod
-    def _extract_investment_status(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_business_investment_status(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         match = re.search(r"STATUS\s*PENANAMAN\s*MODAL\s*[:\.]?\s*(PMDN|PMA)", text, re.IGNORECASE)
         if match:
-            data["investment_status"] = match.group(1).upper()
+            data["business_investment_status"] = match.group(1).upper()
 
     @classmethod
     def _extract_issued_place_and_date(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
@@ -89,12 +89,12 @@ class BusinessNumberStringParser:
             re.IGNORECASE | re.DOTALL,
         )
         if match:
-            data["issued_place"] = match.group(1).strip()
-            data["issued_date"] = match.group(2).strip()
+            data["document_issued_place"] = match.group(1).strip()
+            data["document_issued_date"] = match.group(2).strip()
             return
         place_match = re.search(r"DITERBITKAN\s*DI\s*[:\.]?\s*([A-Za-z\s]+)", text, re.IGNORECASE)
         if place_match:
-            data["issued_place"] = place_match.group(1).strip()
+            data["document_issued_place"] = place_match.group(1).strip()
 
     @classmethod
     def _extract_amendment(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
@@ -108,11 +108,11 @@ class BusinessNumberStringParser:
             data["amendment_date"] = match.group(2).strip()
 
     @classmethod
-    def _extract_printed_date(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_document_printed_date(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         match = re.search(
             r"DICETAK\s*TANGGAL\s*[:\.]?\s*(\d{1,2}\s+\w+\s+\d{4}|\d{2}[-/.]\d{2}[-/.]\d{4})",
             text,
             re.IGNORECASE,
         )
         if match:
-            data["printed_date"] = match.group(1).strip()
+            data["document_printed_date"] = match.group(1).strip()

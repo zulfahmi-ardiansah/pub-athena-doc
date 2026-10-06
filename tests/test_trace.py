@@ -15,8 +15,8 @@ async def test_hybrid_engine_trace_output():
     mock_provider.name = "ollama"
     mock_provider.model = "qwen2.5:3b"
     mock_provider.generate_structured = AsyncMock(return_value={
-        "id_number": "3171010101900001",
-        "full_name": "BUDI SANTOSO",
+        "document_number": "3171010101900001",
+        "holder_name": "BUDI SANTOSO",
         "gender": "LAKI-LAKI",
         "valid_until": "SEUMUR HIDUP"
     })
@@ -47,7 +47,7 @@ async def test_hybrid_engine_trace_output():
         document=doc,
         trace=False
     )
-    assert res_no_trace.data["id_number"] == "3171010101900001"
+    assert res_no_trace.data["document_number"] == "3171010101900001"
     assert res_no_trace.trace is None
 
     # 2. Test trace=True
@@ -58,7 +58,7 @@ async def test_hybrid_engine_trace_output():
         document=doc,
         trace=True
     )
-    assert res_with_trace.data["id_number"] == "3171010101900001"
+    assert res_with_trace.data["document_number"] == "3171010101900001"
     assert res_with_trace.trace is not None
     assert res_with_trace.trace["engine"] == "hybrid_engine"
 
@@ -90,7 +90,7 @@ async def test_string_engine_trace_output():
         document=doc,
         trace=True
     )
-    assert res.data["id_number"] == "3171010101900001"
+    assert res.data["document_number"] == "3171010101900001"
     assert res.trace is not None
     assert res.trace["engine"] == "string_engine"
     stage_names = [s["name"] for s in res.trace["stages"]]

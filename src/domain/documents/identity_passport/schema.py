@@ -20,73 +20,73 @@ class IdentityPassportSchema(BaseModel):
         description="MRZ document code, normally 'P' for an ordinary passport",
         examples=["P"]
     )
-    issuing_country: Optional[str] = Field(
+    document_issuing_country: Optional[str] = Field(
         default=None,
         description="3-letter ICAO issuing country/organization code",
         examples=["USA", "JPN", "KOR", "NLD", "PHL"]
     )
-    surname: Optional[str] = Field(
+    holder_surname: Optional[str] = Field(
         default=None,
         description="Holder's surname/family name",
         examples=["SMITH"]
     )
-    given_names: Optional[str] = Field(
+    holder_given_names: Optional[str] = Field(
         default=None,
         description="Holder's given name(s)",
         examples=["JANE"]
     )
-    passport_number: Optional[str] = Field(
+    holder_passport_number: Optional[str] = Field(
         default=None,
         description="Passport document number",
         examples=["PP3000000"]
     )
-    nationality: Optional[str] = Field(
+    holder_nationality: Optional[str] = Field(
         default=None,
         description="3-letter ICAO nationality code",
         examples=["USA", "JPN", "KOR", "NLD", "PHL"]
     )
-    birth_date: Optional[str] = Field(
+    holder_birth_date: Optional[str] = Field(
         default=None,
         description="Date of birth, normalized to ISO 8601 (YYYY-MM-DD)",
         examples=["1981-07-14"]
     )
-    gender: Optional[str] = Field(
+    holder_gender: Optional[str] = Field(
         default=None,
         description="Sex as printed/encoded: 'M', 'F', or 'X'",
         examples=["F"]
     )
-    birth_place: Optional[str] = Field(
+    holder_birth_place: Optional[str] = Field(
         default=None,
         description="Place of birth, if printed (not every issuing country prints this)",
         examples=["MANILA"]
     )
-    issued_date: Optional[str] = Field(
+    document_issued_date: Optional[str] = Field(
         default=None,
         description="Date the passport was issued, normalized to ISO 8601 (YYYY-MM-DD)",
         examples=["2013-01-01"]
     )
-    expiry_date: Optional[str] = Field(
+    document_expiry_date: Optional[str] = Field(
         default=None,
         description="Date the passport expires, normalized to ISO 8601 (YYYY-MM-DD)",
         examples=["2022-12-31"]
     )
-    issuing_authority: Optional[str] = Field(
+    document_issuing_authority: Optional[str] = Field(
         default=None,
         description="Authority that issued the passport",
         examples=["INTERIOR MINISTRY", "DFA MANILA", "UNITED STATES DEPARTMENT OF STATE"]
     )
-    mrz_line1: Optional[str] = Field(
+    document_mrz_line1: Optional[str] = Field(
         default=None,
         description="Raw first line of the Machine Readable Zone, verbatim (44 characters, TD3 format)",
         examples=["P<EOLSMITH<<JANE<<<<<<<<<<<<<<<<<<<<<<<<<<<<"]
     )
-    mrz_line2: Optional[str] = Field(
+    document_mrz_line2: Optional[str] = Field(
         default=None,
         description="Raw second line of the Machine Readable Zone, verbatim (44 characters, TD3 format)",
         examples=["PP3000009EOL8107145F2212315<<<<<<<<<<<<<<<02"]
     )
 
-    @field_validator("document_type", "issuing_country", "nationality", mode="before")
+    @field_validator("document_type", "document_issuing_country", "holder_nationality", mode="before")
     @classmethod
     def clean_code_fields(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
@@ -94,7 +94,7 @@ class IdentityPassportSchema(BaseModel):
         cleaned = v.strip().upper().replace("<", "")
         return cleaned or None
 
-    @field_validator("surname", "given_names", mode="before")
+    @field_validator("holder_surname", "holder_given_names", mode="before")
     @classmethod
     def clean_name_fields(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
@@ -104,18 +104,18 @@ class IdentityPassportSchema(BaseModel):
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
         return cleaned or None
 
-    @field_validator("passport_number", mode="before")
+    @field_validator("holder_passport_number", mode="before")
     @classmethod
-    def clean_passport_number(cls, v: Optional[str]) -> Optional[str]:
+    def clean_holder_passport_number(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:PASSPORT\s*(?:NO\.?|NUMBER|N[°o])?)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE)
         cleaned = cleaned.replace("<", "").strip()
         return cleaned or None
 
-    @field_validator("gender", mode="before")
+    @field_validator("holder_gender", mode="before")
     @classmethod
-    def clean_gender(cls, v: Optional[str]) -> Optional[str]:
+    def clean_holder_gender(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = v.strip().upper().replace("<", "")
@@ -123,14 +123,14 @@ class IdentityPassportSchema(BaseModel):
             return cleaned
         return cleaned or None
 
-    @field_validator("birth_place", "issuing_authority", mode="before")
+    @field_validator("holder_birth_place", "document_issuing_authority", mode="before")
     @classmethod
     def clean_text_fields(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         return v.strip() or None
 
-    @field_validator("birth_date", "issued_date", "expiry_date", mode="before")
+    @field_validator("holder_birth_date", "document_issued_date", "document_expiry_date", mode="before")
     @classmethod
     def clean_date_fields(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
@@ -139,7 +139,7 @@ class IdentityPassportSchema(BaseModel):
         iso_date = normalize_to_iso_date(cleaned)
         return iso_date or (cleaned or None)
 
-    @field_validator("mrz_line1", "mrz_line2", mode="before")
+    @field_validator("document_mrz_line1", "document_mrz_line2", mode="before")
     @classmethod
     def clean_mrz_line(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):

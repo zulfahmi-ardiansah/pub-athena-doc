@@ -14,7 +14,7 @@ from src.domain.documents.tax_entity import (
 )
 from src.domain.documents.identity_passport.schema import IdentityPassportSchema
 from src.domain.documents.identity_passport import IdentityPassportDocument, IdentityPassportStringParser
-from src.domain.documents.business_deed.schema import BusinessDeedSchema, SKKemenkumham
+from src.domain.documents.business_deed.schema import BusinessDeedSchema
 from src.domain.documents.business_deed import BusinessDeedDocument, BusinessDeedStringParser
 from src.domain.documents.identity_stay import IdentityStayDocument, IdentityStaySchema
 from src.domain.documents.certificate_local_value import CertificateLocalValueDocument, CertificateLocalValueSchema
@@ -48,34 +48,34 @@ def test_certificate_competency_schema_and_prompt():
     doc = CertificateCompetencyDocument()
     schema = doc.get_json_schema()
     assert set(schema["properties"]) == set(CertificateCompetencySchema.model_fields)
-    assert {"birth_place", "birth_date", "validity_period", "duration", "authority", "training_institution", "training_grade", "competency_field", "training_field", "registration_number"}.isdisjoint(schema["properties"])
-    assert set(schema["$defs"]["CompetencyUnit"]["properties"]) == {"code", "name"}
+    assert {"birth_place", "birth_date", "validity_period", "duration", "authority", "competency_field", "registration_number"}.isdisjoint(schema["properties"])
+    assert set(schema["$defs"]["CompetencyUnit"]["properties"]) == {"unit_code", "unit_name"}
     prompt = doc.build_system_prompt()
-    assert all(field in prompt for field in schema["properties"])
-    assert "YYYY-MM-DD" in prompt and "do not calculate expiry_date" in prompt
+    assert all(training_field in prompt for training_field in schema["properties"])
+    assert "YYYY-MM-DD" in prompt and "do not calculate certificate_expiry_date" in prompt
     assert "```text\nNama: BUDI SANTOSO\n```" in doc.build_user_prompt("Nama: BUDI SANTOSO")
 
 
 def test_certificate_competency_schema_normalization():
     model = CertificateCompetencySchema.model_validate({
-        "number": "No. 001/2021",
-        "name": "Nama Peserta: Budi Santoso",
-        "title": "Nama Kursus: SME Course",
+        "certificate_number": "No. 001/2021",
+        "certificate_holder": "Nama Peserta: Budi Santoso",
+        "training_title": "Nama Kursus: SME Course",
         "training_start_date": "Start Date: July 1, 2022",
         "training_end_date": "Tanggal Selesai: 31 Oktober 2022",
-        "issued_date": "Tanggal Terbit: 24 November 2022",
-        "grade": "Nilai: A-",
-        "field": "-",
+        "certificate_issued_date": "Tanggal Terbit: 24 November 2022",
+        "training_grade": "Nilai: A-",
+        "training_field": "-",
     })
-    assert model.number == "001/2021"
-    assert model.name == "Budi Santoso"
-    assert model.title == "SME Course"
+    assert model.certificate_number == "001/2021"
+    assert model.certificate_holder == "Budi Santoso"
+    assert model.training_title == "SME Course"
     assert model.training_start_date == "2022-07-01"
     assert model.training_end_date == "2022-10-31"
-    assert model.issued_date == "2022-11-24"
-    assert model.expiry_date is None
-    assert model.grade == "A-"
-    assert model.field is None
+    assert model.certificate_issued_date == "2022-11-24"
+    assert model.certificate_expiry_date is None
+    assert model.training_grade == "A-"
+    assert model.training_field is None
 
 
 def test_certificate_competency_bnsp_parser():
@@ -97,13 +97,13 @@ def test_certificate_competency_bnsp_parser():
     Jakarta, 21 Desember 2018
     Lembaga Sertifikasi Profesi Koperasi Jasa Keuangan
     """)
-    assert parsed.number == "64141 4211 2 000001 2018"
-    assert parsed.name == "BUDI SANTOSO"
-    assert parsed.title == "KASIR"
-    assert parsed.field == "Koperasi Jasa Keuangan"
-    assert parsed.institution == "Lembaga Sertifikasi Profesi Koperasi Jasa Keuangan"
-    assert parsed.issued_date == "2018-12-21"
-    assert parsed.expiry_date is None
+    assert parsed.certificate_number == "64141 4211 2 000001 2018"
+    assert parsed.certificate_holder == "BUDI SANTOSO"
+    assert parsed.training_title == "KASIR"
+    assert parsed.training_field == "Koperasi Jasa Keuangan"
+    assert parsed.training_institution == "Lembaga Sertifikasi Profesi Koperasi Jasa Keuangan"
+    assert parsed.certificate_issued_date == "2018-12-21"
+    assert parsed.certificate_expiry_date is None
 
 
 def test_certificate_competency_code_only_units_parser():
@@ -122,9 +122,9 @@ def test_certificate_competency_code_only_units_parser():
     Jakarta, 24 November 2018
     Lembaga Sertifikasi Profesi LP3I
     """)
-    assert parsed.units and [unit.code for unit in parsed.units] == ["PDB.EI.01.001.01", "PDB.EI.01.005.01"]
-    assert all(unit.name is None for unit in parsed.units)
-    assert parsed.title is None
+    assert parsed.training_units and [unit.unit_code for unit in parsed.training_units] == ["PDB.EI.01.001.01", "PDB.EI.01.005.01"]
+    assert all(unit.unit_name is None for unit in parsed.training_units)
+    assert parsed.training_title is None
 
 
 def test_certificate_competency_course_parser():
@@ -135,23 +135,23 @@ def test_certificate_competency_course_parser():
     Issued Date: July 30, 2021
     Valid Until: July 30, 2024
     """)
-    assert parsed.name == "SITI AMINAH"
-    assert parsed.title == "Belajar Dasar Pemrograman JavaScript"
-    assert parsed.institution == "Dicoding"
-    assert parsed.issued_date == "2021-07-30"
-    assert parsed.expiry_date == "2024-07-30"
-    assert parsed.units is None
+    assert parsed.certificate_holder == "SITI AMINAH"
+    assert parsed.training_title == "Belajar Dasar Pemrograman JavaScript"
+    assert parsed.training_institution == "Dicoding"
+    assert parsed.certificate_issued_date == "2021-07-30"
+    assert parsed.certificate_expiry_date == "2024-07-30"
+    assert parsed.training_units is None
 
 
 def test_certificate_competency_authority_fallback():
     doc = CertificateCompetencyDocument()
-    assert doc.parse_string("Authority: BNSP").institution == "BNSP"
-    assert doc.parse_string("BADAN NASIONAL SERTIFIKASI PROFESI").institution == "Badan Nasional Sertifikasi Profesi"
+    assert doc.parse_string("Authority: BNSP").training_institution == "BNSP"
+    assert doc.parse_string("BADAN NASIONAL SERTIFIKASI PROFESI").training_institution == "Badan Nasional Sertifikasi Profesi"
     parsed = doc.parse_string("Authority: BNSP\nIssuer: LSP LP3I\nGrade: A-\nCompetency Field: Ekspor")
-    assert parsed.institution == "LSP LP3I"
-    assert parsed.grade == "A-"
-    assert parsed.field == "Ekspor"
-    assert CertificateCompetencySchema.model_validate({"institution": "Authority: BNSP"}).institution == "BNSP"
+    assert parsed.training_institution == "LSP LP3I"
+    assert parsed.training_grade == "A-"
+    assert parsed.training_field == "Ekspor"
+    assert CertificateCompetencySchema.model_validate({"training_institution": "Authority: BNSP"}).training_institution == "BNSP"
 
 
 def test_certificate_education_schema_and_prompt():
@@ -159,69 +159,69 @@ def test_certificate_education_schema_and_prompt():
     schema = doc.get_json_schema()
     properties = schema["properties"]
     assert list(properties) == [
-        "number", "student_name", "student_number", "major",
-        "institution",
-        "level", "enroll_date", "credit", "grade",
-        "issued_place", "issued_date", "courses",
+        "transcript_number", "student_name", "student_number", "student_major",
+        "student_institution",
+        "enroll_level", "enroll_date", "transcript_credit", "transcript_grade",
+        "transcript_issued_place", "transcript_issued_date", "enroll_courses",
     ]
-    assert set(schema["$defs"]["AcademicCourse"]["properties"]) == {"code", "name", "credits", "grade", "semester"}
+    assert set(schema["$defs"]["AcademicCourse"]["properties"]) == {"course_code", "course_name", "course_credits", "course_grade", "course_semester"}
     prompt = doc.build_system_prompt()
     assert all(field in prompt for field in properties)
     assert "side-by-side" in prompt and "YYYY-MM-DD" in prompt
-    assert {"birth_place", "birth_date", "education_address", "enroll_level", "enroll_credit", "enroll_grade", "education_institution", "student_major"}.isdisjoint(properties)
+    assert {"birth_place", "birth_date", "education_address", "enroll_credit", "enroll_grade", "education_institution"}.isdisjoint(properties)
     assert "```text\nNama: RUDI HARTONO\n```" in doc.build_user_prompt("Nama: RUDI HARTONO")
 
 
 def test_certificate_education_schema_normalization():
     model = CertificateEducationSchema.model_validate({
-        "number": "No. Seri: 00123/2021",
+        "transcript_number": "No. Seri: 00123/2021",
         "student_name": "Nama Mahasiswa: Rudi Hartono",
         "student_number": "NIM: 00123456",
-        "major": "Program Studi: Teknik Mesin",
-        "institution": "Lembaga Pendidikan: Politeknik Negeri Bandung",
-        "level": "Program Pendidikan: Diploma III",
+        "student_major": "Program Studi: Teknik Mesin",
+        "student_institution": "Lembaga Pendidikan: Politeknik Negeri Bandung",
+        "enroll_level": "Program Pendidikan: Diploma III",
         "enroll_date": "Tanggal Masuk: 1 September 2010",
-        "credit": "Jumlah SKS: 110",
-        "grade": "IPK: 3,36",
-        "issued_date": "Issued Date: July 30, 2021",
-        "courses": [{"code": "TM101", "name": "Kalkulus", "credits": "2", "grade": "3,5", "semester": "I"}],
+        "transcript_credit": "Jumlah SKS: 110",
+        "transcript_grade": "IPK: 3,36",
+        "transcript_issued_date": "Issued Date: July 30, 2021",
+        "enroll_courses": [{"course_code": "TM101", "course_name": "Kalkulus", "course_credits": "2", "course_grade": "3,5", "course_semester": "I"}],
     })
-    assert model.number == "00123/2021"
+    assert model.transcript_number == "00123/2021"
     assert model.student_name == "Rudi Hartono"
     assert model.student_number == "00123456"
-    assert model.major == "Teknik Mesin"
-    assert model.level == "D3"
+    assert model.student_major == "Teknik Mesin"
+    assert model.enroll_level == "D3"
     assert model.enroll_date == "2010-09-01"
-    assert model.credit == "110"
-    assert model.grade == 3.36
-    assert model.issued_date == "2021-07-30"
-    assert model.courses and model.courses[0].semester == "I"
-    assert model.courses[0].credits == 2
-    assert model.courses[0].grade == 3.5
-    assert '"grade":3.36' in model.model_dump_json()
-    assert '"credits":2.0' in model.model_dump_json()
-    assert '"grade":3.5' in model.model_dump_json()
+    assert model.transcript_credit == "110"
+    assert model.transcript_grade == 3.36
+    assert model.transcript_issued_date == "2021-07-30"
+    assert model.enroll_courses and model.enroll_courses[0].course_semester == "I"
+    assert model.enroll_courses[0].course_credits == 2
+    assert model.enroll_courses[0].course_grade == 3.5
+    assert '"transcript_grade":3.36' in model.model_dump_json()
+    assert '"course_credits":2.0' in model.model_dump_json()
+    assert '"course_grade":3.5' in model.model_dump_json()
 
 
 def test_certificate_education_numeric_fields():
     model = CertificateEducationSchema.model_validate({
-        "grade": 4,
-        "courses": [
-            {"credits": 2.5, "grade": 85},
-            {"credits": "SKS: 2", "grade": "Grade: 3,25"},
-            {"credits": "-", "grade": "B+"},
+        "transcript_grade": 4,
+        "enroll_courses": [
+            {"course_credits": 2.5, "course_grade": 85},
+            {"course_credits": "SKS: 2", "course_grade": "Grade: 3,25"},
+            {"course_credits": "-", "course_grade": "B+"},
         ],
     })
-    assert model.grade == 4
-    assert model.courses and model.courses[0].credits == 2.5
-    assert model.courses[0].grade == 85
-    assert model.courses[1].credits == 2
-    assert model.courses[1].grade == 3.25
-    assert model.courses[2].credits is None
-    assert model.courses[2].grade is None
-    assert CertificateEducationSchema.model_validate({"grade": "3,22 (tiga koma dua dua)"}).grade == 3.22
-    assert CertificateEducationSchema.model_validate({"grade": True}).grade is None
-    assert CertificateEducationSchema.model_validate({"grade": float("inf")}).grade is None
+    assert model.transcript_grade == 4
+    assert model.enroll_courses and model.enroll_courses[0].course_credits == 2.5
+    assert model.enroll_courses[0].course_grade == 85
+    assert model.enroll_courses[1].course_credits == 2
+    assert model.enroll_courses[1].course_grade == 3.25
+    assert model.enroll_courses[2].course_credits is None
+    assert model.enroll_courses[2].course_grade is None
+    assert CertificateEducationSchema.model_validate({"transcript_grade": "3,22 (tiga koma dua dua)"}).transcript_grade == 3.22
+    assert CertificateEducationSchema.model_validate({"transcript_grade": True}).transcript_grade is None
+    assert CertificateEducationSchema.model_validate({"transcript_grade": float("inf")}).transcript_grade is None
 
 
 def test_certificate_education_transcript_parser():
@@ -240,18 +240,18 @@ def test_certificate_education_transcript_parser():
     Jumlah SKS : 146
     Medan, 25 Februari 2012
     """)
-    assert parsed.number == "001234"
+    assert parsed.transcript_number == "001234"
     assert parsed.student_name == "RUDI HARTONO"
     assert parsed.student_number == "060100094"
-    assert parsed.institution == "UNIVERSITAS SUMATERA UTARA"
-    assert parsed.major == "FAKULTAS KEDOKTERAN"
-    assert parsed.level == "Profesi Dokter"
+    assert parsed.student_institution == "UNIVERSITAS SUMATERA UTARA"
+    assert parsed.student_major == "FAKULTAS KEDOKTERAN"
+    assert parsed.enroll_level == "Profesi Dokter"
     assert parsed.enroll_date == "2010-02-01"
-    assert parsed.credit == "146"
-    assert parsed.grade == 3.18
-    assert parsed.issued_place == "Medan"
-    assert parsed.issued_date == "2012-02-25"
-    assert parsed.courses is None
+    assert parsed.transcript_credit == "146"
+    assert parsed.transcript_grade == 3.18
+    assert parsed.transcript_issued_place == "Medan"
+    assert parsed.transcript_issued_date == "2012-02-25"
+    assert parsed.enroll_courses is None
 
 
 def test_certificate_education_english_enclosure_parser():
@@ -271,30 +271,30 @@ def test_certificate_education_english_enclosure_parser():
     Makassar, July 30, 2021
     """)
     assert parsed.student_name == "DARY SETIAWAN"
-    assert parsed.major == "Geography Education"
-    assert parsed.level == "S1"
+    assert parsed.student_major == "Geography Education"
+    assert parsed.enroll_level == "S1"
     assert parsed.enroll_date is None
-    assert parsed.issued_date == "2021-07-30"
+    assert parsed.transcript_issued_date == "2021-07-30"
     assert parsed.student_number == "001615442008"
-    assert parsed.number == "872022021000837"
-    assert parsed.credit == "148"
+    assert parsed.transcript_number == "872022021000837"
+    assert parsed.transcript_credit == "148"
 
 
 def test_bank_account_schema_and_prompt():
     doc = BankAccountDocument()
     properties = doc.get_json_schema()["properties"]
-    assert set(properties) == {"bank_name", "bank_branch", "account_number", "account_holder_name", "account_type"}
+    assert set(properties) == {"bank_name", "bank_branch", "account_number", "account_holder", "account_type"}
     prompt = doc.build_system_prompt()
     assert all(field in prompt for field in properties)
     assert "balances" in prompt and "transaction tables" in prompt
     assert "```text\nNo. Rekening : 00001-2345\n```" in doc.build_user_prompt("No. Rekening : 00001-2345")
     model = BankAccountSchema.model_validate({
         "account_number": "No. Rekening : 00001-2345",
-        "account_holder_name": "Atas Nama : PT CONTOH MAKMUR",
+        "account_holder": "Atas Nama : PT CONTOH MAKMUR",
         "account_type": "Jenis Rekening : Tabungan",
     })
     assert model.account_number == "00001-2345"
-    assert model.account_holder_name == "PT CONTOH MAKMUR"
+    assert model.account_holder == "PT CONTOH MAKMUR"
     assert model.account_type == "Tabungan"
     assert BankAccountSchema.model_validate({"bank_branch": "Cabang: KCP Jakarta Cibis Nine"}).bank_branch == "KCP Jakarta Cibis Nine"
     assert BankAccountSchema.model_validate({"bank_branch": "KCP SUNGKONO"}).bank_branch == "KCP SUNGKONO"
@@ -314,7 +314,7 @@ def test_bank_account_passbook_parser():
     assert parsed.bank_name == "Bank Rakyat Indonesia"
     assert parsed.bank_branch == "3868 UNIT MENES LABUAN"
     assert parsed.account_number == "3868-01-000123-45-6"
-    assert parsed.account_holder_name == "BUDI SANTOSO"
+    assert parsed.account_holder == "BUDI SANTOSO"
     assert parsed.account_type == "Simpedes"
     assert "customer_id" not in parsed.model_dump()
     assert "passbook_serial_number" not in parsed.model_dump()
@@ -331,7 +331,7 @@ def test_bank_account_unlabeled_bca_passbook_parser():
     assert parsed.bank_name == "Bank Central Asia"
     assert parsed.bank_branch == "KCP SUNGKONO"
     assert parsed.account_number == "0001234567"
-    assert parsed.account_holder_name == "JANE DOE"
+    assert parsed.account_holder == "JANE DOE"
 
 
 def test_bank_account_statement_and_letter_parser():
@@ -347,7 +347,7 @@ def test_bank_account_statement_and_letter_parser():
     assert statement.bank_name == "Bank Mandiri"
     assert statement.bank_branch == "KCP Jakarta Cibis Nine"
     assert statement.account_number == "1270000001234"
-    assert statement.account_holder_name == "PT CONTOH JAYA"
+    assert statement.account_holder == "PT CONTOH JAYA"
     assert "opening_balance" not in statement.model_dump()
     assert "transactions" not in statement.model_dump()
 
@@ -361,7 +361,7 @@ def test_bank_account_statement_and_letter_parser():
     assert letter.bank_name == "Bank Danamon"
     assert letter.bank_branch == "Puri Kencana"
     assert letter.account_number == "4101234"
-    assert letter.account_holder_name == "PT CONTOH MAKMUR"
+    assert letter.account_holder == "PT CONTOH MAKMUR"
 
 
 def test_certificate_local_value_schema_and_prompt():
@@ -378,27 +378,27 @@ def test_certificate_local_value_schema_and_prompt():
 def test_certificate_local_value_schema_normalization():
     model = CertificateLocalValueSchema.model_validate({
         "product_name": "Jenis Produk : Basket Ecenggondok",
-        "local_value": "Nilai TKDN : 96,72%",
+        "product_local_value": "Nilai TKDN : 96,72%",
         "product_standard": "Standard Produk : -",
-        "brand": "Merk : -",
-        "company_tax_number": "NPWP : 82.934.355.7-543.000",
-        "industry": "Bidang Usaha : Industri Barang Bangunan Dari Kayu (KBLI: 16221)",
-        "issued_date": "Issued Date : 28 Juli 2021",
+        "product_brand": "Merk : -",
+        "business_tax_number": "NPWP : 82.934.355.7-543.000",
+        "business_field": "Bidang Usaha : Industri Barang Bangunan Dari Kayu (KBLI: 16221)",
+        "certificate_issued_date": "Issued Date : 28 Juli 2021",
     })
     assert model.product_name == "Basket Ecenggondok"
-    assert model.local_value == 96.72
-    assert '"local_value":96.72' in model.model_dump_json()
+    assert model.product_local_value == 96.72
+    assert '"product_local_value":96.72' in model.model_dump_json()
     assert model.product_standard is None
-    assert model.brand is None
-    assert model.company_tax_number == "82.934.355.7-543.000"
-    assert model.industry == "Industri Barang Bangunan Dari Kayu (KBLI: 16221)"
-    assert model.issued_date == "2021-07-28"
-    assert CertificateLocalValueSchema.model_validate({"local_value": "Nilai TKDN : (Terlampir)"}).local_value is None
-    assert CertificateLocalValueSchema.model_validate({"local_value": "Nilai TKDN : 96.72"}).local_value == 96.72
-    assert CertificateLocalValueSchema.model_validate({"local_value": 96.72}).local_value == 96.72
-    assert CertificateLocalValueSchema.model_validate({"validity_years": "berlaku 2 tahun"}).validity_years == 2
-    assert CertificateLocalValueSchema.model_validate({"validity_years": 3}).validity_years == 3
-    assert CertificateLocalValueSchema.model_validate({"validity_years": "-"}).validity_years is None
+    assert model.product_brand is None
+    assert model.business_tax_number == "82.934.355.7-543.000"
+    assert model.business_field == "Industri Barang Bangunan Dari Kayu (KBLI: 16221)"
+    assert model.certificate_issued_date == "2021-07-28"
+    assert CertificateLocalValueSchema.model_validate({"product_local_value": "Nilai TKDN : (Terlampir)"}).product_local_value is None
+    assert CertificateLocalValueSchema.model_validate({"product_local_value": "Nilai TKDN : 96.72"}).product_local_value == 96.72
+    assert CertificateLocalValueSchema.model_validate({"product_local_value": 96.72}).product_local_value == 96.72
+    assert CertificateLocalValueSchema.model_validate({"certificate_valid_year": "berlaku 2 tahun"}).certificate_valid_year == 2
+    assert CertificateLocalValueSchema.model_validate({"certificate_valid_year": 3}).certificate_valid_year == 3
+    assert CertificateLocalValueSchema.model_validate({"certificate_valid_year": "-"}).certificate_valid_year is None
 
 
 def test_certificate_local_value_string_parser_legacy_title():
@@ -434,25 +434,25 @@ def test_certificate_local_value_string_parser_legacy_title():
     assert parsed.product_name == "Basket Ecenggondok"
     assert parsed.product_type == "Ecenggondok"
     assert parsed.product_specification == "38 x 27 x 19 cm"
-    assert parsed.hs_code == "44209010"
-    assert parsed.brand is None
-    assert parsed.local_value == 96.72
+    assert parsed.product_hs == "44209010"
+    assert parsed.product_brand is None
+    assert parsed.product_local_value == 96.72
     assert "tkdn_in_words" not in parsed.model_dump()
     assert parsed.product_standard is None
     assert parsed.product_certificate is None
     assert parsed.report_number == "LPA-3426/PK-3506/PTKDN.DIPA-INFRAS/VII/21"
-    assert parsed.validity_years == 3
-    assert '"validity_years":3' in parsed.model_dump_json()
-    assert parsed.company_name == "CV. Contoh Indonesia"
-    assert parsed.company_address == "Jl. Contoh No. 7, Bantul D.I. Yogyakarta"
-    assert parsed.company_tax_number == "82.934.355.7-543.000"
-    assert parsed.industry == "Industri Barang Bangunan Dari Kayu (KBLI: 16221)"
+    assert parsed.certificate_valid_year == 3
+    assert '"certificate_valid_year":3' in parsed.model_dump_json()
+    assert parsed.business_name == "CV. Contoh Indonesia"
+    assert parsed.business_address == "Jl. Contoh No. 7, Bantul D.I. Yogyakarta"
+    assert parsed.business_tax_number == "82.934.355.7-543.000"
+    assert parsed.business_field == "Industri Barang Bangunan Dari Kayu (KBLI: 16221)"
     assert parsed.certificate_number == "4623/SJ-IND.8/TKDN/7/2021"
-    assert parsed.issued_place == "Jakarta"
-    assert parsed.issued_date == "2021-07-28"
+    assert parsed.certificate_issued_place == "Jakarta"
+    assert parsed.certificate_issued_date == "2021-07-28"
     assert parsed.signing_official_title == "Kepala Pusat Peningkatan Penggunaan Produk Dalam Negeri"
     assert parsed.signing_official_name == "Nila Kumalasari"
-    assert parsed.qr_reference == "23361"
+    assert parsed.certificate_qr_number == "23361"
 
 
 def test_certificate_local_value_string_parser_new_title_and_attachment():
@@ -483,10 +483,10 @@ def test_certificate_local_value_string_parser_new_title_and_attachment():
     parsed = CertificateLocalValueDocument().parse_string(raw_text)
     assert parsed.product_specification == "Ukuran: 200x200x120mm s.d. 2000x3200x800mm"
     assert parsed.product_type is None
-    assert parsed.local_value is None
-    assert parsed.industry == "Industri Peralatan Listrik Lainnya (KBLI: 27900)"
-    assert parsed.issued_date == "2025-10-23"
-    assert parsed.qr_reference is None
+    assert parsed.product_local_value is None
+    assert parsed.business_field == "Industri Peralatan Listrik Lainnya (KBLI: 27900)"
+    assert parsed.certificate_issued_date == "2025-10-23"
+    assert parsed.certificate_qr_number is None
 
 
 def test_identity_stay_schema_and_prompt():
@@ -502,23 +502,23 @@ def test_identity_stay_schema_and_prompt():
 
 def test_identity_stay_schema_normalization():
     model = IdentityStaySchema.model_validate({
-        "niora": "NIORA : AB12345678",
+        "permit_niora": "NIORA : AB12345678",
         "permit_number": "Permit Number : 2C21AB1234YZ",
-        "birth_place": "Place / Date of Birth : SINGAPORE / 04-03-1984",
-        "birth_date": "Place / Date of Birth : SINGAPORE / 04-03-1984",
+        "holder_birth_place": "Place / Date of Birth : SINGAPORE / 04-03-1984",
+        "holder_birth_date": "Place / Date of Birth : SINGAPORE / 04-03-1984",
         "permit_expiry_date": "Stay/Multiple Entries Permit Expiry : 18-12-2020",
-        "passport_expiry_date": "Passport Expiry : 11-01-2028",
-        "issued_date": "Issued Date : 26 Januari 2024",
-        "guarantor_name": "-",
+        "holder_passport_expiry_date": "Passport Expiry : 11-01-2028",
+        "permit_issued_date": "Issued Date : 26 Januari 2024",
+        "holder_guarantor": "-",
     })
-    assert model.niora == "AB12345678"
+    assert model.permit_niora == "AB12345678"
     assert model.permit_number == "2C21AB1234YZ"
-    assert model.birth_place == "SINGAPORE"
-    assert model.birth_date == "1984-03-04"
+    assert model.holder_birth_place == "SINGAPORE"
+    assert model.holder_birth_date == "1984-03-04"
     assert model.permit_expiry_date == "2020-12-18"
-    assert model.passport_expiry_date == "2028-01-11"
-    assert model.issued_date == "2024-01-26"
-    assert model.guarantor_name is None
+    assert model.holder_passport_expiry_date == "2028-01-11"
+    assert model.permit_issued_date == "2024-01-26"
+    assert model.holder_guarantor is None
 
 
 def test_identity_stay_string_parser():
@@ -545,111 +545,110 @@ def test_identity_stay_string_parser():
     Head of Kelas I Khusus Non TPI Jakarta Selatan Immigration Office.
     """
     parsed = IdentityStayDocument().parse_string(raw_text)
-    assert parsed.issuing_office == "KANIM KELAS I KHUSUS NON TPI JAKARTA SELATAN"
-    assert parsed.issuing_office_address == "JL. CONTOH NO. 10 JAKARTA SELATAN"
-    assert parsed.niora == "AB12345678"
+    assert parsed.permit_issuing_office == "KANIM KELAS I KHUSUS NON TPI JAKARTA SELATAN"
+    assert parsed.permit_issuing_office_address == "JL. CONTOH NO. 10 JAKARTA SELATAN"
+    assert parsed.permit_niora == "AB12345678"
     assert parsed.permit_number == "2C21AB1234YZ"
     assert parsed.permit_expiry_date == "2020-12-18"
     assert parsed.permit_index == "1B"
-    assert parsed.full_name == "JANE DOE"
-    assert parsed.birth_place == "SINGAPORE"
-    assert parsed.birth_date == "1984-03-04"
-    assert parsed.passport_number == "P1234567"
-    assert parsed.passport_expiry_date == "2028-01-11"
-    assert parsed.nationality == "SINGAPURA"
-    assert parsed.gender == "FEMALE"
-    assert parsed.address == "JL. CONTOH NO. 10 RT 001 RW 002 KEBAYORAN LAMA"
-    assert parsed.occupation == "INVESTOR"
-    assert parsed.status == "INVESTMENT"
-    assert parsed.guarantor_name == "PT CONTOH INDONESIA"
-    assert parsed.issued_place == "Jakarta"
-    assert parsed.issued_date == "2024-01-26"
-    assert parsed.signing_official_title.startswith("Head of Kelas I")
+    assert parsed.holder_full_name == "JANE DOE"
+    assert parsed.holder_birth_place == "SINGAPORE"
+    assert parsed.holder_birth_date == "1984-03-04"
+    assert parsed.holder_passport_number == "P1234567"
+    assert parsed.holder_passport_expiry_date == "2028-01-11"
+    assert parsed.holder_nationality == "SINGAPURA"
+    assert parsed.holder_gender == "FEMALE"
+    assert parsed.holder_address == "JL. CONTOH NO. 10 RT 001 RW 002 KEBAYORAN LAMA"
+    assert parsed.holder_occupation == "INVESTOR"
+    assert parsed.holder_status == "INVESTMENT"
+    assert parsed.holder_guarantor == "PT CONTOH INDONESIA"
+    assert parsed.permit_issued_place == "Jakarta"
+    assert parsed.permit_issued_date == "2024-01-26"
 
 
 def test_identity_stay_obscured_values_remain_null():
     parsed = IdentityStayDocument().parse_string("NIORA :\nPermit Number :\nGuarantor Name : -\nPassport Expiry : -")
-    assert parsed.niora is None
+    assert parsed.permit_niora is None
     assert parsed.permit_number is None
-    assert parsed.guarantor_name is None
-    assert parsed.passport_expiry_date is None
+    assert parsed.holder_guarantor is None
+    assert parsed.holder_passport_expiry_date is None
 
 
 def test_identity_card_schema_validation():
     data = {
-        "id_number": "3171-0101-0190-0001",
-        "name": "JOHN DOE",
-        "gender": "LAKI-LAKI",
-        "expiry_date": "SEUMUR HIDUP"
+        "document_number": "3171-0101-0190-0001",
+        "holder_name": "JOHN DOE",
+        "holder_gender": "LAKI-LAKI",
+        "document_expiry_date": "SEUMUR HIDUP"
     }
     model = IdentityCardSchema.model_validate(data)
-    assert model.id_number == "3171010101900001"
-    assert model.name == "JOHN DOE"
-    assert model.nationality == "WNI"
+    assert model.document_number == "3171010101900001"
+    assert model.holder_name == "JOHN DOE"
+    assert model.holder_nationality == "WNI"
 
 
 def test_tax_number_schema_validation():
     data = {
         "tax_number": "01.234.567.8-901.000",
-        "name": "PT CONTOH MAKMUR",
+        "business_name": "PT CONTOH MAKMUR",
         "tax_office": "KPP PRATAMA JAKARTA TANAH ABANG",
         "tax_office_address": "JL KH MAS MANSYUR NO. 71"
     }
     model = TaxNumberSchema.model_validate(data)
     assert model.tax_number == "01.234.567.8-901.000"
-    assert model.name == "PT CONTOH MAKMUR"
+    assert model.business_name == "PT CONTOH MAKMUR"
     assert model.tax_office == "KPP PRATAMA JAKARTA TANAH ABANG"
     assert model.tax_office_address == "JL KH MAS MANSYUR NO. 71"
 
 
 def test_identity_card_jokowi_sample_validation():
     data = {
-        "province": "PROVINSI DKI JAKARTA",
-        "city": "JAKARTA PUSAT",
-        "id_number": "NIK : 3372052106610006",
-        "name": "IR JOKO WIDODO",
-        "birth_place": "SURAKARTA",
-        "birth_date": "21-06-1961",
-        "gender": "LAKI-LAKI",
-        "blood_type": "A",
-        "address": "JL TAMAN SUROPATI NO. 7",
-        "neighborhood_unit": "005",
-        "village": "MENTENG",
-        "district": "MENTENG",
-        "religion": "ISLAM",
-        "marital_status": "KAWIN",
-        "occupation": "GUBERNUR",
-        "nationality": "WNI",
-        "expiry_date": "21-06-2017"
+        "document_province": "PROVINSI DKI JAKARTA",
+        "document_city": "JAKARTA PUSAT",
+        "document_number": "NIK : 3372052106610006",
+        "holder_name": "IR JOKO WIDODO",
+        "holder_birth_place": "SURAKARTA",
+        "holder_birth_date": "21-06-1961",
+        "holder_gender": "LAKI-LAKI",
+        "holder_blood_type": "A",
+        "holder_address": "JL TAMAN SUROPATI NO. 7",
+        "holder_neighborhood_unit": "005",
+        "holder_village": "MENTENG",
+        "holder_district": "MENTENG",
+        "holder_religion": "ISLAM",
+        "holder_marital_status": "KAWIN",
+        "holder_occupation": "GUBERNUR",
+        "holder_nationality": "WNI",
+        "document_expiry_date": "21-06-2017"
     }
     model = IdentityCardSchema.model_validate(data)
-    assert model.province == "DKI JAKARTA"
-    assert model.city == "JAKARTA PUSAT"
-    assert model.id_number == "3372052106610006"
-    assert model.name == "IR JOKO WIDODO"
-    assert model.birth_place == "SURAKARTA"
-    assert model.birth_date == "1961-06-21"
-    assert model.gender == "LAKI-LAKI"
-    assert model.blood_type == "A"
-    assert model.address == "JL TAMAN SUROPATI NO. 7"
-    assert model.neighborhood_unit == "005"
-    assert model.village == "MENTENG"
-    assert model.district == "MENTENG"
-    assert model.religion == "ISLAM"
-    assert model.marital_status == "KAWIN"
-    assert model.occupation == "GUBERNUR"
-    assert model.nationality == "WNI"
-    assert model.expiry_date == "2017-06-21"
+    assert model.document_province == "DKI JAKARTA"
+    assert model.document_city == "JAKARTA PUSAT"
+    assert model.document_number == "3372052106610006"
+    assert model.holder_name == "IR JOKO WIDODO"
+    assert model.holder_birth_place == "SURAKARTA"
+    assert model.holder_birth_date == "1961-06-21"
+    assert model.holder_gender == "LAKI-LAKI"
+    assert model.holder_blood_type == "A"
+    assert model.holder_address == "JL TAMAN SUROPATI NO. 7"
+    assert model.holder_neighborhood_unit == "005"
+    assert model.holder_village == "MENTENG"
+    assert model.holder_district == "MENTENG"
+    assert model.holder_religion == "ISLAM"
+    assert model.holder_marital_status == "KAWIN"
+    assert model.holder_occupation == "GUBERNUR"
+    assert model.holder_nationality == "WNI"
+    assert model.document_expiry_date == "2017-06-21"
 
 
 def test_identity_card_document_schema_and_prompts():
     doc = IdentityCardDocument()
     schema = doc.get_json_schema()
     assert "properties" in schema
-    assert "id_number" in schema["properties"]
-    assert "province" in schema["properties"]
-    assert "city" in schema["properties"]
-    assert "neighborhood_unit" in schema["properties"]
+    assert "document_number" in schema["properties"]
+    assert "document_province" in schema["properties"]
+    assert "document_city" in schema["properties"]
+    assert "holder_neighborhood_unit" in schema["properties"]
 
     sys_prompt = doc.build_system_prompt()
     assert "KTP" in sys_prompt
@@ -668,24 +667,24 @@ def test_identity_card_document_schema_and_prompts():
 
 def test_identity_card_ocr_quirk_normalization():
     noisy_data = {
-        "province": "PROVINSI JAWA BARAT",
-        "birth_place": "SURAKARTA, 21-06-1961",
-        "birth_date": "Tanggal: 21/06/1961",
-        "gender": "LAKI-LATI",
-        "blood_type": "GOL. DARAH : A",
-        "neighborhood_unit": "R/T/RW : 005 / 005",
+        "document_province": "PROVINSI JAWA BARAT",
+        "holder_birth_place": "SURAKARTA, 21-06-1961",
+        "holder_birth_date": "Tanggal: 21/06/1961",
+        "holder_gender": "LAKI-LATI",
+        "holder_blood_type": "GOL. DARAH : A",
+        "holder_neighborhood_unit": "R/T/RW : 005 / 005",
     }
     model = IdentityCardSchema.model_validate(noisy_data)
-    assert model.province == "JAWA BARAT"
-    assert model.birth_place == "SURAKARTA"
-    assert model.birth_date == "1961-06-21"
-    assert model.gender == "LAKI-LAKI"
-    assert model.blood_type == "A"
-    assert model.neighborhood_unit == "005/005"
+    assert model.document_province == "JAWA BARAT"
+    assert model.holder_birth_place == "SURAKARTA"
+    assert model.holder_birth_date == "1961-06-21"
+    assert model.holder_gender == "LAKI-LAKI"
+    assert model.holder_blood_type == "A"
+    assert model.holder_neighborhood_unit == "005/005"
 
-    invalid_neighborhood = {"neighborhood_unit": "MENTENG"}
+    invalid_neighborhood = {"holder_neighborhood_unit": "MENTENG"}
     model_inv = IdentityCardSchema.model_validate(invalid_neighborhood)
-    assert model_inv.neighborhood_unit is None
+    assert model_inv.holder_neighborhood_unit is None
 
 
 def test_identity_card_string_parser():
@@ -709,23 +708,23 @@ def test_identity_card_string_parser():
     doc = IdentityCardDocument()
     parsed = doc.parse_string(raw_ocr)
     assert isinstance(parsed, IdentityCardSchema)
-    assert parsed.province == "DKI JAKARTA"
-    assert parsed.city == "JAKARTA PUSAT"
-    assert parsed.id_number == "3171010101900001"
-    assert parsed.name == "BUDI SANTOSO"
-    assert parsed.birth_place == "JAKARTA"
-    assert parsed.birth_date == "1990-01-01"
-    assert parsed.gender == "LAKI-LAKI"
-    assert parsed.blood_type == "O"
-    assert parsed.address == "JL TAMAN SUROPATI NO. 7"
-    assert parsed.neighborhood_unit == "005/005"
-    assert parsed.village == "MENTENG"
-    assert parsed.district == "MENTENG"
-    assert parsed.religion == "ISLAM"
-    assert parsed.marital_status == "KAWIN"
-    assert parsed.occupation == "KARYAWAN SWASTA"
-    assert parsed.nationality == "WNI"
-    assert parsed.expiry_date == "SEUMUR HIDUP"
+    assert parsed.document_province == "DKI JAKARTA"
+    assert parsed.document_city == "JAKARTA PUSAT"
+    assert parsed.document_number == "3171010101900001"
+    assert parsed.holder_name == "BUDI SANTOSO"
+    assert parsed.holder_birth_place == "JAKARTA"
+    assert parsed.holder_birth_date == "1990-01-01"
+    assert parsed.holder_gender == "LAKI-LAKI"
+    assert parsed.holder_blood_type == "O"
+    assert parsed.holder_address == "JL TAMAN SUROPATI NO. 7"
+    assert parsed.holder_neighborhood_unit == "005/005"
+    assert parsed.holder_village == "MENTENG"
+    assert parsed.holder_district == "MENTENG"
+    assert parsed.holder_religion == "ISLAM"
+    assert parsed.holder_marital_status == "KAWIN"
+    assert parsed.holder_occupation == "KARYAWAN SWASTA"
+    assert parsed.holder_nationality == "WNI"
+    assert parsed.document_expiry_date == "SEUMUR HIDUP"
 
 
 def test_tax_number_document_schema_and_prompts():
@@ -733,7 +732,7 @@ def test_tax_number_document_schema_and_prompts():
     schema = doc.get_json_schema()
     assert "properties" in schema
     assert "tax_number" in schema["properties"]
-    assert "name" in schema["properties"]
+    assert "business_name" in schema["properties"]
     assert "tax_office" in schema["properties"]
     assert "tax_office_address" in schema["properties"]
 
@@ -767,79 +766,79 @@ def test_tax_number_string_parser():
     parsed = doc.parse_string(raw_ocr)
     assert isinstance(parsed, TaxNumberSchema)
     assert parsed.tax_number == "12.345.678.9-636.000"
-    assert parsed.name == "PT CONTOH MAKMUR"
+    assert parsed.business_name == "PT CONTOH MAKMUR"
     assert parsed.tax_office == "KPP MADYA GRESIK"
     assert parsed.tax_office_address == "JL DR WAHIDIN SUDIROHUSODO 700 GRESIK"
-    assert parsed.registration_date == "2022-01-01"
+    assert parsed.tax_registration_date == "2022-01-01"
 
 
 def test_business_identification_number_schema_validation():
     data = {
-        "number": "1234567890123",
-        "name": "PT CONTOH SEJAHTERA ABADI",
-        "address": "JL. JENDERAL SUDIRMAN KAV. 10, KOTA ADM. JAKARTA SELATAN",
-        "postal_code": "12190",
-        "phone_number": "0215551234",
-        "email": "info@contohsejahtera.co.id",
-        "investment_status": "PMDN",
-        "issued_place": "Jakarta",
-        "issued_date": "10 Januari 2020",
+        "business_number": "1234567890123",
+        "business_name": "PT CONTOH SEJAHTERA ABADI",
+        "business_address": "JL. JENDERAL SUDIRMAN KAV. 10, KOTA ADM. JAKARTA SELATAN",
+        "business_postal_code": "12190",
+        "business_phone_number": "0215551234",
+        "business_email": "info@contohsejahtera.co.id",
+        "business_investment_status": "PMDN",
+        "document_issued_place": "Jakarta",
+        "document_issued_date": "10 Januari 2020",
         "amendment_number": "1",
         "amendment_date": "05 Mei 2023",
-        "printed_date": "05 Mei 2023",
+        "document_printed_date": "05 Mei 2023",
         "signing_official_title": "Menteri Investasi dan Hilirisasi/ Kepala Badan Koordinasi Penanaman Modal",
-        "fields": [
+        "business_fields": [
             {
-                "no": "39",
-                "code": "46206",
-                "title": "Perdagangan Besar Hasil Perikanan",
-                "business_location": "GD. PUSAT PERUM BULOG LT. 10 JL. JEND. GATOT SUBROTO KAV.49",
-                "postal_code": "12950",
-                "risk_level": "Menengah Tinggi",
-                "licenses": [
+                "field_number": "39",
+                "field_code": "46206",
+                "field_title": "Perdagangan Besar Hasil Perikanan",
+                "field_location": "GD. PUSAT PERUM BULOG LT. 10 JL. JEND. GATOT SUBROTO KAV.49",
+                "field_postal_code": "12950",
+                "field_risk": "Menengah Tinggi",
+                "field_licenses": [
                     {
                         "license_type": "NIB",
                         "license_status": "Terbit",
-                        "remarks": "-",
+                        "license_remarks": "-",
                     },
                     {
                         "license_type": "Sertifikat Standar",
                         "license_status": "Belum Terverifikasi",
-                        "remarks": "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja",
+                        "license_remarks": "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja",
                     },
                 ],
             }
         ],
     }
     model = BusinessNumberSchema.model_validate(data)
-    assert model.number == "1234567890123"
-    assert model.name == "PT CONTOH SEJAHTERA ABADI"
-    assert model.postal_code == "12190"
-    assert model.investment_status == "PMDN"
-    assert model.issued_date == "2020-01-10"
+    assert model.business_number == "1234567890123"
+    assert model.business_name == "PT CONTOH SEJAHTERA ABADI"
+    assert model.business_postal_code == "12190"
+    assert model.business_investment_status == "PMDN"
+    assert model.document_issued_date == "2020-01-10"
     assert model.amendment_number == "1"
     assert model.amendment_date == "2023-05-05"
-    assert model.printed_date == "2023-05-05"
-    assert model.fields is not None
-    assert len(model.fields) == 1
-    assert model.fields[0].code == "46206"
-    assert model.fields[0].risk_level == "Menengah Tinggi"
-    assert model.fields[0].licenses is not None
-    assert len(model.fields[0].licenses) == 2
-    assert model.fields[0].licenses[0].license_type == "NIB"
-    assert model.fields[0].licenses[0].remarks is None
-    assert model.fields[0].licenses[1].license_type == "Sertifikat Standar"
-    assert model.fields[0].licenses[1].remarks == "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja"
+    assert model.document_printed_date == "2023-05-05"
+    assert model.business_fields is not None
+    assert len(model.business_fields) == 1
+    assert model.business_fields[0].field_code == "46206"
+    assert model.business_fields[0].field_risk == "Menengah Tinggi"
+    assert model.business_fields[0].field_licenses is not None
+    assert len(model.business_fields[0].field_licenses) == 2
+    assert model.business_fields[0].field_licenses[0].license_type == "NIB"
+    assert model.business_fields[0].field_licenses[0].license_remarks is None
+    assert model.business_fields[0].field_licenses[1].license_type == "Sertifikat Standar"
+    assert model.business_fields[0].field_licenses[1].license_remarks == "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja"
 
 
 def test_business_identification_number_document_schema_and_prompts():
     doc = BusinessIdentificationNumberDocument()
     schema = doc.get_json_schema()
     assert "properties" in schema
-    assert "number" in schema["properties"]
-    assert "name" in schema["properties"]
-    assert "address" in schema["properties"]
-    assert "fields" in schema["properties"]
+    assert "business_number" in schema["properties"]
+    assert "business_name" in schema["properties"]
+    assert "business_address" in schema["properties"]
+    assert "business_fields" in schema["properties"]
 
     sys_prompt = doc.build_system_prompt()
     assert "NIB" in sys_prompt
@@ -872,19 +871,19 @@ def test_nib_string_parser():
     doc = BusinessIdentificationNumberDocument()
     parsed = doc.parse_string(raw_ocr)
     assert isinstance(parsed, BusinessNumberSchema)
-    assert parsed.number == "1234567890123"
-    assert parsed.name == "PT CONTOH SEJAHTERA ABADI"
-    assert parsed.address == "JL. JENDERAL SUDIRMAN KAV. 10, Kota Adm. Jakarta Selatan"
-    assert parsed.postal_code == "12190"
-    assert parsed.phone_number == "0215551234"
-    assert parsed.email == "info@contohsejahtera.co.id"
-    assert parsed.investment_status == "PMDN"
-    assert parsed.issued_place == "Jakarta"
-    assert parsed.issued_date == "2020-01-10"
+    assert parsed.business_number == "1234567890123"
+    assert parsed.business_name == "PT CONTOH SEJAHTERA ABADI"
+    assert parsed.business_address == "JL. JENDERAL SUDIRMAN KAV. 10, Kota Adm. Jakarta Selatan"
+    assert parsed.business_postal_code == "12190"
+    assert parsed.business_phone_number == "0215551234"
+    assert parsed.business_email == "info@contohsejahtera.co.id"
+    assert parsed.business_investment_status == "PMDN"
+    assert parsed.document_issued_place == "Jakarta"
+    assert parsed.document_issued_date == "2020-01-10"
     assert parsed.amendment_number == "1"
     assert parsed.amendment_date == "2023-05-05"
-    assert parsed.printed_date == "2023-05-05"
-    assert parsed.fields is None
+    assert parsed.document_printed_date == "2023-05-05"
+    assert parsed.business_fields is None
 
 
 def test_license_item_value_normalization():
@@ -893,76 +892,76 @@ def test_license_item_value_normalization():
     item = LicenseItem.model_validate({
         "license_type": "- Sertifikat Standar",
         "license_status": "- Belum Terverifikasi",
-        "remarks": "",
+        "license_remarks": "",
     })
     assert item.license_type == "Sertifikat Standar"
     assert item.license_status == "Belum Terverifikasi"
-    assert item.remarks is None
+    assert item.license_remarks is None
 
-    dash_only = LicenseItem.model_validate({"remarks": "-"})
-    assert dash_only.remarks is None
+    dash_only = LicenseItem.model_validate({"license_remarks": "-"})
+    assert dash_only.license_remarks is None
 
     real_remark = LicenseItem.model_validate({
-        "remarks": "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja"
+        "license_remarks": "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja"
     })
-    assert real_remark.remarks == "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja"
+    assert real_remark.license_remarks == "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja"
 
 
 def test_field_item_multiple_licenses():
     field = FieldItem.model_validate({
-        "no": "39",
-        "code": "46206",
-        "title": "Perdagangan Besar Hasil Perikanan",
-        "licenses": [
-            {"license_type": "NIB", "license_status": "Terbit", "remarks": "-"},
+        "field_number": "39",
+        "field_code": "46206",
+        "field_title": "Perdagangan Besar Hasil Perikanan",
+        "field_licenses": [
+            {"license_type": "NIB", "license_status": "Terbit", "license_remarks": "-"},
             {
                 "license_type": "Sertifikat Standar",
                 "license_status": "Belum Terverifikasi",
-                "remarks": "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja",
+                "license_remarks": "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja",
             },
         ],
     })
-    assert field.licenses is not None
-    assert len(field.licenses) == 2
-    assert field.licenses[0].license_type == "NIB"
-    assert field.licenses[0].remarks is None
-    assert field.licenses[1].license_status == "Belum Terverifikasi"
-    assert field.licenses[1].remarks == "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja"
+    assert field.field_licenses is not None
+    assert len(field.field_licenses) == 2
+    assert field.field_licenses[0].license_type == "NIB"
+    assert field.field_licenses[0].license_remarks is None
+    assert field.field_licenses[1].license_status == "Belum Terverifikasi"
+    assert field.field_licenses[1].license_remarks == "Lakukan pemenuhan standar melalui oss.go.id paling lambat 90 hari kerja"
 
 
 def test_tax_entity_schema_validation():
     data = {
         "letter_number": "S-47PKP/WPJ.05/KP.1003/2015",
         "tax_office_region": "KANTOR WILAYAH DJP JAKARTA BARAT",
-        "tax_office": "KPP PRATAMA JAKARTA KEBON JERUK DUA",
+        "tax_office_name": "KPP PRATAMA JAKARTA KEBON JERUK DUA",
         "tax_office_address": "JL. K.S. TUBUN 10, JAKARTA BARAT",
-        "tax_number": "01.329.904.5-039.000",
-        "name": "PT. RAMCOMAS MANDIRI",
-        "fields": [
-            {"code": "71100", "title": "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"}
+        "business_tax_number": "01.329.904.5-039.000",
+        "business_name": "PT. RAMCOMAS MANDIRI",
+        "business_fields": [
+            {"field_code": "71100", "field_title": "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"}
         ],
-        "address": "JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA",
-        "trade_name": "-",
+        "business_address": "JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA",
+        "business_trade": "-",
         "tax_obligation": "PPN",
-        "confirmed_since": "21 Maret 1992",
-        "issued_place": "Jakarta Barat",
-        "issued_date": "17 April 2015",
+        "letter_confirmed_since": "21 Maret 1992",
+        "letter_issued_place": "Jakarta Barat",
+        "letter_issued_date": "17 April 2015",
         "signing_official_title": "a.n. Kepala Kantor Kepala Seksi Pelayanan",
         "signing_official_name": "MUNAWAM",
         "signing_official_number": "NIP.196005151981031001",
     }
     model = TaxEntitySchema.model_validate(data)
     assert model.letter_number == "S-47PKP/WPJ.05/KP.1003/2015"
-    assert model.tax_number == "01.329.904.5-039.000"
-    assert model.name == "PT. RAMCOMAS MANDIRI"
-    assert model.fields is not None
-    assert len(model.fields) == 1
-    assert model.fields[0].code == "71100"
-    assert model.fields[0].title == "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"
-    assert model.trade_name is None
+    assert model.business_tax_number == "01.329.904.5-039.000"
+    assert model.business_name == "PT. RAMCOMAS MANDIRI"
+    assert model.business_fields is not None
+    assert len(model.business_fields) == 1
+    assert model.business_fields[0].field_code == "71100"
+    assert model.business_fields[0].field_title == "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"
+    assert model.business_trade is None
     assert model.tax_obligation == "PPN"
-    assert model.confirmed_since == "1992-03-21"
-    assert model.issued_date == "2015-04-17"
+    assert model.letter_confirmed_since == "1992-03-21"
+    assert model.letter_issued_date == "2015-04-17"
     assert model.signing_official_number == "196005151981031001"
 
 
@@ -970,9 +969,9 @@ def test_tax_entity_document_schema_and_prompts():
     doc = TaxEntityDocument()
     schema = doc.get_json_schema()
     assert "properties" in schema
-    assert "tax_number" in schema["properties"]
+    assert "business_tax_number" in schema["properties"]
     assert "letter_number" in schema["properties"]
-    assert "fields" in schema["properties"]
+    assert "business_fields" in schema["properties"]
     assert "tax_obligation" in schema["properties"]
 
     sys_prompt = doc.build_system_prompt()
@@ -1027,20 +1026,20 @@ def test_tax_entity_string_parser():
     assert isinstance(parsed, TaxEntitySchema)
     assert parsed.letter_number == "S-47PKP/WPJ.05/KP.1003/2015"
     assert parsed.tax_office_region == "KANTOR WILAYAH DJP JAKARTA BARAT"
-    assert parsed.tax_office == "KPP PRATAMA JAKARTA KEBON JERUK DUA"
+    assert parsed.tax_office_name == "KPP PRATAMA JAKARTA KEBON JERUK DUA"
     assert parsed.tax_office_address == "JL. K.S. TUBUN 10, JAKARTA BARAT"
-    assert parsed.tax_number == "01.329.904.5-039.000"
-    assert parsed.name == "PT. RAMCOMAS MANDIRI"
-    assert parsed.fields is not None
-    assert len(parsed.fields) == 1
-    assert parsed.fields[0].code == "71100"
-    assert parsed.fields[0].title == "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"
-    assert parsed.address == "JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA"
-    assert parsed.trade_name is None
+    assert parsed.business_tax_number == "01.329.904.5-039.000"
+    assert parsed.business_name == "PT. RAMCOMAS MANDIRI"
+    assert parsed.business_fields is not None
+    assert len(parsed.business_fields) == 1
+    assert parsed.business_fields[0].field_code == "71100"
+    assert parsed.business_fields[0].field_title == "JASA ARSITEKTUR DAN TEKNIK SIPIL SERTA KONSULTASI TEKNIS YBDI"
+    assert parsed.business_address == "JL.KEDOYA ANGSANA BLOK B II NO.25, KEDOYA SELATAN KEBON JERUK, JAKARTA BARAT DKI JAKARTA"
+    assert parsed.business_trade is None
     assert parsed.tax_obligation == "PPN"
-    assert parsed.confirmed_since == "1992-03-21"
-    assert parsed.issued_place == "Jakarta Barat"
-    assert parsed.issued_date == "2015-04-17"
+    assert parsed.letter_confirmed_since == "1992-03-21"
+    assert parsed.letter_issued_place == "Jakarta Barat"
+    assert parsed.letter_issued_date == "2015-04-17"
     assert parsed.signing_official_title == "a.n. Kepala Kantor Kepala Seksi Pelayanan"
     assert parsed.signing_official_name == "MUNAWAM"
     assert parsed.signing_official_number == "196005151981031001"
@@ -1050,8 +1049,8 @@ def test_tax_entity_string_parser_direct():
     parsed = TaxEntityStringParser.parse(
         "1. Nomor Pokok Wajib Pajak : 01.329.904.5-039.000\n2. Nama : PT. RAMCOMAS MANDIRI"
     )
-    assert parsed.tax_number == "01.329.904.5-039.000"
-    assert parsed.name == "PT. RAMCOMAS MANDIRI"
+    assert parsed.business_tax_number == "01.329.904.5-039.000"
+    assert parsed.business_name == "PT. RAMCOMAS MANDIRI"
 
 
 def _synthetic_mrz(surname: str, given_names: str, country: str, passport_number: str,
@@ -1078,38 +1077,38 @@ def _synthetic_mrz(surname: str, given_names: str, country: str, passport_number
 def test_identity_passport_schema_validation():
     data = {
         "document_type": "P<",
-        "issuing_country": "USA<",
-        "surname": "TRAVELER",
-        "given_names": "HAPPY",
-        "passport_number": "E00007734",
-        "nationality": "USA",
-        "birth_date": "05 FEB 1990",
-        "gender": "F",
-        "birth_place": "WASHINGTON D.C., U.S.A.",
-        "issued_date": "15 OCT 2020",
-        "expiry_date": "14 OCT 2030",
-        "issuing_authority": "UNITED STATES DEPARTMENT OF STATE",
-        "mrz_line1": "p<usatraveler<<happy<<<<<<<<<<<<<<<<<<<<<<<<",
+        "document_issuing_country": "USA<",
+        "holder_surname": "TRAVELER",
+        "holder_given_names": "HAPPY",
+        "holder_passport_number": "E00007734",
+        "holder_nationality": "USA",
+        "holder_birth_date": "05 FEB 1990",
+        "holder_gender": "F",
+        "holder_birth_place": "WASHINGTON D.C., U.S.A.",
+        "document_issued_date": "15 OCT 2020",
+        "document_expiry_date": "14 OCT 2030",
+        "document_issuing_authority": "UNITED STATES DEPARTMENT OF STATE",
+        "document_mrz_line1": "p<usatraveler<<happy<<<<<<<<<<<<<<<<<<<<<<<<",
     }
     model = IdentityPassportSchema.model_validate(data)
     assert model.document_type == "P"
-    assert model.issuing_country == "USA"
-    assert model.surname == "TRAVELER"
-    assert model.passport_number == "E00007734"
-    assert model.birth_date == "1990-02-05"
-    assert model.issued_date == "2020-10-15"
-    assert model.expiry_date == "2030-10-14"
-    assert model.mrz_line1 == "P<USATRAVELER<<HAPPY<<<<<<<<<<<<<<<<<<<<<<<<"
+    assert model.document_issuing_country == "USA"
+    assert model.holder_surname == "TRAVELER"
+    assert model.holder_passport_number == "E00007734"
+    assert model.holder_birth_date == "1990-02-05"
+    assert model.document_issued_date == "2020-10-15"
+    assert model.document_expiry_date == "2030-10-14"
+    assert model.document_mrz_line1 == "P<USATRAVELER<<HAPPY<<<<<<<<<<<<<<<<<<<<<<<<"
 
 
 def test_identity_passport_document_schema_and_prompts():
     doc = IdentityPassportDocument()
     schema = doc.get_json_schema()
     assert "properties" in schema
-    assert "mrz_line1" in schema["properties"]
-    assert "mrz_line2" in schema["properties"]
-    assert "passport_number" in schema["properties"]
-    assert "issuing_country" in schema["properties"]
+    assert "document_mrz_line1" in schema["properties"]
+    assert "document_mrz_line2" in schema["properties"]
+    assert "holder_passport_number" in schema["properties"]
+    assert "document_issuing_country" in schema["properties"]
 
     sys_prompt = doc.build_system_prompt()
     assert "MRZ" in sys_prompt
@@ -1130,18 +1129,18 @@ def test_identity_passport_string_parser_single_given_name():
     parsed = doc.parse_string(raw_ocr)
     assert isinstance(parsed, IdentityPassportSchema)
     assert parsed.document_type == "P"
-    assert parsed.issuing_country == "EOL"
-    assert parsed.surname == "SMITH"
-    assert parsed.given_names == "JANE"
-    assert parsed.passport_number == "PP3000000"
-    assert parsed.nationality == "EOL"
-    assert parsed.birth_date == "1981-07-14"
-    assert parsed.gender == "F"
-    assert parsed.expiry_date == "2022-12-31"
+    assert parsed.document_issuing_country == "EOL"
+    assert parsed.holder_surname == "SMITH"
+    assert parsed.holder_given_names == "JANE"
+    assert parsed.holder_passport_number == "PP3000000"
+    assert parsed.holder_nationality == "EOL"
+    assert parsed.holder_birth_date == "1981-07-14"
+    assert parsed.holder_gender == "F"
+    assert parsed.document_expiry_date == "2022-12-31"
     # VIZ-only fields aren't in the MRZ, so the string parser correctly leaves them unset
-    assert parsed.birth_place is None
-    assert parsed.issued_date is None
-    assert parsed.issuing_authority is None
+    assert parsed.holder_birth_place is None
+    assert parsed.document_issued_date is None
+    assert parsed.document_issuing_authority is None
 
 
 def test_identity_passport_string_parser_multi_part_name():
@@ -1150,19 +1149,19 @@ def test_identity_passport_string_parser_multi_part_name():
         nationality="NLD", dob_yymmdd="650310", sex="F", expiry_yymmdd="240309",
     )
     parsed = IdentityPassportStringParser.parse(f"{line1}\n{line2}")
-    assert parsed.surname == "DE BRUIJN"
-    assert parsed.given_names == "WILLEKE LISELOTTE"
-    assert parsed.nationality == "NLD"
-    assert parsed.birth_date == "1965-03-10"
-    assert parsed.expiry_date == "2024-03-09"
+    assert parsed.holder_surname == "DE BRUIJN"
+    assert parsed.holder_given_names == "WILLEKE LISELOTTE"
+    assert parsed.holder_nationality == "NLD"
+    assert parsed.holder_birth_date == "1965-03-10"
+    assert parsed.document_expiry_date == "2024-03-09"
 
 
 def test_identity_passport_string_parser_no_mrz_found():
     parsed = IdentityPassportStringParser.parse("just some random text with no MRZ lines in it")
     assert isinstance(parsed, IdentityPassportSchema)
-    assert parsed.mrz_line1 is None
-    assert parsed.mrz_line2 is None
-    assert parsed.passport_number is None
+    assert parsed.document_mrz_line1 is None
+    assert parsed.document_mrz_line2 is None
+    assert parsed.holder_passport_number is None
 
 
 def test_business_deed_schema_validation():
@@ -1172,10 +1171,8 @@ def test_business_deed_schema_validation():
         "deed_date": "03 Agustus 2023",
         "notary_name": "CONTOH NOTARIS, S.H., M.Kn",
         "notary_address": "Alamat Jalan Contoh Nomor 1, Cianjur, Jawa Barat",
-        "legal_decision": {
-            "number": "Nomor : AHU-0028078.AH.01.02.TAHUN 2022",
-            "issued_date": "19 April 2022",
-        },
+        "decision_number": "Nomor : AHU-0028078.AH.01.02.TAHUN 2022",
+        "decision_issued_date": "19 April 2022",
     }
     model = BusinessDeedSchema.model_validate(data)
     assert model.deed_type == "Pendirian"
@@ -1183,9 +1180,9 @@ def test_business_deed_schema_validation():
     assert model.deed_date == "2023-08-03"
     assert model.notary_name == "CONTOH NOTARIS, S.H., M.Kn"
     assert model.notary_address == "Jalan Contoh Nomor 1, Cianjur, Jawa Barat"
-    assert model.legal_decision is not None
-    assert model.legal_decision.number == "AHU-0028078.AH.01.02.TAHUN 2022"
-    assert model.legal_decision.issued_date == "2022-04-19"
+    assert model.decision_number is not None
+    assert model.decision_number == "AHU-0028078.AH.01.02.TAHUN 2022"
+    assert model.decision_issued_date == "2022-04-19"
 
 
 def test_business_deed_document_schema_and_prompts():
@@ -1194,7 +1191,7 @@ def test_business_deed_document_schema_and_prompts():
     assert "properties" in schema
     assert "deed_number" in schema["properties"]
     assert "notary_name" in schema["properties"]
-    assert "legal_decision" in schema["properties"]
+    assert "decision_number" in schema["properties"]
 
     sys_prompt = doc.build_system_prompt()
     assert "Kemenkumham" in sys_prompt
@@ -1231,9 +1228,9 @@ def test_business_deed_string_parser_bundled_akta_and_sk():
     assert parsed.deed_number == "7"
     assert parsed.deed_date == "2023-01-10"
     assert parsed.notary_name == "BUDI SANTOSO"
-    assert parsed.legal_decision is not None
-    assert parsed.legal_decision.number == "AHU-0099999.AH.01.02.TAHUN 2023"
-    assert parsed.legal_decision.issued_date == "2023-01-15"
+    assert parsed.decision_number is not None
+    assert parsed.decision_number == "AHU-0099999.AH.01.02.TAHUN 2023"
+    assert parsed.decision_issued_date == "2023-01-15"
     # 'deed_type' is detected from the PENDIRIAN/PERUBAHAN keyword in the deed's
     # own title, directly above its opening formula.
     assert parsed.deed_type == "Pendirian"
@@ -1255,7 +1252,7 @@ def test_business_deed_string_parser_ignores_unrelated_sk_reference():
         "PT CONTOH LAINNYA\n"
     )
     parsed = BusinessDeedStringParser.parse(raw_text)
-    assert parsed.legal_decision is None
+    assert parsed.decision_number is None
 
 
 def test_business_deed_string_parser_old_numbering_format():
@@ -1265,8 +1262,8 @@ def test_business_deed_string_parser_old_numbering_format():
         "MENTERI KEHAKIMAN REPUBLIK INDONESIA,\n"
     )
     parsed = BusinessDeedStringParser.parse(raw_text)
-    assert parsed.legal_decision is not None
-    assert parsed.legal_decision.number == "C2-10671.HT.01.01.TH.88"
+    assert parsed.decision_number is not None
+    assert parsed.decision_number == "C2-10671.HT.01.01.TH.88"
 
 
 def test_business_deed_string_parser_detects_perubahan_over_stale_pendirian_recital():
@@ -1294,6 +1291,6 @@ def test_business_deed_schema_deed_type_rejects_unrecognized_text():
     assert model.deed_type is None
 
 
-def test_legal_decision_standalone_validation():
-    sk = SKKemenkumham.model_validate({"number": "NOMOR: AHU-01173.AH.01.02.Tahun 2010", "date": "-"})
-    assert sk.number == "AHU-01173.AH.01.02.Tahun 2010"
+def test_business_deed_decision_number_validation():
+    deed = BusinessDeedSchema.model_validate({"decision_number": "NOMOR: AHU-01173.AH.01.02.Tahun 2010"})
+    assert deed.decision_number == "AHU-01173.AH.01.02.Tahun 2010"

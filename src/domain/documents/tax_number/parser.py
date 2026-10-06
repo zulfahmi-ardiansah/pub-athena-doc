@@ -21,13 +21,13 @@ class TaxNumberStringParser:
         cls._extract_tax_office(raw_text, lines, data)
 
         # 3. Extract Taxpayer Name
-        cls._extract_name(raw_text, lines, data)
+        cls._extract_business_name(raw_text, lines, data)
 
         # 4. Extract Address
         cls._extract_address(raw_text, lines, data)
 
         # 5. Extract Registration Date
-        cls._extract_registration_date(raw_text, lines, data)
+        cls._extract_tax_registration_date(raw_text, lines, data)
 
         return TaxNumberSchema.model_validate(data)
 
@@ -62,13 +62,13 @@ class TaxNumberStringParser:
                 return
 
     @classmethod
-    def _extract_name(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_business_name(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         for i, line in enumerate(lines):
             # Direct Nama label
             if re.search(r"^(?:NAMA\s*(?:WAJIB\s*PAJAK)?|NAME)\s*[:\.]?\s*", line, re.IGNORECASE):
                 val = re.sub(r"^(?:NAMA\s*(?:WAJIB\s*PAJAK)?|NAME)\s*[:\.]?\s*", "", line, flags=re.IGNORECASE).strip()
                 if val:
-                    data["name"] = val
+                    data["business_name"] = val
                     return
 
             # Line right after NPWP number line if no colon
@@ -76,7 +76,7 @@ class TaxNumberStringParser:
                 if i + 1 < len(lines):
                     candidate = lines[i + 1].strip()
                     if not re.search(r"\b(?:KPP|ALAMAT|TERDAFTAR|NPWP)\b", candidate, re.IGNORECASE):
-                        data["name"] = candidate
+                        data["business_name"] = candidate
                         return
 
     @classmethod
@@ -89,7 +89,7 @@ class TaxNumberStringParser:
                     return
 
     @classmethod
-    def _extract_registration_date(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
+    def _extract_tax_registration_date(cls, text: str, lines: list, data: Dict[str, Any]) -> None:
         # Date pattern with label
         date_label_match = re.search(
             r"(?:TANGGAL\s*TERDAFTAR|TGL\s*DAFTAR|REGISTRATION\s*DATE)\s*[:\.]?\s*(\d{2}[-/.]\d{2}[-/.]\d{4})",
@@ -97,10 +97,10 @@ class TaxNumberStringParser:
             re.IGNORECASE
         )
         if date_label_match:
-            data["registration_date"] = date_label_match.group(1).replace("/", "-").replace(".", "-")
+            data["tax_registration_date"] = date_label_match.group(1).replace("/", "-").replace(".", "-")
             return
 
         # General date fallback
         date_match = re.search(r"\b(\d{2}[-/.]\d{2}[-/.]\d{4})\b", text)
         if date_match:
-            data["registration_date"] = date_match.group(1).replace("/", "-").replace(".", "-")
+            data["tax_registration_date"] = date_match.group(1).replace("/", "-").replace(".", "-")

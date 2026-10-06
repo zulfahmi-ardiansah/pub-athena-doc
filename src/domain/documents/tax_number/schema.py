@@ -12,7 +12,7 @@ class TaxNumberSchema(BaseModel):
         description="Nomor Pokok Wajib Pajak / NPWP (15 or 16 digits format)",
         examples=["01.234.567.8-901.000", "12.345.678.9-636.000"]
     )
-    name: Optional[str] = Field(
+    business_name: Optional[str] = Field(
         default=None,
         description="Taxpayer Name (Nama Wajib Pajak, e.g. 'BUDI')",
         examples=["BUDI", "PT CONTOH MAKMUR"]
@@ -27,7 +27,7 @@ class TaxNumberSchema(BaseModel):
         description="Tax Branch Office Address (Alamat KPP, e.g. 'JL DR WAHIDIN SUDIROHUSODO 700 GRESIK')",
         examples=["JL DR WAHIDIN SUDIROHUSODO 700 GRESIK"]
     )
-    registration_date: Optional[str] = Field(
+    tax_registration_date: Optional[str] = Field(
         default=None,
         description="Registration date (Tanggal Terdaftar), normalized to ISO 8601 (YYYY-MM-DD)",
         examples=["2022-01-01"]
@@ -44,9 +44,9 @@ class TaxNumberSchema(BaseModel):
             return cleaned
         return v.strip()
 
-    @field_validator("name", mode="before")
+    @field_validator("business_name", mode="before")
     @classmethod
-    def clean_name(cls, v: Optional[str]) -> Optional[str]:
+    def clean_business_name(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:NAMA\s*(?:WAJIB\s*PAJAK)?|NAME)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
@@ -69,9 +69,9 @@ class TaxNumberSchema(BaseModel):
         cleaned = re.sub(r"^(?:ALAMAT|ADDRESS)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()
         return cleaned or None
 
-    @field_validator("registration_date", mode="before")
+    @field_validator("tax_registration_date", mode="before")
     @classmethod
-    def clean_registration_date(cls, v: Optional[str]) -> Optional[str]:
+    def clean_tax_registration_date(cls, v: Optional[str]) -> Optional[str]:
         if not v or not isinstance(v, str):
             return None
         cleaned = re.sub(r"^(?:TANGGAL\s*TERDAFTAR|TGL\s*DAFTAR|REGISTRATION\s*DATE)\s*[:\.]?\s*", "", v.strip(), flags=re.IGNORECASE).strip()

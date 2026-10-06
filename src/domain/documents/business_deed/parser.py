@@ -26,8 +26,6 @@ class BusinessDeedStringParser:
 
     @classmethod
     def _extract_sk(cls, text: str, data: Dict[str, Any]) -> None:
-        sk: Dict[str, Any] = {}
-
         # Anchor strictly to the decree's own title block
         number_match = re.search(
             r"KEPUTUSAN\s+MENTERI\s+(?:HUKUM\s+DAN\s+HAK\s+ASASI\s+MANUSIA|KEHAKIMAN)\s+REPUBLIK\s+INDONESIA"
@@ -36,7 +34,7 @@ class BusinessDeedStringParser:
             re.IGNORECASE,
         )
         if number_match:
-            sk["number"] = number_match.group(1).strip()
+            data["decision_number"] = number_match.group(1).strip()
 
         date_match = re.search(
             r"DITETAPKAN\s*DI\s+([A-Za-z\s]+?)[,\n]\s*(?:PADA\s*)?TANGGAL\s*(\d{1,2}\s+\w+\s+\d{4})",
@@ -44,10 +42,7 @@ class BusinessDeedStringParser:
             re.IGNORECASE,
         )
         if date_match:
-            sk["issued_date"] = date_match.group(2).strip()
-
-        if sk:
-            data["legal_decision"] = sk
+            data["decision_issued_date"] = date_match.group(2).strip()
 
     @classmethod
     def _extract_deed_number_and_date(cls, text: str, data: Dict[str, Any]) -> None:

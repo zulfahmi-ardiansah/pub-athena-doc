@@ -117,8 +117,8 @@ async def test_string_engine_end_to_end():
         document=doc,
         trace=True
     )
-    assert result.data["id_number"] == "3171010101900001"
-    assert result.data["name"] == "BUDI SANTOSO"
+    assert result.data["document_number"] == "3171010101900001"
+    assert result.data["holder_name"] == "BUDI SANTOSO"
     assert result.trace is not None
     assert len(result.trace["stages"]) == 2
 
@@ -131,9 +131,9 @@ async def test_string_engine_end_to_end():
 async def test_visual_engine_end_to_end():
     mock_vision = MagicMock(spec=BaseLLMProvider)
     mock_vision.generate_structured = AsyncMock(return_value={
-        "id_number": "3171010101900001",
-        "name": "BUDI SANTOSO",
-        "province": "DKI JAKARTA"
+        "document_number": "3171010101900001",
+        "holder_name": "BUDI SANTOSO",
+        "document_province": "DKI JAKARTA"
     })
 
     analyzer = VisualLlmAnalyzer(vision_provider=mock_vision)
@@ -147,7 +147,7 @@ async def test_visual_engine_end_to_end():
         document=doc,
         trace=True
     )
-    assert result.data["id_number"] == "3171010101900001"
+    assert result.data["document_number"] == "3171010101900001"
     assert result.trace is not None
     assert len(result.trace["stages"]) == 2
 
@@ -176,9 +176,9 @@ async def test_hybrid_engine_fallback_pdf_to_ocr():
 
     mock_provider = MagicMock(spec=BaseLLMProvider)
     mock_provider.generate_structured = AsyncMock(return_value={
-        "id_number": "3171010101900001",
-        "name": "BUDI SANTOSO",
-        "province": "DKI JAKARTA"
+        "document_number": "3171010101900001",
+        "holder_name": "BUDI SANTOSO",
+        "document_province": "DKI JAKARTA"
     })
 
     engine = HybridEngine(
@@ -197,7 +197,7 @@ async def test_hybrid_engine_fallback_pdf_to_ocr():
         document=doc,
         trace=True
     )
-    assert result.data["id_number"] == "3171010101900001"
+    assert result.data["document_number"] == "3171010101900001"
     assert result.trace is not None
     stage_1 = result.trace["stages"][0]
     assert stage_1["name"] == "extraction_pipeline"
@@ -238,7 +238,7 @@ async def test_hybrid_engine_fallback_ocr_to_visual_llm():
         document=doc,
         trace=True
     )
-    assert result.data["id_number"] == "3171010101900001"
+    assert result.data["document_number"] == "3171010101900001"
     assert result.trace is not None
     stage_1 = result.trace["stages"][0]
     assert stage_1["details"]["selected_stage"] == "visual_llm"

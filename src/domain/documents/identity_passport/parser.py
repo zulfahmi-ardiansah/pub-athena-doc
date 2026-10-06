@@ -10,8 +10,8 @@ class IdentityPassportStringParser:
     passport bio-data page (ICAO Doc 9303 TD3 format: two fixed-width 44-character
     lines). The MRZ layout is identical worldwide regardless of issuing country or
     language, unlike the surrounding printed/visual fields - so this parser fills
-    everything the MRZ encodes and leaves VIZ-only fields (birth_place,
-    issued_date, issuing_authority) for the LLM-based engines to read.
+    everything the MRZ encodes and leaves VIZ-only fields (holder_birth_place,
+    document_issued_date, document_issuing_authority) for the LLM-based engines to read.
     """
 
     @classmethod
@@ -45,26 +45,26 @@ class IdentityPassportStringParser:
 
     @classmethod
     def _parse_line1(cls, line1: str, data: Dict[str, Any]) -> None:
-        data["mrz_line1"] = line1
+        data["document_mrz_line1"] = line1
         data["document_type"] = line1[0:2]
-        data["issuing_country"] = line1[2:5]
+        data["document_issuing_country"] = line1[2:5]
 
         name_field = line1[5:44]
         if "<<" in name_field:
             surname_part, given_part = name_field.split("<<", 1)
         else:
             surname_part, given_part = name_field, ""
-        data["surname"] = surname_part
-        data["given_names"] = given_part
+        data["holder_surname"] = surname_part
+        data["holder_given_names"] = given_part
 
     @classmethod
     def _parse_line2(cls, line2: str, data: Dict[str, Any]) -> None:
-        data["mrz_line2"] = line2
-        data["passport_number"] = line2[0:9]
-        data["nationality"] = line2[10:13]
-        data["birth_date"] = cls._mrz_date_to_iso(line2[13:19], prefer_future=False)
-        data["gender"] = line2[20]
-        data["expiry_date"] = cls._mrz_date_to_iso(line2[21:27], prefer_future=True)
+        data["document_mrz_line2"] = line2
+        data["holder_passport_number"] = line2[0:9]
+        data["holder_nationality"] = line2[10:13]
+        data["holder_birth_date"] = cls._mrz_date_to_iso(line2[13:19], prefer_future=False)
+        data["holder_gender"] = line2[20]
+        data["document_expiry_date"] = cls._mrz_date_to_iso(line2[21:27], prefer_future=True)
 
     @classmethod
     def _mrz_date_to_iso(cls, raw: str, prefer_future: bool) -> Optional[str]:

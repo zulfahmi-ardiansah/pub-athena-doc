@@ -31,7 +31,7 @@ class BankAccountStringParser:
             number, separator, holder = account.partition(" - ")
             data["account_number"] = number
             if separator:
-                data["account_holder_name"] = holder.strip() or None
+                data["account_holder"] = holder.strip() or None
         else:
             letter_account = re.search(r"\baccount\s+is\s+(\d[\d-]{5,})\b", raw_text, re.IGNORECASE)
             if letter_account:
@@ -39,7 +39,7 @@ class BankAccountStringParser:
 
         named_holder = cls._find(lines, r"(?:Atas\s*Nama|Nama|Account\s*Holder)")
         if named_holder:
-            data["account_holder_name"] = named_holder
+            data["account_holder"] = named_holder
         data["bank_branch"] = cls._find(lines, r"(?:Kantor\s+Bank\s+BRI|Cabang|Branch)")
         if not data.get("bank_branch"):
             inline_branch = re.search(r"\bBank\s+Danamon,\s*Cabang\s+([^,\n]+)", raw_text, re.IGNORECASE)
@@ -55,7 +55,7 @@ class BankAccountStringParser:
                 if index + 2 < len(lines) and re.fullmatch(r"\d{8,16}", lines[index + 1]):
                     data["account_number"] = lines[index + 1]
                     if re.fullmatch(r"[A-Za-z][A-Za-z .'-]+", lines[index + 2]):
-                        data["account_holder_name"] = lines[index + 2]
+                        data["account_holder"] = lines[index + 2]
                 break
 
         data["account_type"] = cls._find(lines, r"(?:Jenis\s*Rekening|Jenis\s*Tabungan|Account\s*(?:Type|Name))")

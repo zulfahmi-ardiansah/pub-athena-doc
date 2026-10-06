@@ -149,24 +149,24 @@ async def test_string_text_analyzer():
     raw_text = "PROVINSI DKI JAKARTA\nJAKARTA PUSAT\nNIK : 3171010101900001\nNama : BUDI"
     result = await analyzer.analyze(input_data=raw_text, document=doc)
     assert isinstance(result, dict)
-    assert result["id_number"] == "3171010101900001"
-    assert result["province"] == "DKI JAKARTA"
-    assert result["name"] == "BUDI"
+    assert result["document_number"] == "3171010101900001"
+    assert result["document_province"] == "DKI JAKARTA"
+    assert result["holder_name"] == "BUDI"
 
 
 @pytest.mark.asyncio
 async def test_llm_text_analyzer():
     mock_provider = AsyncMock()
     mock_provider.generate_structured = AsyncMock(return_value={
-        "id_number": "3171010101900001",
-        "name": "BUDI SANTOSO",
-        "province": "DKI JAKARTA"
+        "document_number": "3171010101900001",
+        "holder_name": "BUDI SANTOSO",
+        "document_province": "DKI JAKARTA"
     })
     analyzer = LlmTextAnalyzer(llm_provider=mock_provider)
     doc = IdentityCardDocument()
     result = await analyzer.analyze(input_data="some raw ocr text", document=doc)
-    assert result["id_number"] == "3171010101900001"
-    assert result["name"] == "BUDI SANTOSO"
+    assert result["document_number"] == "3171010101900001"
+    assert result["holder_name"] == "BUDI SANTOSO"
 
 
 @pytest.mark.asyncio
@@ -174,7 +174,7 @@ async def test_visual_llm_analyzer():
     mock_provider = AsyncMock()
     mock_provider.generate_structured = AsyncMock(return_value={
         "tax_number": "12.345.678.9-636.000",
-        "name": "PT CONTOH MAKMUR",
+        "business_name": "PT CONTOH MAKMUR",
         "tax_office": "KPP MADYA GRESIK"
     })
     analyzer = VisualLlmAnalyzer(vision_provider=mock_provider)
@@ -182,15 +182,15 @@ async def test_visual_llm_analyzer():
     img_bytes = _create_sample_png_bytes()
     result = await analyzer.analyze(input_data=[img_bytes], document=doc)
     assert result["tax_number"] == "12.345.678.9-636.000"
-    assert result["name"] == "PT CONTOH MAKMUR"
+    assert result["business_name"] == "PT CONTOH MAKMUR"
 
 
 def test_google_genai_provider_schema_sanitization():
     from google.genai import types
     identity_card_schema = IdentityCardSchema.model_json_schema()
-    assert "examples" in identity_card_schema["properties"]["province"]
+    assert "examples" in identity_card_schema["properties"]["document_province"]
     sanitized_identity_card = GoogleGenAIProvider._sanitize_schema_for_gemini(identity_card_schema)
-    assert "examples" not in sanitized_identity_card["properties"]["province"]
+    assert "examples" not in sanitized_identity_card["properties"]["document_province"]
     validated_identity_card = types.Schema.model_validate(sanitized_identity_card)
     assert validated_identity_card is not None
 
