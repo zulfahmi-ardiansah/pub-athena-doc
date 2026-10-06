@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 
-class BankAccountInformationSchema(BaseModel):
+class BankAccountSchema(BaseModel):
     bank_name: Optional[str] = Field(default=None, description="Name of the bank that holds the account", examples=["Bank Mandiri"])
     bank_branch: Optional[str] = Field(default=None, description="Account branch or unit as printed, including a KCP prefix when present", examples=["KCP Jakarta Cibis Nine"])
     account_number: Optional[str] = Field(default=None, description="Account number as text, preserving leading zeros and printed hyphens", examples=["148-00-1234567-8"])

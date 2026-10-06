@@ -295,7 +295,7 @@ Extracts product details, TKDN value, verification and certificate numbers, comp
 
 Older samples say *Tanda Sah Capaian* and newer samples say *Sertifikat*. Both use the same document slug. `local_value` is a JSON number without the percent sign; a printed `Terlampir` or dash becomes `null`. `validity_years` records the stated duration without calculating an expiry date. `report_number` and `certificate_number` come from separate printed labels.
 
-### 9. Bank Account Information (`bank_account_information`)
+### 9. Bank Account (`bank_account`)
 
 Extracts the account-holding bank, branch, account number, holder, and account type from a passbook, statement, or account letter:
 
@@ -320,15 +320,12 @@ Extracts student identity, institution details, education program, enrollment da
   "number": "001234/2021",
   "student_name": "Rudi Hartono",
   "student_number": "00123456",
-  "student_major": "Teknik Mesin",
-  "education_institution": "Politeknik Negeri Bandung",
-  "education_address": "Jl. Gegerkalong Hilir, Bandung",
-  "birth_place": "Bandung",
-  "birth_date": "1995-12-03",
-  "enroll_level": "D3",
+  "major": "Teknik Mesin",
+  "institution": "Politeknik Negeri Bandung",
+  "level": "D3",
   "enroll_date": "2010-09-01",
-  "enroll_credit": "110",
-  "enroll_grade": 3.36,
+  "credit": "110",
+  "grade": 3.36,
   "issued_place": "Bandung",
   "issued_date": "2015-10-12",
   "courses": [
@@ -337,9 +334,36 @@ Extracts student identity, institution details, education program, enrollment da
 }
 ```
 
-`number` is the document serial/transcript number; `student_number` is NIM/NPM. `student_major` records the field of study, using faculty when no program is printed. `enroll_level` records the education level/program, `enroll_credit` the total completed credits, and `enroll_grade` the overall IPK/GPA. The reference set contains academic transcripts and diploma attachments, including bilingual and rotated scans. The string parser reads labeled header fields and printed campus address lines; the LLM-based engines handle course tables and other layouts.
+`number` is the document serial/transcript number; `student_number` is NIM/NPM. `major` records the field of study, using faculty when no program is printed. `level` records the education level/program, `credit` the total completed credits, and `grade` the overall IPK/GPA. The reference set contains academic transcripts and diploma attachments, including bilingual and rotated scans. The string parser reads labeled header fields; the LLM-based engines handle course tables and other layouts.
 
-`enroll_grade`, course `credits`, and course `grade` are JSON numbers. Letter grades use the numeric equivalent from the document's own grading legend; when no equivalent is available, course `grade` is `null`.
+`grade`, course `credits`, and course `grade` are JSON numbers. Letter grades use the numeric equivalent from the document's own grading legend; when no equivalent is available, course `grade` is `null`.
+
+### 11. Course / Competency Certificate (`certificate_competency`)
+
+Extracts informal education credentials: course completion, training, and professional competency certificates, including BNSP/LSP certificates:
+
+```json
+{
+  "number": "64141 4211 2 000001 2018",
+  "name": "Budi Santoso",
+  "title": "Kasir",
+  "field": "Koperasi Jasa Keuangan",
+  "institution": "Lembaga Sertifikasi Profesi Koperasi Jasa Keuangan",
+  "training_start_date": null,
+  "training_end_date": null,
+  "grade": null,
+  "issued_place": "Jakarta",
+  "issued_date": "2018-12-21",
+  "expiry_date": null,
+  "signing_official_name": null,
+  "signing_official_title": null,
+  "units": null
+}
+```
+
+`title` is the course or qualification; `field` is the occupational area. `number` records the certificate number; holder registration numbers are excluded. `institution` records the issuing provider/body, using the overseeing authority only when no issuer is printed. Expiry dates are extracted only when explicitly printed; they are not calculated from a validity duration. `grade` remains a string so printed grades such as `A-` survive. `units` contains one `{ "code": "PDB.EI.01.001.01", "name": null }` item per printed competency unit. The string parser handles labeled details and consistent BNSP formulas; the LLM-based engines handle narrative course layouts and reverse-page unit tables.
+
+Initial samples are the certificate pages in this [public competency portfolio](https://cdn3.f-cdn.com/files/download/193905714/Curriculum%20Vitae%20Ahmad%20Saefudin.new.pdf) and [public course portfolio](https://cdn2.f-cdn.com/files/download/232015631/Portfolio_Apriyani.pdf), cached under `reference/Competency/` for inspection.
 
 ---
 

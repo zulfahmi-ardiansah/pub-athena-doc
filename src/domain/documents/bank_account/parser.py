@@ -1,11 +1,11 @@
 import re
 from typing import Dict, Optional
-from src.domain.documents.bank_account_information.schema import BankAccountInformationSchema
+from src.domain.documents.bank_account.schema import BankAccountSchema
 
 
-class BankAccountInformationStringParser:
+class BankAccountStringParser:
     @classmethod
-    def parse(cls, raw_text: str) -> BankAccountInformationSchema:
+    def parse(cls, raw_text: str) -> BankAccountSchema:
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
         data: Dict[str, Optional[str]] = {}
 
@@ -71,7 +71,7 @@ class BankAccountInformationStringParser:
                     data["account_type"] = kind
                     break
 
-        return BankAccountInformationSchema.model_validate(data)
+        return BankAccountSchema.model_validate(data)
 
     @staticmethod
     def _find(lines: list[str], label: str) -> Optional[str]:

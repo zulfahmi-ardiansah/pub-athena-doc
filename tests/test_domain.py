@@ -18,8 +18,9 @@ from src.domain.documents.business_deed.schema import BusinessDeedSchema, SKKeme
 from src.domain.documents.business_deed import BusinessDeedDocument, BusinessDeedStringParser
 from src.domain.documents.identity_stay import IdentityStayDocument, IdentityStaySchema
 from src.domain.documents.certificate_local_value import CertificateLocalValueDocument, CertificateLocalValueSchema
-from src.domain.documents.bank_account_information import BankAccountInformationDocument, BankAccountInformationSchema
+from src.domain.documents.bank_account import BankAccountDocument, BankAccountSchema
 from src.domain.documents.certificate_education import CertificateEducationDocument, CertificateEducationSchema
+from src.domain.documents.certificate_competency import CertificateCompetencyDocument, CertificateCompetencySchema
 
 
 def test_document_registry():
@@ -34,11 +35,123 @@ def test_document_registry():
     assert "business_deed" in slugs
     assert "identity_stay" in slugs
     assert "certificate_local_value" in slugs
-    assert "bank_account_information" in slugs
+    assert "bank_account" in slugs
+    assert "bank_account_information" not in slugs
     assert "certificate_education" in slugs
+    assert "certificate_competency" in slugs
     assert "education_diploma" not in slugs
     assert "limited_stay_permit" not in slugs
     assert "domestic_content_certificate" not in slugs
+
+
+def test_certificate_competency_schema_and_prompt():
+    doc = CertificateCompetencyDocument()
+    schema = doc.get_json_schema()
+    assert set(schema["properties"]) == set(CertificateCompetencySchema.model_fields)
+    assert {"birth_place", "birth_date", "validity_period", "duration", "authority", "training_institution", "training_grade", "competency_field", "training_field", "registration_number"}.isdisjoint(schema["properties"])
+    assert set(schema["$defs"]["CompetencyUnit"]["properties"]) == {"code", "name"}
+    prompt = doc.build_system_prompt()
+    assert all(field in prompt for field in schema["properties"])
+    assert "YYYY-MM-DD" in prompt and "do not calculate expiry_date" in prompt
+    assert "```text\nNama: BUDI SANTOSO\n```" in doc.build_user_prompt("Nama: BUDI SANTOSO")
+
+
+def test_certificate_competency_schema_normalization():
+    model = CertificateCompetencySchema.model_validate({
+        "number": "No. 001/2021",
+        "name": "Nama Peserta: Budi Santoso",
+        "title": "Nama Kursus: SME Course",
+        "training_start_date": "Start Date: July 1, 2022",
+        "training_end_date": "Tanggal Selesai: 31 Oktober 2022",
+        "issued_date": "Tanggal Terbit: 24 November 2022",
+        "grade": "Nilai: A-",
+        "field": "-",
+    })
+    assert model.number == "001/2021"
+    assert model.name == "Budi Santoso"
+    assert model.title == "SME Course"
+    assert model.training_start_date == "2022-07-01"
+    assert model.training_end_date == "2022-10-31"
+    assert model.issued_date == "2022-11-24"
+    assert model.expiry_date is None
+    assert model.grade == "A-"
+    assert model.field is None
+
+
+def test_certificate_competency_bnsp_parser():
+    parsed = CertificateCompetencyDocument().parse_string("""
+    BADAN NASIONAL SERTIFIKASI PROFESI
+    SERTIFIKAT KOMPETENSI
+    No. 64141 4211 2 000001 2018
+    Dengan ini menyatakan bahwa,
+    This is to certify that,
+    BUDI SANTOSO
+    No. Reg. KK 036 00001 2018
+    Telah kompeten pada bidang:
+    Is competent in the area of:
+    Koperasi Jasa Keuangan
+    Dengan Kualifikasi / Kompetensi:
+    With Qualification / Competency:
+    KASIR
+    Sertifikat ini berlaku untuk: 3 (tiga) Tahun
+    Jakarta, 21 Desember 2018
+    Lembaga Sertifikasi Profesi Koperasi Jasa Keuangan
+    """)
+    assert parsed.number == "64141 4211 2 000001 2018"
+    assert parsed.name == "BUDI SANTOSO"
+    assert parsed.title == "KASIR"
+    assert parsed.field == "Koperasi Jasa Keuangan"
+    assert parsed.institution == "Lembaga Sertifikasi Profesi Koperasi Jasa Keuangan"
+    assert parsed.issued_date == "2018-12-21"
+    assert parsed.expiry_date is None
+
+
+def test_certificate_competency_code_only_units_parser():
+    parsed = CertificateCompetencyDocument().parse_string("""
+    No. 990 12.2 000001 2018
+    Dengan ini menyatakan bahwa,
+    BUDI SANTOSO
+    Telah memenuhi persyaratan dan kompeten pada kualifikasi:
+    Meets the requirements and competent for the qualification:
+    1. PDB.EI.01.001.01
+    2. PDB.EI.01.005.01
+    Pada bidang pekerjaan:
+    In the area of:
+    Perdagangan Besar Sub Ekspor Profesi Penyelia Ekspor
+    Sertifikat ini berlaku untuk 3 (Tiga) Tahun
+    Jakarta, 24 November 2018
+    Lembaga Sertifikasi Profesi LP3I
+    """)
+    assert parsed.units and [unit.code for unit in parsed.units] == ["PDB.EI.01.001.01", "PDB.EI.01.005.01"]
+    assert all(unit.name is None for unit in parsed.units)
+    assert parsed.title is None
+
+
+def test_certificate_competency_course_parser():
+    parsed = CertificateCompetencyDocument().parse_string("""
+    Dicoding
+    Nama: SITI AMINAH
+    Course Title: Belajar Dasar Pemrograman JavaScript
+    Issued Date: July 30, 2021
+    Valid Until: July 30, 2024
+    """)
+    assert parsed.name == "SITI AMINAH"
+    assert parsed.title == "Belajar Dasar Pemrograman JavaScript"
+    assert parsed.institution == "Dicoding"
+    assert parsed.issued_date == "2021-07-30"
+    assert parsed.expiry_date == "2024-07-30"
+    assert parsed.units is None
+
+
+def test_certificate_competency_authority_fallback():
+    doc = CertificateCompetencyDocument()
+    assert doc.parse_string("Authority: BNSP").institution == "BNSP"
+    assert doc.parse_string("BADAN NASIONAL SERTIFIKASI PROFESI").institution == "Badan Nasional Sertifikasi Profesi"
+    parsed = doc.parse_string("Authority: BNSP\nIssuer: LSP LP3I\nGrade: A-\nCompetency Field: Ekspor")
+    assert parsed.institution == "LSP LP3I"
+    assert parsed.grade == "A-"
+    assert parsed.field == "Ekspor"
+    assert CertificateCompetencySchema.model_validate({"institution": "Authority: BNSP"}).institution == "BNSP"
 
 
 def test_certificate_education_schema_and_prompt():
@@ -46,15 +159,16 @@ def test_certificate_education_schema_and_prompt():
     schema = doc.get_json_schema()
     properties = schema["properties"]
     assert list(properties) == [
-        "number", "student_name", "student_number", "student_major",
-        "education_institution", "education_address", "birth_place", "birth_date",
-        "enroll_level", "enroll_date", "enroll_credit", "enroll_grade",
+        "number", "student_name", "student_number", "major",
+        "institution",
+        "level", "enroll_date", "credit", "grade",
         "issued_place", "issued_date", "courses",
     ]
     assert set(schema["$defs"]["AcademicCourse"]["properties"]) == {"code", "name", "credits", "grade", "semester"}
     prompt = doc.build_system_prompt()
     assert all(field in prompt for field in properties)
     assert "side-by-side" in prompt and "YYYY-MM-DD" in prompt
+    assert {"birth_place", "birth_date", "education_address", "enroll_level", "enroll_credit", "enroll_grade", "education_institution", "student_major"}.isdisjoint(properties)
     assert "```text\nNama: RUDI HARTONO\n```" in doc.build_user_prompt("Nama: RUDI HARTONO")
 
 
@@ -63,57 +177,51 @@ def test_certificate_education_schema_normalization():
         "number": "No. Seri: 00123/2021",
         "student_name": "Nama Mahasiswa: Rudi Hartono",
         "student_number": "NIM: 00123456",
-        "student_major": "Program Studi: Teknik Mesin",
-        "education_institution": "Lembaga Pendidikan: Politeknik Negeri Bandung",
-        "education_address": "Alamat Fakultas: Jalan Grafika 2, Yogyakarta 55281",
-        "birth_place": "Bandung, 3 Desember 1995",
-        "birth_date": "Bandung, 3 Desember 1995",
-        "enroll_level": "Program Pendidikan: Diploma III",
+        "major": "Program Studi: Teknik Mesin",
+        "institution": "Lembaga Pendidikan: Politeknik Negeri Bandung",
+        "level": "Program Pendidikan: Diploma III",
         "enroll_date": "Tanggal Masuk: 1 September 2010",
-        "enroll_credit": "Jumlah SKS: 110",
-        "enroll_grade": "IPK: 3,36",
+        "credit": "Jumlah SKS: 110",
+        "grade": "IPK: 3,36",
         "issued_date": "Issued Date: July 30, 2021",
         "courses": [{"code": "TM101", "name": "Kalkulus", "credits": "2", "grade": "3,5", "semester": "I"}],
     })
     assert model.number == "00123/2021"
     assert model.student_name == "Rudi Hartono"
     assert model.student_number == "00123456"
-    assert model.student_major == "Teknik Mesin"
-    assert model.education_address == "Jalan Grafika 2, Yogyakarta 55281"
-    assert model.birth_place == "Bandung"
-    assert model.birth_date == "1995-12-03"
-    assert model.enroll_level == "D3"
+    assert model.major == "Teknik Mesin"
+    assert model.level == "D3"
     assert model.enroll_date == "2010-09-01"
-    assert model.enroll_credit == "110"
-    assert model.enroll_grade == 3.36
+    assert model.credit == "110"
+    assert model.grade == 3.36
     assert model.issued_date == "2021-07-30"
     assert model.courses and model.courses[0].semester == "I"
     assert model.courses[0].credits == 2
     assert model.courses[0].grade == 3.5
-    assert '"enroll_grade":3.36' in model.model_dump_json()
+    assert '"grade":3.36' in model.model_dump_json()
     assert '"credits":2.0' in model.model_dump_json()
     assert '"grade":3.5' in model.model_dump_json()
 
 
 def test_certificate_education_numeric_fields():
     model = CertificateEducationSchema.model_validate({
-        "enroll_grade": 4,
+        "grade": 4,
         "courses": [
             {"credits": 2.5, "grade": 85},
             {"credits": "SKS: 2", "grade": "Grade: 3,25"},
             {"credits": "-", "grade": "B+"},
         ],
     })
-    assert model.enroll_grade == 4
+    assert model.grade == 4
     assert model.courses and model.courses[0].credits == 2.5
     assert model.courses[0].grade == 85
     assert model.courses[1].credits == 2
     assert model.courses[1].grade == 3.25
     assert model.courses[2].credits is None
     assert model.courses[2].grade is None
-    assert CertificateEducationSchema.model_validate({"enroll_grade": "3,22 (tiga koma dua dua)"}).enroll_grade == 3.22
-    assert CertificateEducationSchema.model_validate({"enroll_grade": True}).enroll_grade is None
-    assert CertificateEducationSchema.model_validate({"enroll_grade": float("inf")}).enroll_grade is None
+    assert CertificateEducationSchema.model_validate({"grade": "3,22 (tiga koma dua dua)"}).grade == 3.22
+    assert CertificateEducationSchema.model_validate({"grade": True}).grade is None
+    assert CertificateEducationSchema.model_validate({"grade": float("inf")}).grade is None
 
 
 def test_certificate_education_transcript_parser():
@@ -135,15 +243,12 @@ def test_certificate_education_transcript_parser():
     assert parsed.number == "001234"
     assert parsed.student_name == "RUDI HARTONO"
     assert parsed.student_number == "060100094"
-    assert parsed.education_institution == "UNIVERSITAS SUMATERA UTARA"
-    assert parsed.education_address == "Jalan dr. T. Mansur No. 5, Kampus USU Medan 20155"
-    assert parsed.student_major == "FAKULTAS KEDOKTERAN"
-    assert parsed.enroll_level == "Profesi Dokter"
-    assert parsed.birth_place == "Pancur Batu"
-    assert parsed.birth_date == "1988-04-05"
+    assert parsed.institution == "UNIVERSITAS SUMATERA UTARA"
+    assert parsed.major == "FAKULTAS KEDOKTERAN"
+    assert parsed.level == "Profesi Dokter"
     assert parsed.enroll_date == "2010-02-01"
-    assert parsed.enroll_credit == "146"
-    assert parsed.enroll_grade == 3.18
+    assert parsed.credit == "146"
+    assert parsed.grade == 3.18
     assert parsed.issued_place == "Medan"
     assert parsed.issued_date == "2012-02-25"
     assert parsed.courses is None
@@ -166,27 +271,24 @@ def test_certificate_education_english_enclosure_parser():
     Makassar, July 30, 2021
     """)
     assert parsed.student_name == "DARY SETIAWAN"
-    assert parsed.student_major == "Geography Education"
-    assert parsed.enroll_level == "S1"
-    assert parsed.birth_place == "Polewali"
-    assert parsed.birth_date == "1998-08-17"
+    assert parsed.major == "Geography Education"
+    assert parsed.level == "S1"
     assert parsed.enroll_date is None
     assert parsed.issued_date == "2021-07-30"
     assert parsed.student_number == "001615442008"
     assert parsed.number == "872022021000837"
-    assert parsed.enroll_credit == "148"
-    assert parsed.education_address is None
+    assert parsed.credit == "148"
 
 
-def test_bank_account_information_schema_and_prompt():
-    doc = BankAccountInformationDocument()
+def test_bank_account_schema_and_prompt():
+    doc = BankAccountDocument()
     properties = doc.get_json_schema()["properties"]
     assert set(properties) == {"bank_name", "bank_branch", "account_number", "account_holder_name", "account_type"}
     prompt = doc.build_system_prompt()
     assert all(field in prompt for field in properties)
     assert "balances" in prompt and "transaction tables" in prompt
     assert "```text\nNo. Rekening : 00001-2345\n```" in doc.build_user_prompt("No. Rekening : 00001-2345")
-    model = BankAccountInformationSchema.model_validate({
+    model = BankAccountSchema.model_validate({
         "account_number": "No. Rekening : 00001-2345",
         "account_holder_name": "Atas Nama : PT CONTOH MAKMUR",
         "account_type": "Jenis Rekening : Tabungan",
@@ -194,12 +296,12 @@ def test_bank_account_information_schema_and_prompt():
     assert model.account_number == "00001-2345"
     assert model.account_holder_name == "PT CONTOH MAKMUR"
     assert model.account_type == "Tabungan"
-    assert BankAccountInformationSchema.model_validate({"bank_branch": "Cabang: KCP Jakarta Cibis Nine"}).bank_branch == "KCP Jakarta Cibis Nine"
-    assert BankAccountInformationSchema.model_validate({"bank_branch": "KCP SUNGKONO"}).bank_branch == "KCP SUNGKONO"
-    assert BankAccountInformationSchema.model_validate({"account_number": "0000****1234"}).account_number is None
+    assert BankAccountSchema.model_validate({"bank_branch": "Cabang: KCP Jakarta Cibis Nine"}).bank_branch == "KCP Jakarta Cibis Nine"
+    assert BankAccountSchema.model_validate({"bank_branch": "KCP SUNGKONO"}).bank_branch == "KCP SUNGKONO"
+    assert BankAccountSchema.model_validate({"account_number": "0000****1234"}).account_number is None
 
 
-def test_bank_account_information_passbook_parser():
+def test_bank_account_passbook_parser():
     raw_text = """
     Tabungan BRI Simpedes
     Kantor BANK BRI : 3868 UNIT MENES LABUAN
@@ -208,7 +310,7 @@ def test_bank_account_information_passbook_parser():
     Nama : BUDI SANTOSO
     No. Seri : 12345678
     """
-    parsed = BankAccountInformationDocument().parse_string(raw_text)
+    parsed = BankAccountDocument().parse_string(raw_text)
     assert parsed.bank_name == "Bank Rakyat Indonesia"
     assert parsed.bank_branch == "3868 UNIT MENES LABUAN"
     assert parsed.account_number == "3868-01-000123-45-6"
@@ -218,8 +320,8 @@ def test_bank_account_information_passbook_parser():
     assert "passbook_serial_number" not in parsed.model_dump()
 
 
-def test_bank_account_information_unlabeled_bca_passbook_parser():
-    parsed = BankAccountInformationDocument().parse_string("""
+def test_bank_account_unlabeled_bca_passbook_parser():
+    parsed = BankAccountDocument().parse_string("""
     KCP SUNGKONO
     0001234567
     JANE DOE
@@ -232,8 +334,8 @@ def test_bank_account_information_unlabeled_bca_passbook_parser():
     assert parsed.account_holder_name == "JANE DOE"
 
 
-def test_bank_account_information_statement_and_letter_parser():
-    statement = BankAccountInformationDocument().parse_string("""
+def test_bank_account_statement_and_letter_parser():
+    statement = BankAccountDocument().parse_string("""
     mandiri
     Rekening Koran (Account Statement)
     Account No : 1270000001234 - PT CONTOH JAYA
@@ -249,7 +351,7 @@ def test_bank_account_information_statement_and_letter_parser():
     assert "opening_balance" not in statement.model_dump()
     assert "transactions" not in statement.model_dump()
 
-    letter = BankAccountInformationDocument().parse_string("""
+    letter = BankAccountDocument().parse_string("""
     PT CONTOH MAKMUR
     Untuk Pembayaran dapat di transfer ke Rekening:
     Bank Danamon, Cabang Puri Kencana

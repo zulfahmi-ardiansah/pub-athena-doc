@@ -1,4 +1,4 @@
-def get_bank_account_information_system_prompt() -> str:
+def get_bank_account_system_prompt() -> str:
     return (
         "Extract bank account information from Indonesian or English passbooks, statements, account letters, and payment instructions into the exact JSON schema.\n\n"
         "| JSON field | Printed label or location | Rule |\n"
@@ -18,7 +18,7 @@ def get_bank_account_information_system_prompt() -> str:
     )
 
 
-def get_bank_account_information_user_prompt(raw_text: str) -> str:
+def get_bank_account_user_prompt(raw_text: str) -> str:
     return (
         "Extract bank account information from this OCR text into the requested JSON schema:\n\n"
         f"```text\n{raw_text.strip()}\n```"
