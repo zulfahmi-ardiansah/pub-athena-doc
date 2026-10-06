@@ -49,14 +49,15 @@
      * @param {Blob|File} params.fileBlob - The file or cropped image Blob
      * @param {string} params.filename - Original or cropped filename
      * @param {boolean} [params.trace=true] - Whether to capture stage evolution trace
-     * @param {boolean} [params.keepTrace=false] - Whether to keep trace on disk
+     * @param {boolean} [params.keepTrace] - Override whether to keep trace on disk
      * @returns {Promise<{ok: boolean, status: number, data: Object}>}
      */
-    async extractDocument({ documentType, fileBlob, filename, trace = true, keepTrace = false }) {
+    async extractDocument({ documentType, fileBlob, filename, trace = true, keepTrace = null }) {
       const formData = new FormData();
       formData.append('file', fileBlob, filename || 'document.jpg');
 
-      const url = `/api/v1/extract/${encodeURIComponent(documentType)}?trace=${Boolean(trace)}&keep_trace=${Boolean(keepTrace)}`;
+      const keepTraceQuery = keepTrace === null ? '' : `&keep_trace=${Boolean(keepTrace)}`;
+      const url = `/api/v1/extract/${encodeURIComponent(documentType)}?trace=${Boolean(trace)}${keepTraceQuery}`;
 
       const response = await fetch(url, {
         method: 'POST',

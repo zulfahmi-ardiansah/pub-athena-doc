@@ -465,7 +465,8 @@
         documentType: docType,
         fileBlob: uploadBlob,
         filename: uploadFilename,
-        trace: withTrace
+        trace: withTrace,
+        keepTrace: withTrace
       });
 
       clearInterval(ticker);
