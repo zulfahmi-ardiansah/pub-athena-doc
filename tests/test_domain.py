@@ -19,6 +19,7 @@ from src.domain.documents.business_deed import BusinessDeedDocument, BusinessDee
 from src.domain.documents.identity_stay import IdentityStayDocument, IdentityStaySchema
 from src.domain.documents.certificate_local_value import CertificateLocalValueDocument, CertificateLocalValueSchema
 from src.domain.documents.bank_account_information import BankAccountInformationDocument, BankAccountInformationSchema
+from src.domain.documents.certificate_education import CertificateEducationDocument, CertificateEducationSchema
 
 
 def test_document_registry():
@@ -34,8 +35,147 @@ def test_document_registry():
     assert "identity_stay" in slugs
     assert "certificate_local_value" in slugs
     assert "bank_account_information" in slugs
+    assert "certificate_education" in slugs
+    assert "education_diploma" not in slugs
     assert "limited_stay_permit" not in slugs
     assert "domestic_content_certificate" not in slugs
+
+
+def test_certificate_education_schema_and_prompt():
+    doc = CertificateEducationDocument()
+    schema = doc.get_json_schema()
+    properties = schema["properties"]
+    assert list(properties) == [
+        "number", "student_name", "student_number", "student_major",
+        "education_institution", "education_address", "birth_place", "birth_date",
+        "enroll_level", "enroll_date", "enroll_credit", "enroll_grade",
+        "issued_place", "issued_date", "courses",
+    ]
+    assert set(schema["$defs"]["AcademicCourse"]["properties"]) == {"code", "name", "credits", "grade", "semester"}
+    prompt = doc.build_system_prompt()
+    assert all(field in prompt for field in properties)
+    assert "side-by-side" in prompt and "YYYY-MM-DD" in prompt
+    assert "```text\nNama: RUDI HARTONO\n```" in doc.build_user_prompt("Nama: RUDI HARTONO")
+
+
+def test_certificate_education_schema_normalization():
+    model = CertificateEducationSchema.model_validate({
+        "number": "No. Seri: 00123/2021",
+        "student_name": "Nama Mahasiswa: Rudi Hartono",
+        "student_number": "NIM: 00123456",
+        "student_major": "Program Studi: Teknik Mesin",
+        "education_institution": "Lembaga Pendidikan: Politeknik Negeri Bandung",
+        "education_address": "Alamat Fakultas: Jalan Grafika 2, Yogyakarta 55281",
+        "birth_place": "Bandung, 3 Desember 1995",
+        "birth_date": "Bandung, 3 Desember 1995",
+        "enroll_level": "Program Pendidikan: Diploma III",
+        "enroll_date": "Tanggal Masuk: 1 September 2010",
+        "enroll_credit": "Jumlah SKS: 110",
+        "enroll_grade": "IPK: 3,36",
+        "issued_date": "Issued Date: July 30, 2021",
+        "courses": [{"code": "TM101", "name": "Kalkulus", "credits": "2", "grade": "3,5", "semester": "I"}],
+    })
+    assert model.number == "00123/2021"
+    assert model.student_name == "Rudi Hartono"
+    assert model.student_number == "00123456"
+    assert model.student_major == "Teknik Mesin"
+    assert model.education_address == "Jalan Grafika 2, Yogyakarta 55281"
+    assert model.birth_place == "Bandung"
+    assert model.birth_date == "1995-12-03"
+    assert model.enroll_level == "D3"
+    assert model.enroll_date == "2010-09-01"
+    assert model.enroll_credit == "110"
+    assert model.enroll_grade == 3.36
+    assert model.issued_date == "2021-07-30"
+    assert model.courses and model.courses[0].semester == "I"
+    assert model.courses[0].credits == 2
+    assert model.courses[0].grade == 3.5
+    assert '"enroll_grade":3.36' in model.model_dump_json()
+    assert '"credits":2.0' in model.model_dump_json()
+    assert '"grade":3.5' in model.model_dump_json()
+
+
+def test_certificate_education_numeric_fields():
+    model = CertificateEducationSchema.model_validate({
+        "enroll_grade": 4,
+        "courses": [
+            {"credits": 2.5, "grade": 85},
+            {"credits": "SKS: 2", "grade": "Grade: 3,25"},
+            {"credits": "-", "grade": "B+"},
+        ],
+    })
+    assert model.enroll_grade == 4
+    assert model.courses and model.courses[0].credits == 2.5
+    assert model.courses[0].grade == 85
+    assert model.courses[1].credits == 2
+    assert model.courses[1].grade == 3.25
+    assert model.courses[2].credits is None
+    assert model.courses[2].grade is None
+    assert CertificateEducationSchema.model_validate({"enroll_grade": "3,22 (tiga koma dua dua)"}).enroll_grade == 3.22
+    assert CertificateEducationSchema.model_validate({"enroll_grade": True}).enroll_grade is None
+    assert CertificateEducationSchema.model_validate({"enroll_grade": float("inf")}).enroll_grade is None
+
+
+def test_certificate_education_transcript_parser():
+    parsed = CertificateEducationDocument().parse_string("""
+    UNIVERSITAS SUMATERA UTARA
+    FAKULTAS KEDOKTERAN
+    Jalan dr. T. Mansur No. 5, Kampus USU Medan 20155
+    TRANSKRIP AKADEMIK PROGRAM PENDIDIKAN PROFESI DOKTER
+    Nama (Name) : RUDI HARTONO
+    No. Seri : 001234
+    Nomor Induk Mahasiswa : 060100094
+    Tempat/Tanggal Lahir : Pancur Batu / 5 April 1988
+    Mulai Pendidikan : 1 Februari 2010
+    Tanggal Kelulusan : 12 Desember 2011
+    Indeks Prestasi Kumulatif (IPK) : 3,18
+    Jumlah SKS : 146
+    Medan, 25 Februari 2012
+    """)
+    assert parsed.number == "001234"
+    assert parsed.student_name == "RUDI HARTONO"
+    assert parsed.student_number == "060100094"
+    assert parsed.education_institution == "UNIVERSITAS SUMATERA UTARA"
+    assert parsed.education_address == "Jalan dr. T. Mansur No. 5, Kampus USU Medan 20155"
+    assert parsed.student_major == "FAKULTAS KEDOKTERAN"
+    assert parsed.enroll_level == "Profesi Dokter"
+    assert parsed.birth_place == "Pancur Batu"
+    assert parsed.birth_date == "1988-04-05"
+    assert parsed.enroll_date == "2010-02-01"
+    assert parsed.enroll_credit == "146"
+    assert parsed.enroll_grade == 3.18
+    assert parsed.issued_place == "Medan"
+    assert parsed.issued_date == "2012-02-25"
+    assert parsed.courses is None
+
+
+def test_certificate_education_english_enclosure_parser():
+    parsed = CertificateEducationDocument().parse_string("""
+    STATE UNIVERSITY OF MAKASSAR
+    ENCLOSURE OF CERTIFICATE
+    Name : DARY SETIAWAN
+    Place/Date of Birth : Polewali, August 17, 1998
+    Study Program : Geography Education
+    ID : 001615442008
+    Number : 872022021000837
+    Faculty : Mathematics and Science
+    Program : Strata Satu (Bachelor)
+    Graduated in July 28, 2021
+    GPA : 3.53
+    Total of Credits : 148
+    Makassar, July 30, 2021
+    """)
+    assert parsed.student_name == "DARY SETIAWAN"
+    assert parsed.student_major == "Geography Education"
+    assert parsed.enroll_level == "S1"
+    assert parsed.birth_place == "Polewali"
+    assert parsed.birth_date == "1998-08-17"
+    assert parsed.enroll_date is None
+    assert parsed.issued_date == "2021-07-30"
+    assert parsed.student_number == "001615442008"
+    assert parsed.number == "872022021000837"
+    assert parsed.enroll_credit == "148"
+    assert parsed.education_address is None
 
 
 def test_bank_account_information_schema_and_prompt():

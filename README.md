@@ -311,6 +311,36 @@ Extracts the account-holding bank, branch, account number, holder, and account t
 
 The account number remains a string so leading zeros and printed separators survive. Statement balances and transaction rows are outside this document model. The `string_engine` reads labeled account details and the consistent unlabeled branch/number/name lines on BCA passbooks; the LLM-based engines can read other layouts.
 
+### 10. Ijazah / Academic Transcript (`certificate_education`)
+
+Extracts student identity, institution details, education program, enrollment date, total credits, GPA, and the repeated course table:
+
+```json
+{
+  "number": "001234/2021",
+  "student_name": "Rudi Hartono",
+  "student_number": "00123456",
+  "student_major": "Teknik Mesin",
+  "education_institution": "Politeknik Negeri Bandung",
+  "education_address": "Jl. Gegerkalong Hilir, Bandung",
+  "birth_place": "Bandung",
+  "birth_date": "1995-12-03",
+  "enroll_level": "D3",
+  "enroll_date": "2010-09-01",
+  "enroll_credit": "110",
+  "enroll_grade": 3.36,
+  "issued_place": "Bandung",
+  "issued_date": "2015-10-12",
+  "courses": [
+    { "code": "TM101", "name": "Matematika", "credits": 2, "grade": 3, "semester": "I" }
+  ]
+}
+```
+
+`number` is the document serial/transcript number; `student_number` is NIM/NPM. `student_major` records the field of study, using faculty when no program is printed. `enroll_level` records the education level/program, `enroll_credit` the total completed credits, and `enroll_grade` the overall IPK/GPA. The reference set contains academic transcripts and diploma attachments, including bilingual and rotated scans. The string parser reads labeled header fields and printed campus address lines; the LLM-based engines handle course tables and other layouts.
+
+`enroll_grade`, course `credits`, and course `grade` are JSON numbers. Letter grades use the numeric equivalent from the document's own grading legend; when no equivalent is available, course `grade` is `null`.
+
 ---
 
 ## Web Interface

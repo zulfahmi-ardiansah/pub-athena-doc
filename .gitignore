@@ -83,3 +83,4 @@ logs/
 *.jsonl
 docs
 reference
+.tmp_*

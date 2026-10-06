@@ -9,6 +9,7 @@ from src.domain.documents.business_deed import BusinessDeedDocument
 from src.domain.documents.identity_stay import IdentityStayDocument
 from src.domain.documents.certificate_local_value import CertificateLocalValueDocument
 from src.domain.documents.bank_account_information import BankAccountInformationDocument
+from src.domain.documents.certificate_education import CertificateEducationDocument
 
 
 class DocumentRegistry:
@@ -26,6 +27,7 @@ class DocumentRegistry:
         self.register(IdentityStayDocument())
         self.register(CertificateLocalValueDocument())
         self.register(BankAccountInformationDocument())
+        self.register(CertificateEducationDocument())
 
     def register(self, doc: BaseDocument) -> None:
         """Register a new document specification."""
