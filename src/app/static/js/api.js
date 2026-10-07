@@ -80,6 +80,26 @@
         status: response.status,
         data: jsonPayload
       };
+    },
+
+    async extractBatch({ documents, trace = true, keepTrace = null }) {
+      const formData = new FormData();
+      documents.forEach(({ file, fileBlob, filename, documentType }) => {
+        formData.append('files', fileBlob || file, filename || file.name);
+        formData.append('document_types', documentType);
+      });
+      const keepTraceQuery = keepTrace === null ? '' : `&keep_trace=${Boolean(keepTrace)}`;
+      const response = await fetch(`/api/v1/extract/batch?trace=${Boolean(trace)}${keepTraceQuery}`, {
+        method: 'POST',
+        body: formData
+      });
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        data = { success: false, detail: `Server returned HTTP ${response.status} ${response.statusText}` };
+      }
+      return { ok: response.ok && data.success, status: response.status, data };
     }
   };
 

@@ -181,6 +181,7 @@ uv run uvicorn src.app.main:app --reload --port 8000
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/v1/extract/{document_type}` | Extract structured JSON from uploaded file (PDF, PNG, JPG) |
+| `POST` | `/api/v1/extract/batch` | Extract several files, each with its own document type |
 | `GET` | `/api/v1/documents` | List all supported document schemas and field definitions |
 | `GET` | `/health` | Service status, active engine, LLM models, and telemetry info |
 | `GET` | `/health/ready` | Readiness probe (verifies engine singleton, log and trace disk storage) |
@@ -244,6 +245,18 @@ curl -X POST "http://localhost:8000/api/v1/extract/identity_card?trace=true" \
 }
 ```
 
+### Extract Multiple Documents
+
+Send one `document_types` field for each `files` field, in the same order:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/extract/batch?trace=true" \
+  -F "files=@ktp.jpg" -F "document_types=identity_card" \
+  -F "files=@npwp.jpg" -F "document_types=tax_number"
+```
+
+The response keeps one result, request ID, trace, and cost per file, in upload order. It also includes `succeeded`, `failed`, and a combined `cost`. A valid batch request returns HTTP 200 even if some files fail; check each result's `success` and `status_code`. Files run concurrently up to `MAX_BATCH_CONCURRENCY`; a failed file does not stop the others. `MAX_BATCH_FILES` limits the number of files, and `MAX_FILE_SIZE_MB` still applies to each file. The query parameters above also work for batches.
+
 ---
 
 ## Configuration Reference
@@ -258,6 +271,8 @@ Key settings configurable via environment variables or `.env`, grouped by topic:
 | `EXTRACTION_PIPELINE` | `digital_pdf,ocr,visual_llm` | Extraction sequence attempted by `hybrid_engine` |
 | `EXTRACTION_MIN_CONFIDENCE` | `0.5` | Minimum extractor confidence score before cascading to next stage |
 | `ANALYSIS_MODE` | `text_llm` | Analyzer mode: `text_llm` (LLM schema-guided) or `string` (deterministic regex) |
+| `MAX_BATCH_FILES` | `5` | Maximum files in one batch request |
+| `MAX_BATCH_CONCURRENCY` | `5` | Maximum files processed at the same time in one batch |
 
 ### OCR & LLM Providers
 

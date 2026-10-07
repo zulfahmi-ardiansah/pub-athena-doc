@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     enable_demo: bool = True
     max_file_size_mb: int = 15
+    max_batch_files: int = Field(default=5, ge=1)
+    max_batch_concurrency: int = Field(default=5, ge=1)
     trace_dir: str = "trace"
     keep_trace_artifacts: bool = False
 

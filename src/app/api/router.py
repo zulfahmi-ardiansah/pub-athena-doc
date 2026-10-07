@@ -1,13 +1,17 @@
+import asyncio
+import json
 import logging
-from pathlib import Path
 import uuid
-from typing import Any, Dict, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
+from decimal import Decimal
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, File, Query, status
 from fastapi.responses import JSONResponse
 
 from src.config.settings import Settings, get_settings
 from src.config.pricing import load_pricing_config
-from src.config.logging import get_request_id
+from src.config.logging import get_request_id, set_request_id
 from src.config.telemetry import async_trace_span
 from src.domain.registry import DocumentRegistry
 from src.app.api.deps import get_engine_singleton, get_registry
@@ -93,6 +97,7 @@ async def health_check(settings: Settings = Depends(get_settings)) -> Dict[str, 
         "extraction_pipeline": settings.extraction_pipeline,
         "analysis_mode": settings.analysis_mode,
         "keep_trace_artifacts": settings.keep_trace_artifacts,
+        "max_batch_files": settings.max_batch_files,
         "otel_enabled": settings.otel_enabled,
         "pi_masking_enabled": settings.pi_masking_enabled,
         "pdp_masking_enabled": settings.pi_masking_enabled,
@@ -117,6 +122,108 @@ async def list_documents(registry: DocumentRegistry = Depends(get_registry)) -> 
             "json_schema": doc_obj.get_json_schema() if doc_obj else {}
         })
     return {"documents": docs}
+
+
+@router.post("/api/v1/extract/batch", tags=["Extraction"])
+async def extract_document_batch(
+    files: List[UploadFile] = File(...),
+    document_types: List[str] = Form(...),
+    trace: bool = Query(default=False),
+    keep_trace: Optional[bool] = Query(default=None),
+    engine: Optional[str] = Query(default=None),
+    analysis_mode: Optional[str] = Query(default=None),
+    pipeline: Optional[str] = Query(default=None),
+    registry: DocumentRegistry = Depends(get_registry),
+    settings: Settings = Depends(get_settings),
+) -> Dict[str, Any]:
+    if len(files) != len(document_types):
+        raise HTTPException(status_code=400, detail="Each file needs one document_types value")
+    if len(files) > settings.max_batch_files:
+        raise HTTPException(status_code=413, detail=f"Batch exceeds {settings.max_batch_files} files")
+    try:
+        pricing = load_pricing_config(settings.pricing_config_path)
+    except (OSError, ValueError) as err:
+        raise HTTPException(status_code=500, detail="Invalid pricing configuration") from err
+
+    batch_id = get_request_id() or str(uuid.uuid4())
+    semaphore = asyncio.Semaphore(settings.max_batch_concurrency)
+
+    async def process_file(file: UploadFile, document_type: str) -> Dict[str, Any]:
+        file_request_id = str(uuid.uuid4())
+
+        def run_file() -> Any:
+            set_request_id(file_request_id)
+            file_engine = create_engine(settings)
+            return asyncio.run(extract_document(
+                document_type=document_type,
+                file=file,
+                trace=trace,
+                keep_trace=keep_trace,
+                engine=engine,
+                analysis_mode=analysis_mode,
+                pipeline=pipeline,
+                registry=registry,
+                default_engine=file_engine,
+                settings=settings,
+            ))
+
+        async with semaphore:
+            try:
+                response = await asyncio.to_thread(run_file)
+                if isinstance(response, JSONResponse):
+                    return {"status_code": response.status_code, **json.loads(response.body)}
+                return {"status_code": 200, **response}
+            except HTTPException as exc:
+                return {
+                    "status_code": exc.status_code,
+                    "success": False,
+                    "request_id": file_request_id,
+                    "document_type": document_type,
+                    "filename": file.filename,
+                    "detail": exc.detail,
+                    "cost": RequestUsage().summarize(pricing),
+                }
+            except Exception as exc:
+                logger.exception("Batch extraction failed for %s", file.filename)
+                return {
+                    "status_code": 500,
+                    "success": False,
+                    "request_id": file_request_id,
+                    "document_type": document_type,
+                    "filename": file.filename,
+                    "detail": str(exc),
+                    "cost": RequestUsage().summarize(pricing),
+                }
+
+    results = await asyncio.gather(*(
+        process_file(file, document_type)
+        for file, document_type in zip(files, document_types)
+    ))
+    known_cost = sum((Decimal(item["cost"]["known_cost"]) for item in results), Decimal(0))
+    complete = all(item["cost"]["complete"] for item in results)
+    succeeded = sum(item["success"] is True for item in results)
+    batch_cost = {
+        "currency": "USD",
+        "price_date": pricing.effective_date.isoformat() if pricing else None,
+        "estimate_cost": format(known_cost, "f") if complete else None,
+        "known_cost": format(known_cost, "f"),
+        "complete": complete,
+    }
+    logger.info(
+        "Batch extraction completed: files=%s, succeeded=%s, failed=%s, "
+        "currency=USD, estimate_cost=%s, known_cost=%s, cost_complete=%s",
+        len(results), succeeded, len(results) - succeeded,
+        batch_cost["estimate_cost"], batch_cost["known_cost"], complete,
+    )
+    return {
+        "success": succeeded == len(results),
+        "request_id": batch_id,
+        "total_files": len(results),
+        "succeeded": succeeded,
+        "failed": len(results) - succeeded,
+        "cost": batch_cost,
+        "results": results,
+    }
 
 
 @router.post("/api/v1/extract/{document_type}", tags=["Extraction"])

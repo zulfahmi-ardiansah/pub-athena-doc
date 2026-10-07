@@ -1,5 +1,8 @@
+import asyncio
+import importlib
 import io
 import json
+import threading
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 import pytest
@@ -11,6 +14,130 @@ from src.utility.trace_utils import save_request_trace
 from src.utility.usage_cost import LlmUsage, OcrUsage, record_llm_usage, record_ocr_usage
 
 client = TestClient(app)
+
+
+@pytest.mark.parametrize("concurrency", [1, 3])
+def test_batch_extracts_mixed_types_concurrently_and_keeps_failures(monkeypatch, tmp_path, concurrency):
+    pricing_path = tmp_path / "pricing.json"
+    pricing_path.write_text(json.dumps({
+        "effective_date": "2026-10-07",
+        "llm_rates": {"openai": {"test-model": {
+            "input_usd_per_million_tokens": "1",
+            "output_usd_per_million_tokens": "1",
+        }}},
+    }), encoding="utf-8")
+    router_module = importlib.import_module("src.app.api.router")
+    from src.config.settings import get_settings
+    settings = get_settings()
+    monkeypatch.setattr(settings, "pricing_config_path", str(pricing_path))
+    monkeypatch.setattr(settings, "trace_dir", str(tmp_path))
+    monkeypatch.setattr(settings, "max_batch_files", 5)
+    monkeypatch.setattr(settings, "max_batch_concurrency", concurrency)
+
+    lock = threading.Lock()
+    active = 0
+    peak = 0
+    mock_engine = MagicMock(spec=BaseExtractionEngine)
+    mock_engine.name = "visual_engine"
+
+    async def extract_one(**kwargs):
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        try:
+            record_llm_usage(LlmUsage("openai", "test-model", 1000, 0))
+            await asyncio.sleep(0.05)
+            if kwargs["filename"] == "bad.png":
+                raise ExtractionError("Unreadable document")
+            return ExtractionResult(data={"slug": kwargs["document"].slug})
+        finally:
+            with lock:
+                active -= 1
+
+    mock_engine.extract = AsyncMock(side_effect=extract_one)
+    monkeypatch.setattr(router_module, "create_engine", lambda settings: mock_engine)
+
+    response = client.post(
+        "/api/v1/extract/batch",
+        files=[
+            ("files", ("first.png", io.BytesIO(b"one"), "image/png")),
+            ("files", ("bad.png", io.BytesIO(b"two"), "image/png")),
+            ("files", ("third.png", io.BytesIO(b"three"), "image/png")),
+            ("document_types", (None, "identity_card")),
+            ("document_types", (None, "tax_number")),
+            ("document_types", (None, "identity_card")),
+        ],
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert peak == concurrency
+    assert body["succeeded"] == 2
+    assert body["failed"] == 1
+    assert [item["filename"] for item in body["results"]] == ["first.png", "bad.png", "third.png"]
+    assert body["results"][0]["data"]["slug"] == "identity_card"
+    assert body["results"][2]["data"]["slug"] == "identity_card"
+    assert body["results"][1]["document_type"] == "tax_number"
+    assert body["results"][1]["status_code"] == 422
+    assert len({item["request_id"] for item in body["results"]}) == 3
+    assert body["cost"]["estimate_cost"] == "0.003"
+
+
+def test_batch_rejects_too_many_files_or_mismatched_types(monkeypatch):
+    from src.config.settings import get_settings
+    monkeypatch.setattr(get_settings(), "max_batch_files", 1)
+    files = [
+        ("files", ("one.png", io.BytesIO(b"one"), "image/png")),
+        ("files", ("two.png", io.BytesIO(b"two"), "image/png")),
+        ("document_types", (None, "identity_card")),
+        ("document_types", (None, "identity_card")),
+    ]
+    response = client.post(
+        "/api/v1/extract/batch",
+        files=files,
+    )
+    assert response.status_code == 413
+
+    response = client.post(
+        "/api/v1/extract/batch",
+        files=[
+            ("files", ("one.png", io.BytesIO(b"one"), "image/png")),
+            ("document_types", (None, "identity_card")),
+            ("document_types", (None, "identity_card")),
+        ],
+    )
+    assert response.status_code == 400
+
+
+def test_batch_returns_unknown_document_error_without_stopping_other_files(monkeypatch, tmp_path):
+    router_module = importlib.import_module("src.app.api.router")
+    from src.config.settings import get_settings
+    settings = get_settings()
+    monkeypatch.setattr(settings, "trace_dir", str(tmp_path))
+    monkeypatch.setattr(settings, "max_batch_files", 5)
+    mock_engine = MagicMock(spec=BaseExtractionEngine)
+    mock_engine.name = "visual_engine"
+    mock_engine.extract = AsyncMock(return_value=ExtractionResult(data={"ok": True}))
+    monkeypatch.setattr(router_module, "create_engine", lambda settings: mock_engine)
+
+    response = client.post(
+        "/api/v1/extract/batch",
+        files=[
+            ("files", ("unknown.png", io.BytesIO(b"one"), "image/png")),
+            ("files", ("known.png", io.BytesIO(b"two"), "image/png")),
+            ("document_types", (None, "unknown_type")),
+            ("document_types", (None, "identity_card")),
+        ],
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results"][0]["status_code"] == 404
+    assert body["results"][0]["success"] is False
+    assert body["results"][1]["success"] is True
+    assert body["succeeded"] == 1
+    assert body["failed"] == 1
 
 
 def test_extract_endpoint_reports_cost(monkeypatch, tmp_path, caplog):
