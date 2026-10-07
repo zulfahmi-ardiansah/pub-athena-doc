@@ -158,6 +158,28 @@
     return typeof idStr === 'string' && idStr.length > 12 ? idStr.slice(-12) : idStr;
   }
 
+  function setCost(cost) {
+    const el = $('total-cost');
+    if (!cost) {
+      el.textContent = 'Unavailable';
+      el.title = 'No cost estimate was returned.';
+      return;
+    }
+
+    const complete = cost.complete === true;
+    const amount = complete ? cost.estimate_cost : cost.known_cost;
+    const value = Number(amount);
+    if (amount == null || !Number.isFinite(value) || value < 0 || (!complete && value === 0)) {
+      el.textContent = 'Unavailable';
+      el.title = 'Some usage or pricing information is unavailable.';
+      return;
+    }
+
+    const currency = cost.currency === 'USD' ? '$' : `${cost.currency || 'USD'} `;
+    el.textContent = `${complete ? '' : '≥'}${currency}${value === 0 ? '0.00' : amount}`;
+    el.title = complete ? 'Estimated request cost.' : 'Known cost only; the total could be higher.';
+  }
+
   /* ── Status Badge ──────────────────────────────────────────────────── */
   const STATUS = {
     idle: ['Waiting for a document', 'bg-gray-400', 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'],
@@ -419,6 +441,8 @@
     $('copy-json').disabled = true;
     $('download-json').disabled = true;
     $('copy-id').disabled = true;
+    $('total-cost').textContent = '-';
+    $('total-cost').title = '';
 
     const docType = $('doc-type').value;
     const withTrace = $('opt-trace').checked;
@@ -474,6 +498,7 @@
       $('latency').textContent = `${totalMs} ms`;
 
       const payload = result.data || {};
+      setCost(payload.cost);
       currentReqId = payload.request_id || '-';
       $('request-id').textContent = formatShortId(currentReqId);
       $('request-id').title = currentReqId !== '-' ? `Full Request ID: ${currentReqId}` : '';
@@ -640,6 +665,8 @@
       $('request-id').textContent = '-';
       $('latency').textContent = '-';
       $('pages').textContent = '-';
+      $('total-cost').textContent = '-';
+      $('total-cost').title = '';
       $('json-output').classList.add('hidden');
       $('json-empty').classList.remove('hidden');
       $('trace-wrap').classList.add('hidden');
