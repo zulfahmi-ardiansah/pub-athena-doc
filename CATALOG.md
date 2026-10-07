@@ -168,8 +168,6 @@ Extracts the 13-digit NIB, business actor name and contact details, investment s
 | `business_fields[].field_licenses[].license_status` | License status (Status), e.g. 'Terbit', 'Belum Terbit', 'Belum Terverifikasi' |
 | `business_fields[].field_licenses[].license_remarks` | Remarks/instructions for this specific license (Keterangan), verbatim as printed |
 
-A KBLI row's "Perizinan Berusaha" block can require more than one license (e.g. both an NIB and a Sertifikat Standar), each with its own status and remarks - `field_licenses` captures one entry per stacked Jenis/Status/Keterangan sub-row rather than flattening them into a single field. The `string_engine` path only parses the header fields deterministically; `business_fields` is filled by the LLM-based engines (`hybrid_engine` / `visual_engine`) since the multi-page attachment table isn't reliably regex-parseable.
-
 <a id="tax_entity"></a>
 
 ## Surat Pengukuhan Pengusaha Kena Pajak (SPPKP/PKP) (`tax_entity`)
@@ -225,8 +223,6 @@ Extracts the issuing tax office, NPWP, taxpayer name, business classification (K
 | `signing_official_name` | Name of the signing official |
 | `signing_official_number` | Civil servant registration number of the signing official (NIP) |
 
-`tax_obligation` only lists the checked box(es) (e.g. `[X] PPN`), joined with `; ` if more than one is checked; `business_trade` is `null` when the source prints only a placeholder dash. Both the `string_engine` and LLM-based engines fully support this document, since it's a single fixed-layout page with no repeating table.
-
 <a id="identity_passport"></a>
 
 ## Passport (`identity_passport`)
@@ -271,8 +267,6 @@ Unlike the Indonesian document types above, a passport's printed labels vary by 
 | `document_mrz_line1` | Raw first line of the Machine Readable Zone, verbatim (44 characters, TD3 format) |
 | `document_mrz_line2` | Raw second line of the Machine Readable Zone, verbatim (44 characters, TD3 format) |
 
-The `string_engine` path parses the MRZ deterministically by fixed character position (ICAO Doc 9303 TD3 format), which works identically regardless of issuing country - it fills every MRZ-encoded field (everything above except `holder_birth_place`, `document_issued_date`, and `document_issuing_authority`, which aren't in the MRZ and are only ever read from the printed page by the LLM-based engines).
-
 <a id="business_deed"></a>
 
 ## Business Deed & SK Kemenkumham (`business_deed`)
@@ -302,8 +296,6 @@ Extracts the key filing metadata from an Indonesian notarial business deed (Akta
 | `notary_address` | Notary's office address or domicile (Alamat Notaris) |
 | `decision_number` | SK decree number (Nomor SK), e.g. 'AHU-0028078.AH.01.02.TAHUN 2022' or an older 'C2-10671.HT.01.01.TH.88' style number |
 | `decision_issued_date` | SK decree date (Tanggal Pembuatan), normalized to ISO 8601 (YYYY-MM-DD) |
-
-`deed_type` is normalized to exactly `Pendirian` (establishment) or `Perubahan` (amendment), never the deed's full title text. The `string_engine` path parses `deed_type`, `deed_number`, `deed_date`, `notary_name`, `decision_number`, and `decision_issued_date` deterministically, targeting the legally mandated drafting formulas that stay consistent across notaries and decades of Kemenkumham numbering formats (old `C2-xxxxx.HT.01.01.TH.YY` style through modern `AHU-xxxxx.AH.01.02.TAHUN YYYY`) - it also knows to ignore unrelated SK numbers or deed types a deed's recital text may reference (e.g. the notary's own appointment decree, or a background mention of the company's original establishment deed within an amendment deed), keying only on the current document's own title block and opening formula. `notary_address` varies too much by notary template to parse reliably and is left for the LLM-based engines.
 
 <a id="identity_stay"></a>
 
@@ -358,8 +350,6 @@ Extracts the holder's identity, immigration and passport identifiers, separate p
 | `holder_guarantor` | Guarantor name, when printed |
 | `permit_issued_place` | Place in the issue line at the foot of the permit |
 | `permit_issued_date` | Date in the issue line at the foot of the permit, in YYYY-MM-DD |
-
-The `holder_guarantor` and footer issue details are optional because they are absent from some samples. The `string_engine` path reads labeled rows and the issue line; covered or illegible values remain `null`.
 
 <a id="certificate_local_value"></a>
 
@@ -417,8 +407,6 @@ Extracts product details, TKDN value, verification and certificate numbers, comp
 | `signing_official_name` | Name of the signing official |
 | `certificate_qr_number` | Printed number below the QR code, when present |
 
-Older samples say *Tanda Sah Capaian* and newer samples say *Sertifikat*. Both use the same document slug. `product_local_value` is a JSON number without the percent sign; a printed `Terlampir` or dash becomes `null`. `certificate_valid_year` records the stated duration without calculating an expiry date. `report_number` and `certificate_number` come from separate printed labels.
-
 <a id="bank_account"></a>
 
 ## Bank Account (`bank_account`)
@@ -444,8 +432,6 @@ Extracts the account-holding bank, branch, account number, holder, and account t
 | `account_number` | Account number as text, preserving leading zeros and printed hyphens |
 | `account_holder` | Name of the account owner, not a transaction counterparty |
 | `account_type` | Account product or type when printed |
-
-The account number remains a string so leading zeros and printed separators survive. Statement balances and transaction rows are outside this document model. The `string_engine` reads labeled account details and the consistent unlabeled branch/number/name lines on BCA passbooks; the LLM-based engines can read other layouts.
 
 <a id="certificate_education"></a>
 
@@ -500,10 +486,6 @@ Extracts student identity, institution details, education program, enrollment da
 | `enroll_courses[].course_grade` | Numeric course grade printed directly or obtained from the document's grading legend |
 | `enroll_courses[].course_semester` | Semester or term heading for this course, when printed |
 
-`transcript_number` is the document serial/transcript number; `student_number` is NIM/NPM. `student_major` records the field of study, using faculty when no program is printed. `enroll_level` records the education level/program, `transcript_credit` the total completed credits, and `transcript_grade` the overall IPK/GPA. The reference set contains academic transcripts and diploma attachments, including bilingual and rotated scans. The string parser reads labeled header fields; the LLM-based engines handle course tables and other layouts.
-
-`transcript_grade`, course `course_credits`, and course `course_grade` are JSON numbers. Letter grades use the numeric equivalent from the document's own grading legend; when no equivalent is available, course `course_grade` is `null`.
-
 <a id="certificate_competency"></a>
 
 ## Course / Competency Certificate (`certificate_competency`)
@@ -545,5 +527,3 @@ Extracts informal education credentials: course completion, training, and profes
 | `training_units` | Repeated competency unit codes and names, when printed |
 | `training_units[].unit_code` | Printed competency unit code |
 | `training_units[].unit_name` | Printed competency unit name, if present |
-
-`training_title` is the course or qualification; `training_field` is the occupational area. `certificate_number` records the certificate number; holder registration numbers are excluded. `training_institution` records the issuing provider/body, using the overseeing authority only when no issuer is printed. Expiry dates are extracted only when explicitly printed; they are not calculated from a validity duration. `training_grade` remains a string so printed grades such as `A-` survive. `training_units` contains one `{ "unit_code": "PDB.EI.01.001.01", "unit_name": null }` item per printed competency unit. The string parser handles labeled details and consistent BNSP formulas; the LLM-based engines handle narrative course layouts and reverse-page unit tables.
