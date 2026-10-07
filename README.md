@@ -283,9 +283,24 @@ Targets any endpoint implementing the OpenAI Chat Completions wire format: OpenA
 |---------|---------|-------------|
 | `OPENAI_API_KEY` | *(empty)* | API key for the target endpoint (leave empty for local servers that don't require one) |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Base URL of the OpenAI-compatible API, e.g. `https://openrouter.ai/api/v1` |
+| `OPENAI_PROVIDER` | `openai` | Pricing service key for the configured OpenAI-compatible endpoint, e.g. `alibaba` or `openrouter` |
 | `OPENAI_TEXT_MODEL` | `gpt-4o-mini` | Model for text extraction (OpenRouter-style prefixed IDs like `openai/gpt-4o-mini` also accepted) |
 | `OPENAI_VISION_MODEL` | `gpt-4o-mini` | Model for vision extraction |
 | `OPENAI_TIMEOUT_SECONDS` | `60.0` | Request timeout in seconds |
+
+### Request Cost Estimates
+
+Each extraction response includes a `cost` object in USD. The application log also shows the total. Athena calculates these amounts from the usage reported by Google OCR or an LLM and the rates in your pricing file.
+
+Set `PRICING_CONFIG_PATH="pricing.json"` in `.env` to use the included [pricing.json](pricing.json). For an OpenAI-compatible service, set `OPENAI_PROVIDER` to its key in that file, such as `openai` or `alibaba`. Update the rates when your provider changes its prices.
+
+- `estimate_cost`: total cost when every call can be priced; otherwise `null`.
+- `known_cost`: cost of the calls that could be priced.
+- `complete`: whether every call could be priced.
+- `items`: usage and cost for each call.
+- `price_date`: date of the rates used.
+
+These are estimates, not provider bills. They do not include credits, free allowances, or taxes.
 
 ### Security & Observability
 

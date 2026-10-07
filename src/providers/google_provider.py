@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 from src.providers.base import BaseLLMProvider
+from src.utility.usage_cost import LlmUsage, record_llm_usage
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class GoogleGenAIProvider(BaseLLMProvider):
         self.credentials_file = credentials_file or os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
         self.model = model
         self._client = None
+        self._billing_service = "google_unresolved"
 
         if self.credentials_file and os.path.isfile(self.credentials_file):
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.credentials_file
@@ -93,6 +95,7 @@ class GoogleGenAIProvider(BaseLLMProvider):
                         location=self.location,
                         credentials=creds,
                     )
+                    self._billing_service = "google_vertex"
                     return self._client
                 except Exception as file_err:
                     logger.warning(f"Failed to initialize service account from file '{self.credentials_file}': {file_err}")
@@ -101,6 +104,7 @@ class GoogleGenAIProvider(BaseLLMProvider):
             if self.api_key:
                 logger.info("Initializing Google GenAI client using API key")
                 self._client = genai.Client(api_key=self.api_key)
+                self._billing_service = "google_ai"
                 return self._client
 
             # 3. Vertex AI mode (Project ID + ADC / ambient GCP credentials)
@@ -129,10 +133,12 @@ class GoogleGenAIProvider(BaseLLMProvider):
                     location=self.location,
                     credentials=creds,
                 )
+                self._billing_service = "google_vertex"
             else:
                 # 4. Default ambient credentials fallback
                 logger.info("Initializing Google GenAI client with default ambient credentials")
                 self._client = genai.Client()
+                self._billing_service = "google_vertex" if self._client.vertexai else "google_ai"
         except ImportError as err:
             logger.error("google-genai package not installed.")
             raise RuntimeError("google-genai is required for GoogleGenAIProvider") from err
@@ -141,6 +147,22 @@ class GoogleGenAIProvider(BaseLLMProvider):
             raise RuntimeError(f"Google GenAI client initialization failed: {err}") from err
 
         return self._client
+
+    def _record_usage(self, model_name: str, response: Any) -> None:
+        metadata = getattr(response, "usage_metadata", None)
+        input_tokens = getattr(metadata, "prompt_token_count", None)
+        output_tokens = getattr(metadata, "candidates_token_count", None)
+        if input_tokens is not None:
+            input_tokens += getattr(metadata, "tool_use_prompt_token_count", None) or 0
+        if output_tokens is not None:
+            output_tokens += getattr(metadata, "thoughts_token_count", None) or 0
+        record_llm_usage(LlmUsage(
+            billing_service=self._billing_service,
+            model=model_name,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cached_input_tokens=getattr(metadata, "cached_content_token_count", None) or 0,
+        ))
 
     @staticmethod
     def _parse_json_payload(text: str) -> Dict[str, Any]:
@@ -225,11 +247,16 @@ class GoogleGenAIProvider(BaseLLMProvider):
         parts.append(types.Part.from_text(text=prompt))
         contents = parts if len(parts) > 1 else prompt
 
-        response = client.models.generate_content(
-            model=model_name,
-            contents=contents,
-            config=config
-        )
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=config
+            )
+        except Exception:
+            record_llm_usage(LlmUsage(self._billing_service, model_name, None, None))
+            raise
+        self._record_usage(model_name, response)
 
         if not response.text:
             raise RuntimeError("Google GenAI returned empty response")
@@ -261,10 +288,15 @@ class GoogleGenAIProvider(BaseLLMProvider):
         parts.append(types.Part.from_text(text=prompt))
         contents = parts if len(parts) > 1 else prompt
 
-        response = client.models.generate_content(
-            model=model_name,
-            contents=contents,
-            config=config
-        )
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=config
+            )
+        except Exception:
+            record_llm_usage(LlmUsage(self._billing_service, model_name, None, None))
+            raise
+        self._record_usage(model_name, response)
 
         return response.text.strip() if response.text else ""

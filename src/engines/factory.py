@@ -43,6 +43,7 @@ def create_llm_provider(settings: Settings, is_vision: bool = False) -> BaseLLMP
         return OpenAICompatibleProvider(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
+            provider_name=settings.openai_provider,
             model=model_name,
             timeout_seconds=settings.openai_timeout_seconds,
         )

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, 
 from fastapi.responses import JSONResponse
 
 from src.config.settings import Settings, get_settings
+from src.config.pricing import load_pricing_config
 from src.config.logging import get_request_id
 from src.config.telemetry import async_trace_span
 from src.domain.registry import DocumentRegistry
@@ -13,6 +14,7 @@ from src.app.api.deps import get_engine_singleton, get_registry
 from src.engines.base import BaseExtractionEngine, ExtractionResult, ExtractionError
 from src.engines.factory import create_engine
 from src.utility.trace_utils import save_request_trace, sanitize_trace, delete_request_trace
+from src.utility.usage_cost import RequestUsage, track_usage
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +154,12 @@ async def extract_document(
     # Use existing request_id from context or generate new UUID
     request_id = get_request_id() or str(uuid.uuid4())
     effective_keep_trace = keep_trace if keep_trace is not None else settings.keep_trace_artifacts
+    try:
+        pricing = load_pricing_config(settings.pricing_config_path)
+    except (OSError, ValueError) as err:
+        logger.error(f"Invalid pricing configuration: {err}")
+        raise HTTPException(status_code=500, detail="Invalid pricing configuration") from err
+    request_usage = RequestUsage()
 
     # Determine active engine instance
     active_engine = default_engine
@@ -183,20 +191,22 @@ async def extract_document(
                     mode_lower = analysis_mode.lower()
                     kwargs["analysis_mode_override"] = "text_llm" if mode_lower in ("llm", "text_llm") else mode_lower
 
-            result = await active_engine.extract(
-                file_bytes=file_bytes,
-                filename=file.filename,
-                content_type=file.content_type,
-                document=doc_spec,
-                **kwargs,
-            )
+            with track_usage(request_usage):
+                result = await active_engine.extract(
+                    file_bytes=file_bytes,
+                    filename=file.filename,
+                    content_type=file.content_type,
+                    document=doc_spec,
+                    **kwargs,
+                )
 
             response_payload: Dict[str, Any] = {
                 "success": True,
                 "request_id": request_id,
                 "document_type": document_type,
                 "filename": file.filename,
-                "data": result.data
+                "data": result.data,
+                "cost": request_usage.summarize(pricing),
             }
 
             # Trace artifacts are always created on disk for the request
@@ -227,12 +237,15 @@ async def extract_document(
 
             logger.info(
                 f"Extraction successful: doc_type={document_type}, filename={file.filename}, "
-                f"fields_extracted={len(result.data)}"
+                f"fields_extracted={len(result.data)}, "
+                f"currency={response_payload['cost']['currency']}, "
+                f"estimate_cost={response_payload['cost']['estimate_cost']}, "
+                f"known_cost={response_payload['cost']['known_cost']}, "
+                f"cost_complete={response_payload['cost']['complete']}"
             )
             return response_payload
 
         except ExtractionError as exc:
-            logger.error(f"Extraction failed for {document_type} ({file.filename}): {exc.message}", exc_info=True)
             sanitized_trace = None
             trace_dir_str = None
             if exc.trace:
@@ -260,18 +273,26 @@ async def extract_document(
                 "filename": file.filename,
                 "detail": f"Extraction failed: {exc.message}",
                 "error": exc.message,
+                "cost": request_usage.summarize(pricing),
             }
             if trace_dir_str:
                 error_payload["trace_dir"] = trace_dir_str
             if trace and sanitized_trace is not None:
                 error_payload["trace"] = sanitized_trace
 
+            logger.error(
+                f"Extraction failed for {document_type} ({file.filename}): {exc.message}, "
+                f"currency={error_payload['cost']['currency']}, "
+                f"estimate_cost={error_payload['cost']['estimate_cost']}, "
+                f"known_cost={error_payload['cost']['known_cost']}, "
+                f"cost_complete={error_payload['cost']['complete']}",
+                exc_info=True,
+            )
             return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 content=error_payload
             )
         except Exception as exc:
-            logger.error(f"Extraction unexpected error for {document_type} ({file.filename}): {exc}", exc_info=True)
             error_payload: Dict[str, Any] = {
                 "success": False,
                 "request_id": request_id,
@@ -279,7 +300,16 @@ async def extract_document(
                 "filename": file.filename,
                 "detail": f"Extraction failed: {str(exc)}",
                 "error": str(exc),
+                "cost": request_usage.summarize(pricing),
             }
+            logger.error(
+                f"Extraction unexpected error for {document_type} ({file.filename}): {exc}, "
+                f"currency={error_payload['cost']['currency']}, "
+                f"estimate_cost={error_payload['cost']['estimate_cost']}, "
+                f"known_cost={error_payload['cost']['known_cost']}, "
+                f"cost_complete={error_payload['cost']['complete']}",
+                exc_info=True,
+            )
             return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 content=error_payload

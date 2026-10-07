@@ -89,9 +89,12 @@ class Settings(BaseSettings):
     # OpenAI / OpenAI-compatible (OpenAI, OpenRouter, vLLM, LM Studio, Groq, etc.)
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
+    openai_provider: str = "openai"
     openai_text_model: str = "gpt-4o-mini"
     openai_vision_model: str = "gpt-4o-mini"
     openai_timeout_seconds: float = 60.0
+
+    pricing_config_path: str = ""
 
     # 6. Standardized Logging & Personal Information (PI) Privacy
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"

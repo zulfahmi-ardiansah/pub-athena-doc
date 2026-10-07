@@ -6,6 +6,7 @@ from src.modules.base import ExtractionOutput
 from src.modules.extractors.base import BaseTextExtractor
 from src.modules.preprocessors.base import BaseImagePreprocessor
 from src.utility.pdf_utils import is_pdf
+from src.utility.usage_cost import OcrUsage, record_ocr_usage
 
 logger = logging.getLogger(__name__)
 
@@ -189,10 +190,16 @@ class OcrExtractor(BaseTextExtractor):
         client = self._get_google_vision_client()
         from google.cloud import vision
         image = vision.Image(content=image_bytes)
-        response = client.document_text_detection(image=image)
+        try:
+            response = client.document_text_detection(image=image)
+        except Exception:
+            record_ocr_usage(OcrUsage("google_vision", "document_text_detection", None))
+            raise
         
         if getattr(response, "error", None) and getattr(response.error, "message", None):
+            record_ocr_usage(OcrUsage("google_vision", "document_text_detection", None))
             raise RuntimeError(f"Google Cloud Vision OCR error: {response.error.message}")
+        record_ocr_usage(OcrUsage("google_vision", "document_text_detection", 1))
 
         full_text = response.full_text_annotation.text if getattr(response, "full_text_annotation", None) else ""
         full_text = str(full_text or "").strip()

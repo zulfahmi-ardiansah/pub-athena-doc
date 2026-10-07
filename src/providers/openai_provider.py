@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 from src.providers.base import BaseLLMProvider
+from src.utility.usage_cost import LlmUsage, record_llm_usage
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +25,30 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         base_url: str = "https://api.openai.com/v1",
         model: str = "gpt-4o-mini",
         timeout_seconds: float = 60.0,
+        provider_name: str = "openai",
     ) -> None:
         self.api_key = api_key
         self.base_url = base_url.rstrip("/") if base_url else "https://api.openai.com/v1"
+        self.billing_service = provider_name
         self.model = model
         self.timeout = timeout_seconds
         self._client = None
+
+    def _record_usage(self, response: Any) -> None:
+        usage = getattr(response, "usage", None)
+        details = getattr(usage, "prompt_tokens_details", None)
+        record_llm_usage(LlmUsage(
+            billing_service=self.billing_service,
+            model=self.model,
+            input_tokens=getattr(usage, "prompt_tokens", None),
+            output_tokens=getattr(usage, "completion_tokens", None),
+            cached_input_tokens=getattr(details, "cached_tokens", None) or 0,
+        ))
+
+    def _record_failed_call(self, error: Exception) -> None:
+        status_code = getattr(error, "status_code", None)
+        if status_code is None or status_code >= 500:
+            record_llm_usage(LlmUsage(self.billing_service, self.model, None, None))
 
     def _get_client(self):
         if self._client is not None:
@@ -82,6 +101,7 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         client = self._get_client()
         messages = self._build_messages(prompt, system_prompt, images)
 
+        response = None
         try:
             response = await client.chat.completions.create(
                 model=self.model,
@@ -96,9 +116,12 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                     },
                 },
             )
+            self._record_usage(response)
             raw_text = response.choices[0].message.content or ""
             return self._parse_json_payload(raw_text)
         except Exception as err:
+            if response is None:
+                self._record_failed_call(err)
             logger.warning(
                 f"Strict json_schema mode failed on '{self.base_url}' ({err}); "
                 "retrying with json_object mode."
@@ -117,9 +140,11 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                 response_format={"type": "json_object"},
             )
         except Exception as err:
+            self._record_failed_call(err)
             logger.error(f"OpenAI-compatible request error: {err}")
             raise RuntimeError(f"OpenAI-compatible inference failed: {err}") from err
 
+        self._record_usage(response)
         raw_text = response.choices[0].message.content or ""
         try:
             return self._parse_json_payload(raw_text)
@@ -143,9 +168,11 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                 temperature=0.0,
             )
         except Exception as err:
+            self._record_failed_call(err)
             logger.error(f"OpenAI-compatible request error: {err}")
             raise RuntimeError(f"OpenAI-compatible text generation failed: {err}") from err
 
+        self._record_usage(response)
         return (response.choices[0].message.content or "").strip()
 
     @staticmethod

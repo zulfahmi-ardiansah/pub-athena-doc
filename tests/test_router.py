@@ -8,8 +8,123 @@ from src.app.main import app
 from src.app.api.deps import get_engine_singleton
 from src.engines.base import BaseExtractionEngine, ExtractionResult, ExtractionError
 from src.utility.trace_utils import save_request_trace
+from src.utility.usage_cost import LlmUsage, OcrUsage, record_llm_usage, record_ocr_usage
 
 client = TestClient(app)
+
+
+def test_extract_endpoint_reports_cost(monkeypatch, tmp_path, caplog):
+    pricing_path = tmp_path / "pricing.json"
+    pricing_path.write_text(json.dumps({
+        "effective_date": "2026-10-07",
+        "llm_rates": {
+            "google_ai": {
+                "example-model": {
+                    "input_usd_per_million_tokens": "1.00",
+                    "output_usd_per_million_tokens": "2.00",
+                }
+            }
+        },
+        "ocr_rates": {
+            "google_vision": {
+                "document_text_detection": {"usd_per_thousand_units": "1.50"}
+            }
+        },
+    }), encoding="utf-8")
+    mock_engine = MagicMock(spec=BaseExtractionEngine)
+    mock_engine.name = "visual_engine"
+
+    async def extract_with_google_usage(**kwargs):
+        record_ocr_usage(OcrUsage("google_vision", "document_text_detection", 1))
+        record_llm_usage(LlmUsage("google_ai", "example-model", 1000, 200))
+        return ExtractionResult(data={"document_number": "3171010101900001"})
+
+    mock_engine.extract = AsyncMock(side_effect=extract_with_google_usage)
+    app.dependency_overrides[get_engine_singleton] = lambda: mock_engine
+    from src.config.settings import get_settings
+    settings = get_settings()
+    monkeypatch.setattr(settings, "pricing_config_path", str(pricing_path))
+    monkeypatch.setattr(settings, "trace_dir", str(tmp_path))
+
+    try:
+        response = client.post(
+            "/api/v1/extract/identity_card",
+            files={"file": ("sample.png", io.BytesIO(b"fake image bytes"), "image/png")},
+        )
+        assert response.status_code == 200
+        cost = response.json()["cost"]
+        assert cost["estimate_cost"] == "0.0029"
+        assert cost["complete"] is True
+        assert len(cost["items"]) == 2
+        assert "currency=USD" in caplog.text
+        assert "estimate_cost=0.0029" in caplog.text
+        assert "known_cost=0.0029" in caplog.text
+        assert "cost_complete=True" in caplog.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_extract_failure_retains_google_usage(monkeypatch, tmp_path, caplog):
+    mock_engine = MagicMock(spec=BaseExtractionEngine)
+    mock_engine.name = "visual_engine"
+
+    async def fail_after_google_call(**kwargs):
+        record_llm_usage(LlmUsage("google_ai", "example-model", 100, 20))
+        raise ExtractionError("Invalid extracted data")
+
+    mock_engine.extract = AsyncMock(side_effect=fail_after_google_call)
+    app.dependency_overrides[get_engine_singleton] = lambda: mock_engine
+    from src.config.settings import get_settings
+    settings = get_settings()
+    monkeypatch.setattr(settings, "pricing_config_path", "")
+    monkeypatch.setattr(settings, "trace_dir", str(tmp_path))
+
+    try:
+        response = client.post(
+            "/api/v1/extract/identity_card",
+            files={"file": ("sample.png", io.BytesIO(b"fake image bytes"), "image/png")},
+        )
+        assert response.status_code == 422
+        cost = response.json()["cost"]
+        assert cost["estimate_cost"] is None
+        assert cost["items"][0]["input_tokens"] == 100
+        assert "currency=USD" in caplog.text
+        assert "estimate_cost=None" in caplog.text
+        assert "known_cost=0" in caplog.text
+        assert "cost_complete=False" in caplog.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_extract_unexpected_error_logs_cost(monkeypatch, tmp_path, caplog):
+    mock_engine = MagicMock(spec=BaseExtractionEngine)
+    mock_engine.name = "visual_engine"
+
+    async def fail_after_usage(**kwargs):
+        record_llm_usage(LlmUsage("google_ai", "example-model", None, None))
+        raise RuntimeError("Provider response failed")
+
+    mock_engine.extract = AsyncMock(side_effect=fail_after_usage)
+    app.dependency_overrides[get_engine_singleton] = lambda: mock_engine
+    from src.config.settings import get_settings
+    settings = get_settings()
+    monkeypatch.setattr(settings, "pricing_config_path", "")
+    monkeypatch.setattr(settings, "trace_dir", str(tmp_path))
+
+    try:
+        response = client.post(
+            "/api/v1/extract/identity_card",
+            files={"file": ("sample.png", io.BytesIO(b"fake image bytes"), "image/png")},
+        )
+        assert response.status_code == 422
+        assert response.json()["cost"]["complete"] is False
+        assert "Extraction unexpected error" in caplog.text
+        assert "currency=USD" in caplog.text
+        assert "estimate_cost=None" in caplog.text
+        assert "known_cost=0" in caplog.text
+        assert "cost_complete=False" in caplog.text
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_health_endpoint():
