@@ -228,6 +228,10 @@
             <ul class="-mb-px flex flex-wrap text-sm font-medium" id="result-tabs" role="tablist">
               <li role="presentation">
                 <button class="inline-block border-b-2 border-transparent px-4 py-3 text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                        id="tab-output" data-tabs-target="#pane-output" type="button" role="tab" aria-controls="pane-output" aria-selected="false">Visual Output</button>
+              </li>
+              <li role="presentation">
+                <button class="inline-block border-b-2 border-transparent px-4 py-3 text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                         id="tab-json" data-tabs-target="#pane-json" type="button" role="tab" aria-controls="pane-json" aria-selected="false">JSON Output</button>
               </li>
               <li class="hidden" role="presentation">
@@ -242,6 +246,35 @@
 
           <!-- Output Panes -->
           <div id="result-panes" class="min-h-[26rem] flex-1">
+
+            <!-- Output Pane -->
+            <div class="hidden p-5" id="pane-output" role="tabpanel" aria-labelledby="tab-output">
+              <div id="output-empty" class="flex h-80 flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 text-center dark:border-gray-700">
+                <p id="output-empty-title" class="text-sm font-medium text-gray-600 dark:text-gray-300">No extraction yet</p>
+                <p id="output-empty-detail" class="mt-1 max-w-xs text-sm text-gray-500 dark:text-gray-400">Add a document and run extraction to see its fields.</p>
+              </div>
+              <div id="output-explorer" class="hidden overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                <div class="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-900">
+                  <button id="output-back" type="button" aria-label="Go back" title="Go back" disabled class="hidden rounded-md border border-gray-200 bg-white pl-1 pr-2 py-1  text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>
+                  </button>
+                  <nav aria-label="Output path" class="min-w-0 flex-1">
+                    <ol id="output-breadcrumbs" class="flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-300"></ol>
+                  </nav>
+                </div>
+                <div id="output-table-scroll" class="scroll-thin max-h-[36rem] overflow-auto">
+                  <table class="w-full table-fixed border-collapse text-left text-[13px]">
+                    <thead class="bg-gray-50 text-xs font-semibold text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+                      <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <th scope="col" class="w-2/5 px-4 py-2.5">Field</th>
+                        <th scope="col" class="px-4 py-2.5">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody id="output-rows"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
 
             <!-- JSON Output Pane -->
             <div class="hidden p-5" id="pane-json" role="tabpanel" aria-labelledby="tab-json">

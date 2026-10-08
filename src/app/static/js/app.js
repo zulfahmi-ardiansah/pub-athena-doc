@@ -61,6 +61,7 @@
 
   function initTabs() {
     tabs.push(
+      { btn: $('tab-output'), pane: $('pane-output') },
       { btn: $('tab-json'), pane: $('pane-json') },
       { btn: $('tab-trace'), pane: $('pane-trace') }
     );
@@ -69,8 +70,13 @@
       t.btn.addEventListener('click', () => selectTab(i));
       t.btn.addEventListener('keydown', (e) => {
         if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-        const next = (i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
-        if (tabs[next].btn.parentElement.classList.contains('hidden')) return;
+        e.preventDefault();
+        const direction = e.key === 'ArrowRight' ? 1 : -1;
+        let next = i;
+        do {
+          next = (next + direction + tabs.length) % tabs.length;
+        } while (next !== i && tabs[next].btn.parentElement.classList.contains('hidden'));
+        if (next === i) return;
         selectTab(next);
         tabs[next].btn.focus();
       });
@@ -151,6 +157,107 @@
         return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
       })
       .join(' ');
+  }
+
+  function renderOutput(data, emptyMessage = 'No extracted fields were returned.', emptyTitle = 'No extracted data') {
+    const rows = $('output-rows');
+    const breadcrumbs = $('output-breadcrumbs');
+    const back = $('output-back');
+    const scroll = $('output-table-scroll');
+    const sortedFields = (value) => Object.entries(value)
+      .map(([key, entry]) => [toTitleCase(key), entry])
+      .sort(([left], [right]) => left.localeCompare(right, undefined, { sensitivity: 'base', numeric: true }));
+
+    let currentPath = [{ name: 'Output', value: data }];
+    const showLevel = (path, moveFocus = false) => {
+      currentPath = path;
+      const value = path[path.length - 1].value;
+      const entries = Array.isArray(value)
+        ? value.map((entry, index) => [`Item ${index + 1}`, entry])
+        : sortedFields(value);
+      rows.replaceChildren();
+
+      entries.forEach(([name, entry]) => {
+        const row = document.createElement('tr');
+        row.className = 'border-b border-gray-200 last:border-b-0 dark:border-gray-700';
+        const label = document.createElement('th');
+        label.scope = 'row';
+        label.className = 'break-words border-e border-gray-200 px-4 py-2.5 align-top font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200';
+        label.textContent = name;
+        const cell = document.createElement('td');
+        cell.className = 'break-words px-4 py-2.5 align-top text-gray-900 dark:text-gray-100';
+
+        if (entry !== null && typeof entry === 'object') {
+          const isArray = Array.isArray(entry);
+          const count = isArray ? entry.length : Object.keys(entry).length;
+          const countText = `[${count} ${isArray ? (count === 1 ? 'item' : 'items') : (count === 1 ? 'field' : 'fields')}]`;
+          if (count) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'rounded text-left font-medium text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-500';
+            button.textContent = `${countText} ›`;
+            button.setAttribute('aria-label', `Open ${name}, ${count} ${isArray ? (count === 1 ? 'item' : 'items') : (count === 1 ? 'field' : 'fields')}`);
+            button.addEventListener('click', () => showLevel([...currentPath, { name, value: entry }], true));
+            cell.appendChild(button);
+          } else {
+            cell.textContent = countText;
+          }
+        } else {
+          cell.textContent = entry == null || entry === '' ? '—' : typeof entry === 'boolean' ? (entry ? 'Yes' : 'No') : String(entry);
+        }
+        row.append(label, cell);
+        rows.appendChild(row);
+      });
+
+      breadcrumbs.replaceChildren();
+      currentPath.forEach((segment, index) => {
+        const item = document.createElement('li');
+        if (index) {
+          const separator = document.createElement('span');
+          separator.className = 'me-2 text-gray-400';
+          separator.setAttribute('aria-hidden', 'true');
+          separator.textContent = '›';
+          item.appendChild(separator);
+        }
+        if (index === currentPath.length - 1) {
+          const current = document.createElement('span');
+          current.className = 'font-medium text-gray-900 dark:text-gray-100';
+          current.setAttribute('aria-current', 'location');
+          current.textContent = segment.name;
+          item.appendChild(current);
+        } else {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'rounded text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-500';
+          button.textContent = segment.name;
+          button.addEventListener('click', () => showLevel(currentPath.slice(0, index + 1), true));
+          item.appendChild(button);
+        }
+        breadcrumbs.appendChild(item);
+      });
+      back.disabled = currentPath.length === 1;
+      back.classList.toggle('hidden', back.disabled);
+      scroll.scrollTop = 0;
+      if (moveFocus) (back.disabled ? $('tab-output') : back).focus();
+    };
+
+    const fields = data && typeof data === 'object' && !Array.isArray(data) ? sortedFields(data) : [];
+    const hasFields = fields.length > 0;
+    back.onclick = () => {
+      if (currentPath.length > 1) showLevel(currentPath.slice(0, -1), true);
+    };
+    if (hasFields) showLevel(currentPath);
+    else {
+      rows.replaceChildren();
+      breadcrumbs.replaceChildren();
+      back.disabled = true;
+      back.classList.add('hidden');
+    }
+    $('output-empty-title').textContent = emptyTitle;
+    $('output-empty-detail').textContent = emptyMessage;
+    $('output-empty').classList.toggle('hidden', hasFields);
+    $('output-empty').classList.toggle('flex', !hasFields);
+    $('output-explorer').classList.toggle('hidden', !hasFields);
   }
 
   function formatShortId(idStr) {
@@ -540,6 +647,11 @@
     const showItem = (item, index) => {
       currentJson = item;
       $('json-output').innerHTML = highlightJson(item);
+      renderOutput(
+        item.data,
+        index === -1 ? 'Select a file to view its extracted fields.' : 'No fields were extracted for this file.',
+        index === -1 ? 'Choose a file' : 'No extracted data'
+      );
       if (withTrace) {
         $('trace-empty-title').textContent = index === -1 ? 'Select a file to view its trace' : 'No trace for this file';
         $('trace-empty-detail').textContent = index === -1 ? 'Choose a file above.' : 'This file has no recorded stages.';
@@ -613,6 +725,7 @@
     $('live-region').textContent = 'Extraction started.';
 
     // Reset panes
+    renderOutput(null, 'Extraction is running.', 'Extracting document');
     $('json-output').classList.add('hidden');
     $('json-empty').classList.remove('hidden');
     $('trace-list').innerHTML = '';
@@ -627,7 +740,7 @@
       $('trace-wrap').classList.remove('hidden');
       $('trace-count').classList.remove('hidden');
       $('trace-count').textContent = '0';
-      selectTab(batchMode ? 0 : 1);
+      selectTab(batchMode ? 0 : 2);
     } else {
       $('trace-wrap').classList.add('hidden');
       $('trace-empty').classList.remove('hidden');
@@ -681,6 +794,11 @@
       $('json-output').innerHTML = highlightJson(payload);
       $('json-output').classList.remove('hidden');
       $('json-empty').classList.add('hidden');
+      renderOutput(
+        hasBatchResults ? null : payload.data,
+        hasBatchResults ? 'Select a file to view its extracted fields.' : 'No fields were extracted.',
+        hasBatchResults ? 'Choose a file' : 'No extracted data'
+      );
 
       if (hasBatchResults) {
         renderBatchResults(payload, withTrace);
@@ -704,6 +822,8 @@
       $('json-output').innerHTML = `<span class="text-red-500 font-mono">${escapeHtml(err.message)}</span>`;
       $('json-output').classList.remove('hidden');
       $('json-empty').classList.add('hidden');
+      renderOutput(null, 'The extraction request failed.', 'No extracted data');
+      selectTab(0);
       showToast(`Extraction request failed: ${err.message}`);
     } finally {
       $('btn-extract').disabled = false;
@@ -859,6 +979,7 @@
       $('total-cost').title = '';
       $('json-output').classList.add('hidden');
       $('json-empty').classList.remove('hidden');
+      renderOutput(null, 'Add a document and run extraction to see its fields.', 'No extraction yet');
       $('trace-wrap').classList.add('hidden');
       $('trace-empty').classList.remove('hidden');
       $('trace-list').innerHTML = '';
