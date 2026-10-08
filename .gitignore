@@ -55,7 +55,6 @@ coverage.xml
 .env
 .env.*
 !.env.example
-key/
 
 # IDEs & Editors
 .vscode/

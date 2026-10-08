@@ -52,12 +52,13 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 # Copy source code
 COPY src /app/src
+COPY pricing.json /app/pricing.json
 
 # Sync and install the project itself
 RUN uv sync --frozen --no-dev
 
-# Create runtime directories for logs, trace artifacts, and secrets with non-root ownership
-RUN mkdir -p /app/logs /app/trace /app/secrets /app/credentials && \
+# Create runtime directories and credential mount point with non-root ownership
+RUN mkdir -p /app/logs /app/trace /app/key && \
     chown -R appuser:appgroup /app
 
 # Switch to non-root user

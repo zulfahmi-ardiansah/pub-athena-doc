@@ -388,7 +388,9 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-This starts a single `athena-api` container, publishing `PORT` (default `8000`), mounting `./logs` and `./trace` for persistence, and running a `curl`-based healthcheck against `/health/live` every 30s.
+This starts a single `athena-api` container, publishing `PORT` (default `8000`), storing logs and trace artifacts in the `athena_logs` and `athena_trace` named volumes, and running a `curl`-based healthcheck against `/health/live` every 30s. Compose loads `.env.example` as defaults and then applies `.env` when present. It runs with `DEBUG=false`; the development override enables debug and reload. Named volumes keep the storage writable by the container's non-root user on Linux. If you previously used `./logs` or `./trace` bind mounts, that data remains in those host folders and is not copied into the new volumes.
+
+`OLLAMA_BASE_URL` and `OTEL_EXPORTER_OTLP_ENDPOINT` in `.env.example` target services running directly on your host. For Docker, set `DOCKER_OLLAMA_BASE_URL` and `DOCKER_OTEL_EXPORTER_OTLP_ENDPOINT` in `.env`; their defaults use `host.docker.internal`. The Docker settings override the host URLs inside the API container.
 
 - **Web Demo UI**: <http://localhost:8000/demo>
 - **Swagger API Docs**: <http://localhost:8000/docs>
@@ -400,19 +402,14 @@ Compose profiles let you attach supporting services on demand, without bloating 
 
 | Profile | Command | Adds | Configure in `.env` |
 |---|---|---|---|
-| `with-ollama` | `docker compose --profile with-ollama up -d` | A containerized Ollama instance for local LLM inference, reachable from the API container. | `OLLAMA_BASE_URL=http://ollama:11434` |
-| `with-telemetry` | `docker compose --profile with-telemetry up -d` | Jaeger all-in-one, exposing a trace UI at `http://localhost:16686` and OTLP gRPC/HTTP receivers. | `OTEL_ENABLED=true`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317` |
+| `with-ollama` | `docker compose --profile with-ollama up -d` | A containerized Ollama instance for local LLM inference, reachable from the API container. | `DOCKER_OLLAMA_BASE_URL=http://ollama:11434` |
+| `with-telemetry` | `docker compose --profile with-telemetry up -d` | Jaeger all-in-one, exposing a trace UI at `http://localhost:16686` and OTLP gRPC/HTTP receivers. | `OTEL_ENABLED=true`, `DOCKER_OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317` |
 
 Profiles combine, run both at once with `docker compose --profile with-ollama --profile with-telemetry up -d` for a fully self-contained local stack (API + LLM + tracing).
 
 ### 3. Credentials for Google Vision / Gemini
 
-If using `google_vision` OCR or the `google` LLM provider, mount your service account JSON and point `GOOGLE_APPLICATION_CREDENTIALS` at it. Uncomment the relevant `volumes` line in `docker-compose.yml`:
-
-```yaml
-volumes:
-  - ./secrets:/app/secrets:ro
-```
+Compose always mounts the local `key/` directory at `/app/key` as read-only. If using `google_vision` OCR or the `google` LLM provider, place the service account JSON there and set `GOOGLE_APPLICATION_CREDENTIALS=key/your-file.json` in `.env`. The same relative path works when running from the repository root locally and from `/app` in the container. Leave it empty when using a Google API key or ambient credentials.
 
 ### 4. Rebuilding after changes
 
@@ -459,7 +456,7 @@ pytest tests/test_router.py -k test_extract_endpoint_returns_valid_schema  # sin
 
 **Cause:** Ollama isn't running locally, or the container can't reach a host-installed Ollama.
 
-**Solution:** Start Ollama (`ollama serve`) and confirm `curl http://localhost:11434` responds. From inside Docker, point `OLLAMA_BASE_URL` at `http://host.docker.internal:11434` (host) or `http://ollama:11434` (the `with-ollama` profile container), not `localhost`.
+**Solution:** Start Ollama (`ollama serve`) and confirm `curl http://localhost:11434` responds. For Docker, set `DOCKER_OLLAMA_BASE_URL` to `http://host.docker.internal:11434` (host) or `http://ollama:11434` (the `with-ollama` profile container).
 
 ---
 
@@ -475,7 +472,7 @@ pytest tests/test_router.py -k test_extract_endpoint_returns_valid_schema  # sin
 
 **Cause:** `GOOGLE_APPLICATION_CREDENTIALS` isn't set or the service account JSON isn't reachable from the process.
 
-**Solution:** Locally, point the env var at your credentials file. In Docker, mount the file and uncomment the `volumes` line in `docker-compose.yml` (see [Deployment with Docker](#deployment-with-docker)).
+**Solution:** Place the JSON file in `key/` and set `GOOGLE_APPLICATION_CREDENTIALS=key/your-file.json` in `.env`. Compose mounts `key/` read-only at `/app/key` (see [Deployment with Docker](#deployment-with-docker)).
 
 ---
 

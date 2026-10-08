@@ -15,16 +15,16 @@ services:
       - path: .env
         required: false
     environment:
-      - HOST=0.0.0.0
-      - PORT=8000
-      - PYTHONUNBUFFERED=1
+      DEBUG: "false"
+      HOST: 0.0.0.0
+      PORT: "8000"
+      PYTHONUNBUFFERED: "1"
+      OLLAMA_BASE_URL: ${DOCKER_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${DOCKER_OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4317}
     volumes:
-      - ./logs:/app/logs
-      - ./trace:/app/trace
-      # Optional: Mount Google Cloud service account JSON credentials file/folder
-      # - ./secrets:/app/secrets:ro
-      # - ./credentials:/app/credentials:ro
-    # Allows container to reach host services (like a host-installed Ollama instance) via http://host.docker.internal:11434
+      - athena_logs:/app/logs
+      - athena_trace:/app/trace
+      - ./key:/app/key:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -39,7 +39,7 @@ services:
   # ============================================================================
   # Optional Companion: Local Ollama LLM Service
   # Run with: docker compose --profile with-ollama up -d
-  # Configure in .env: OLLAMA_BASE_URL="http://ollama:11434"
+  # Configure in .env: DOCKER_OLLAMA_BASE_URL="http://ollama:11434"
   # ============================================================================
   ollama:
     image: ollama/ollama:latest
@@ -59,7 +59,7 @@ services:
   # Run with: docker compose --profile with-telemetry up -d
   # Configure in .env:
   #   OTEL_ENABLED=true
-  #   OTEL_EXPORTER_OTLP_ENDPOINT="http://jaeger:4317"
+  #   DOCKER_OTEL_EXPORTER_OTLP_ENDPOINT="http://jaeger:4317"
   #   OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
   # ============================================================================
   jaeger:
@@ -81,6 +81,10 @@ services:
 # Persistent Named Volumes & Networks
 # ==============================================================================
 volumes:
+  athena_logs:
+    driver: local
+  athena_trace:
+    driver: local
   ollama_data:
     driver: local
 

@@ -34,6 +34,9 @@ htmlcov/
 .env
 .env.*
 !.env.example
+key/
+secrets/
+credentials/
 
 # Runtime Data, Logs, and Traces (should be mounted via Docker volumes)
 logs/
