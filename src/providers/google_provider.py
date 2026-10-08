@@ -77,7 +77,10 @@ class GoogleGenAIProvider(BaseLLMProvider):
             # 1. Service Account JSON file
             if self.credentials_file and os.path.isfile(self.credentials_file):
                 try:
-                    creds = service_account.Credentials.from_service_account_file(self.credentials_file)
+                    creds = service_account.Credentials.from_service_account_file(
+                        self.credentials_file,
+                        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                    )
                     project_to_use = self.project_id
                     if not project_to_use:
                         try:

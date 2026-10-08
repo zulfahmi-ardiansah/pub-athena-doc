@@ -2,10 +2,39 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from google.auth.exceptions import RefreshError
 
 from src.modules.extractors.ocr_extractor import OcrExtractor
 from src.providers.google_provider import GoogleGenAIProvider
 from src.utility.usage_cost import RequestUsage, track_usage
+
+
+@pytest.mark.asyncio
+async def test_gemini_service_account_uses_vertex_scope_for_structured_output(monkeypatch, tmp_path) -> None:
+    from google import genai
+    from google.oauth2 import service_account
+
+    credentials_file = tmp_path / "service-account.json"
+    credentials_file.write_text("{}", encoding="utf-8")
+    credentials = MagicMock()
+    credentials.with_quota_project.return_value = credentials
+    client = MagicMock()
+    client.models.generate_content.return_value = SimpleNamespace(text='{"value":"ok"}', usage_metadata=None)
+
+    def load_credentials(path: str, *, scopes=None):
+        assert path == str(credentials_file)
+        if scopes != ["https://www.googleapis.com/auth/cloud-platform"]:
+            raise RefreshError("invalid_scope: Invalid OAuth scope or ID token audience provided.")
+        return credentials
+
+    monkeypatch.setattr(service_account.Credentials, "from_service_account_file", load_credentials)
+    monkeypatch.setattr(genai, "Client", lambda **kwargs: client if kwargs["credentials"] is credentials else None)
+    provider = GoogleGenAIProvider(credentials_file=str(credentials_file), project_id="test-project")
+
+    result = await provider.generate_structured("extract", {"type": "object"})
+
+    assert result == {"value": "ok"}
+    client.models.generate_content.assert_called_once()
 
 
 @pytest.mark.asyncio
