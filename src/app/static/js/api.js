@@ -48,11 +48,11 @@
      * @param {string} params.documentType - Document slug identifier
      * @param {Blob|File} params.fileBlob - The file or cropped image Blob
      * @param {string} params.filename - Original or cropped filename
-     * @param {boolean} [params.trace=true] - Whether to capture stage evolution trace
+     * @param {boolean} [params.trace=false] - Whether to capture stage evolution trace
      * @param {boolean} [params.keepTrace] - Override whether to keep trace on disk
      * @returns {Promise<{ok: boolean, status: number, data: Object}>}
      */
-    async extractDocument({ documentType, fileBlob, filename, trace = true, keepTrace = null }) {
+    async extractDocument({ documentType, fileBlob, filename, trace = false, keepTrace = null }) {
       const formData = new FormData();
       formData.append('file', fileBlob, filename || 'document.jpg');
 
@@ -82,7 +82,7 @@
       };
     },
 
-    async extractBatch({ documents, trace = true, keepTrace = null }) {
+    async extractBatch({ documents, trace = false, keepTrace = null }) {
       const formData = new FormData();
       documents.forEach(({ file, fileBlob, filename, documentType }) => {
         formData.append('files', fileBlob || file, filename || file.name);

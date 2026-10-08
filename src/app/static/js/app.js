@@ -70,6 +70,7 @@
       t.btn.addEventListener('keydown', (e) => {
         if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
         const next = (i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+        if (tabs[next].btn.parentElement.classList.contains('hidden')) return;
         selectTab(next);
         tabs[next].btn.focus();
       });
